@@ -4268,7 +4268,7 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
 
 .library-wave-scene {
   position: relative;
-  min-height: 232px;
+  min-height: 250px;
   overflow: hidden;
   border: 1px solid rgba(var(--accent-rgb), 0.14);
   border-radius: 24px;
@@ -4303,9 +4303,9 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
 
 .library-wave-canvas {
   position: absolute;
-  inset: 28px 0 34px;
+  inset: 30px 0 62px;
   width: 100%;
-  height: calc(100% - 62px);
+  height: calc(100% - 92px);
   overflow: visible;
 }
 
@@ -4357,10 +4357,10 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
 
 .library-wave-connector {
   stroke: var(--library-tone);
-  stroke-dasharray: 4 5;
+  stroke-dasharray: 3 5;
   stroke-linecap: round;
   stroke-width: 1.25;
-  opacity: 0.58;
+  opacity: 0.62;
 }
 
 .library-wave-connector-dot {
@@ -4371,12 +4371,12 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
 .library-wave-legend {
   position: absolute;
   right: 8px;
-  bottom: 7px;
+  bottom: 8px;
   left: 8px;
   z-index: 5;
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
+  gap: 6px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -4386,20 +4386,35 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
   --library-tone: var(--accent);
   --library-tone-soft: rgba(var(--accent-rgb), 0.12);
   --library-tone-line: rgba(var(--accent-rgb), 0.18);
+  position: relative;
   display: grid;
   align-items: center;
   justify-content: center;
   justify-items: center;
   min-width: 0;
   gap: 2px;
-  min-height: 42px;
-  padding: 4px 3px;
+  min-height: 48px;
+  padding: 5px 3px 6px;
   border: 1px solid var(--library-tone-line);
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(249, 252, 251, 0.78)),
+    linear-gradient(135deg, var(--library-tone-soft), transparent 66%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.86),
     0 8px 18px rgba(9, 68, 61, 0.06);
+}
+
+.library-wave-legend-item::before {
+  content: "";
+  position: absolute;
+  bottom: calc(100% - 1px);
+  left: 50%;
+  width: 1px;
+  height: 13px;
+  border-left: 1.5px dashed var(--library-tone);
+  opacity: 0.64;
+  pointer-events: none;
 }
 
 .library-wave-legend-item span {
@@ -4413,21 +4428,24 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
   color: #ffffff;
   font-size: 0.5rem;
   font-weight: 950;
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.86),
+    0 7px 13px var(--library-tone-soft);
 }
 
 .library-wave-link {
   width: 1px;
-  height: 11px;
-  border-left: 1px dashed var(--library-tone);
-  opacity: 0.78;
+  height: 10px;
+  border-left: 1.5px dashed var(--library-tone);
+  opacity: 0.8;
 }
 
 .library-wave-legend-item strong {
   min-width: 0;
   overflow: hidden;
   color: var(--ink);
-  font-size: 0.5rem;
-  font-weight: 900;
+  font-size: 0.52rem;
+  font-weight: 950;
   line-height: 1.05;
   max-width: 100%;
   text-align: center;
@@ -4741,6 +4759,10 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
   animation: library-live-pulse 2.8s ease-in-out infinite;
 }
 
+.library-card .occupancy-ring {
+  z-index: 1;
+}
+
 .library-card:hover,
 .library-card:focus-within {
   transform: translateY(-1px);
@@ -4756,6 +4778,7 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
 .library-card.tone-over {
   border-color: var(--library-tone-line);
   background:
+    radial-gradient(circle at 92% 18%, var(--library-tone-soft), transparent 30%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 251, 250, 0.95)),
     linear-gradient(140deg, var(--library-tone-soft), transparent 62%);
 }
@@ -4773,8 +4796,10 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
 }
 
 .library-card-main {
+  position: relative;
+  z-index: 1;
   display: grid;
-  gap: 4px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -4807,9 +4832,19 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
 
 .library-card-main span,
 .library-card-main strong {
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 8px;
+  border: 1px solid rgba(var(--accent-rgb), 0.1);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.66);
   color: var(--muted);
-  font-size: 0.74rem;
+  font-size: 0.7rem;
   font-weight: 800;
+  line-height: 1.1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .occupancy-ring {
@@ -4972,7 +5007,7 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
   }
 
   .library-wave-scene {
-    min-height: 218px;
+    min-height: 236px;
     border-radius: 20px;
   }
 
@@ -4984,21 +5019,21 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
   }
 
   .library-wave-canvas {
-    inset: 26px 0 34px;
+    inset: 26px 0 58px;
     width: 100%;
-    height: calc(100% - 60px);
+    height: calc(100% - 84px);
   }
 
   .library-wave-legend {
     right: 7px;
-    bottom: 7px;
+    bottom: 8px;
     left: 7px;
-    gap: 3px;
+    gap: 4px;
   }
 
   .library-wave-legend-item {
-    max-width: 74px;
-    padding: 3px 5px;
+    min-height: 44px;
+    padding: 4px 3px 5px;
   }
 
   .library-wave-legend-item span {
@@ -5008,7 +5043,8 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
   }
 
   .library-wave-link {
-    width: 10px;
+    width: 1px;
+    height: 9px;
   }
 
   .library-wave-legend-item strong {

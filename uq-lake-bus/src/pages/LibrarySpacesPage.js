@@ -443,6 +443,7 @@ function getWaveGeometry(library, index) {
   const baseY = 152 - index * 20;
   const width = 190;
   const depth = 30;
+  const labelX = 45 + index * 90;
   const height = 28 + Math.min(percent, 100) * 0.56;
   const ridge = [
     baseY - height * 0.44,
@@ -454,9 +455,9 @@ function getWaveGeometry(library, index) {
   ];
 
   return {
-    markerX: x - 18,
+    markerX: labelX,
     markerY: baseY + depth - 2,
-    connectorX: 45 + index * 90,
+    connectorX: labelX,
     connectorY: 204,
     floorPath: [
       `M ${x} ${baseY + depth}`,
