@@ -48,3 +48,6 @@ The frontend is React with Vite, and the backend is a tiny Express endpoint that
 - Optional reminder notifications can be set for one specific upcoming departure.
 - Current reminders are browser notifications and in-app toasts that warn again at about 5, 3, and 1 minute before departure while the page is still open, then clear themselves after the bus departs.
 - True push notifications after the tab is closed will need a service worker plus a server-side database for push subscriptions and saved favourites.
+
+Track how congested of the bus
+And The station status how many people

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 
 import { fetchDepartures, fetchStopMatches } from "./departures.js";
+import { fetchLibrarySpaces } from "./library-spaces.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -46,6 +47,19 @@ app.get("/api/stops/search", async (request, response) => {
     console.error("Could not search Translink stops", error);
     response.status(500).json({
       error: "Could not search Translink stops right now.",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+app.get("/api/library-spaces", async (_request, response) => {
+  try {
+    const librarySpaces = await fetchLibrarySpaces();
+    response.json(librarySpaces);
+  } catch (error) {
+    console.error("Could not fetch UQ library study-space data", error);
+    response.status(500).json({
+      error: "Could not load study spaces right now.",
       details: error instanceof Error ? error.message : "Unknown error",
     });
   }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  FaBookOpen,
   FaBroadcastTower,
   FaBusAlt,
   FaClock,
@@ -14,6 +15,7 @@ import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import uqChancellorsLockup from "./assets/uq-lockup-classic.svg";
 import uqLakesLockup from "./assets/uq-lockup.svg";
+import LibrarySpacesPage from "./pages/LibrarySpacesPage";
 
 const REFRESH_MS = 30000;
 const FILTER_PENDING_MS = 450;
@@ -22,6 +24,7 @@ const PLANNER_DEPARTURE_LIMIT = 96;
 const ALL_ROUTES_ID = "all-routes";
 const BOARD_PAGE_ID = "board";
 const PLANNER_PAGE_ID = "planner";
+const LIBRARY_SPACES_PAGE_ID = "spaces";
 const PLANNER_FIELD_ORIGIN = "origin";
 const PLANNER_FIELD_DESTINATION = "destination";
 const WALKABLE_UQ_STOP_MESSAGE =
@@ -30,6 +33,9 @@ const WALKABLE_UQ_STOP_TOAST_ID = "walkable-uq-stop";
 const DEFAULT_STOP_ID = "uq-lakes-station";
 const BRISBANE_TZ = "Australia/Brisbane";
 const FAVORITES_STORAGE_KEY = "uq-bus-board-favorites-v1";
+const LIBRARY_SPACES_REFRESH_MS = 60_000;
+const LIBRARY_SPACES_SOURCE_URL =
+  "https://web.library.uq.edu.au/visit/using-library-study-spaces/study-space-availability";
 const stopSearchCache = new Map();
 const toastTransition = cssTransition({
   enter: "bus-toast-enter",
@@ -199,6 +205,9 @@ export default function App() {
   const [plannerLoading, setPlannerLoading] = useState(false);
   const [plannerError, setPlannerError] = useState("");
   const [plannerSearchResult, setPlannerSearchResult] = useState(null);
+  const [librarySpaces, setLibrarySpaces] = useState(null);
+  const [librarySpacesLoading, setLibrarySpacesLoading] = useState(false);
+  const [librarySpacesError, setLibrarySpacesError] = useState("");
   const [favoriteRoutes, setFavoriteRoutes] = useState(
     getInitialFavoriteRoutes,
   );
@@ -332,9 +341,11 @@ export default function App() {
     document.body.dataset.stopTheme = activeStop.themeKey;
     document.body.dataset.page = currentPage;
     document.title =
-      currentPage === PLANNER_PAGE_ID
-        ? "Direct Bus Planner"
-        : `${activeStop.switchLabel} Bus Board`;
+      currentPage === LIBRARY_SPACES_PAGE_ID
+        ? "UQ Library Study Spaces"
+        : currentPage === PLANNER_PAGE_ID
+          ? "Direct Bus Planner"
+          : `${activeStop.switchLabel} Bus Board`;
 
     return () => {
       document.documentElement.removeAttribute("data-stop-theme");
@@ -540,6 +551,65 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    let isActive = true;
+
+    const loadLibrarySpaces = async ({ silent = false } = {}) => {
+      if (!silent) {
+        setLibrarySpacesLoading(true);
+      }
+
+      try {
+        const nextLibrarySpaces = await fetchLibrarySpacesData();
+
+        if (!isActive) {
+          return;
+        }
+
+        setLibrarySpaces(nextLibrarySpaces);
+        setLibrarySpacesError("");
+      } catch (fetchError) {
+        if (!isActive) {
+          return;
+        }
+
+        console.error("Could not load UQ library study-space data.", fetchError);
+        setLibrarySpacesError("Could not load study spaces right now.");
+      } finally {
+        if (isActive && !silent) {
+          setLibrarySpacesLoading(false);
+        }
+      }
+    };
+
+    const needsInitialLoad = !librarySpaces;
+
+    if (needsInitialLoad) {
+      void loadLibrarySpaces({
+        silent: currentPage !== LIBRARY_SPACES_PAGE_ID,
+      });
+    }
+
+    if (currentPage !== LIBRARY_SPACES_PAGE_ID) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    if (!needsInitialLoad) {
+      void loadLibrarySpaces({ silent: true });
+    }
+
+    const timerId = window.setInterval(() => {
+      void loadLibrarySpaces({ silent: true });
+    }, LIBRARY_SPACES_REFRESH_MS);
+
+    return () => {
+      isActive = false;
+      window.clearInterval(timerId);
+    };
+  }, [currentPage]);
+
+  useEffect(() => {
     if (activeStop.sourceMode === "live" && loading && departures.length === 0) {
       return;
     }
@@ -624,12 +694,26 @@ export default function App() {
   const plannerBusy =
     plannerLoading || plannerOriginPending || plannerDestinationPending;
   const footerSourceUrl =
-    currentPage === PLANNER_PAGE_ID
-      ? plannerSearchResult?.sourceUrl
-      : activeData?.sourceUrl;
+    currentPage === LIBRARY_SPACES_PAGE_ID
+      ? librarySpaces?.sourceUrl || LIBRARY_SPACES_SOURCE_URL
+      : currentPage === PLANNER_PAGE_ID
+        ? plannerSearchResult?.sourceUrl
+        : activeData?.sourceUrl;
+  const footerCopy =
+    currentPage === LIBRARY_SPACES_PAGE_ID
+      ? {
+          title: "UQ Library Data Declaration",
+          text: "This page shows library study-space occupancy based on the official UQ Libraries availability page and its public Vemcount widgets. The underlying occupancy data remains the property of UQ Libraries and their data provider.",
+        }
+      : {
+          title: "Translink Data Declaration",
+          text: "This interface displays arrival information retrieved from Translink open data. The underlying timetable and service data remain the property of Translink, and this app does not claim ownership of that data.",
+        };
 
   const handlePageChange = (pageId) => {
-    if (![BOARD_PAGE_ID, PLANNER_PAGE_ID].includes(pageId)) {
+    if (
+      ![BOARD_PAGE_ID, PLANNER_PAGE_ID, LIBRARY_SPACES_PAGE_ID].includes(pageId)
+    ) {
       return;
     }
 
@@ -984,7 +1068,11 @@ export default function App() {
         <span
           aria-hidden="true"
           className={`page-switcher-indicator ${
-            currentPage === PLANNER_PAGE_ID ? "planner" : "board"
+            currentPage === LIBRARY_SPACES_PAGE_ID
+              ? "spaces"
+              : currentPage === PLANNER_PAGE_ID
+                ? "planner"
+                : "board"
           }`}
         />
         <button
@@ -1008,6 +1096,17 @@ export default function App() {
         >
           <FaRoute className="page-switcher-icon" aria-hidden="true" />
           <span>Trip planner</span>
+        </button>
+        <button
+          type="button"
+          className={`page-switcher-button ${
+            currentPage === LIBRARY_SPACES_PAGE_ID ? "active" : ""
+          }`}
+          aria-pressed={currentPage === LIBRARY_SPACES_PAGE_ID}
+          onClick={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
+        >
+          <FaBookOpen className="page-switcher-icon" aria-hidden="true" />
+          <span>Study spaces</span>
         </button>
       </nav>
 
@@ -1279,7 +1378,7 @@ export default function App() {
             )}
           </section>
         </>
-      ) : (
+      ) : currentPage === PLANNER_PAGE_ID ? (
         <section className="planner-layout">
           <section className="surface-panel planner-panel">
             <div className="planner-copy">
@@ -1441,17 +1540,18 @@ export default function App() {
             )}
           </section>
         </section>
+      ) : (
+        <LibrarySpacesPage
+          libraryError={librarySpacesError}
+          libraryLoading={librarySpacesLoading || (!librarySpaces && !librarySpacesError)}
+          librarySpaces={librarySpaces}
+        />
       )}
 
       <footer className="app-footer">
         <div className="app-footer-copy">
-          <strong>Translink Data Declaration</strong>
-          <p>
-            This interface displays arrival information retrieved from Translink
-            open data. The underlying timetable and service data remain the
-            property of Translink, and this app does not claim ownership of that
-            data.
-          </p>
+          <strong>{footerCopy.title}</strong>
+          <p>{footerCopy.text}</p>
         </div>
 
         {footerSourceUrl ? (
@@ -2092,7 +2192,15 @@ function getInitialStopId() {
 
 function getInitialPageId() {
   const pageId = new URLSearchParams(window.location.search).get("page");
-  return pageId === PLANNER_PAGE_ID ? PLANNER_PAGE_ID : BOARD_PAGE_ID;
+  if (pageId === PLANNER_PAGE_ID) {
+    return PLANNER_PAGE_ID;
+  }
+
+  if (pageId === LIBRARY_SPACES_PAGE_ID) {
+    return LIBRARY_SPACES_PAGE_ID;
+  }
+
+  return BOARD_PAGE_ID;
 }
 
 function getInitialRouteId() {
@@ -2820,6 +2928,16 @@ async function fetchStopDepartures({ limit, stopId, stopName }) {
   return response.json();
 }
 
+async function fetchLibrarySpacesData() {
+  const response = await fetch("/api/library-spaces");
+
+  if (!response.ok) {
+    throw new Error("Could not load library study spaces.");
+  }
+
+  return response.json();
+}
+
 function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
   const url = new URL(baseUrl);
 
@@ -2827,6 +2945,12 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
     url.searchParams.delete("page");
   } else {
     url.searchParams.set("page", pageId);
+  }
+
+  if (pageId === LIBRARY_SPACES_PAGE_ID) {
+    url.searchParams.delete("stop");
+    url.searchParams.delete("route");
+    return `${url.pathname}${url.search}${url.hash}`;
   }
 
   if (stopId === DEFAULT_STOP_ID) {
