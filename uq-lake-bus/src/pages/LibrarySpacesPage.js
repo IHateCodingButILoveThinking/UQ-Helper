@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FaArrowLeft,
   FaBookOpen,
@@ -98,6 +98,12 @@ export default function LibrarySpacesPage({
   const updatedLabel = librarySpaces?.generatedAt
     ? formatTime(librarySpaces.generatedAt)
     : "";
+
+  useEffect(() => {
+    if (selectedLibraryId || showAmenitiesGuide) {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [selectedLibraryId, showAmenitiesGuide]);
 
   if (showAmenitiesGuide) {
     return (
@@ -329,8 +335,8 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
           <p className="eyebrow">Library amenities</p>
           <h1 className="section-title">Pick a space by what you need</h1>
           <p>
-            Computers, kitchens, low-light rooms, lockers and specialty study
-            spaces are grouped here so the live board stays simple.
+            Quickly compare equipment, quiet zones, access features and special
+            study spaces.
           </p>
         </div>
 
@@ -392,7 +398,7 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
                   </button>
                 </div>
 
-        <div className="library-amenity-grid">
+                <div className="library-amenity-grid">
                   <AmenityIconGroups amenities={amenities} compact />
                 </div>
               </article>
@@ -584,6 +590,82 @@ function LibraryWaveGrid({
   updatedLabel,
 }) {
   const chart = buildCampusPulseChart(libraries);
+  const [activePulseIndex, setActivePulseIndex] = useState(chart.currentIndex);
+  const [isPulseScrubbing, setIsPulseScrubbing] = useState(false);
+  const [showPulseScrubber, setShowPulseScrubber] = useState(false);
+  const hidePulseTimerRef = useRef(null);
+  const longPressTimerRef = useRef(null);
+  const selectedPulseIndex = Math.min(activePulseIndex, chart.currentIndex);
+  const activePulsePoint = chart.points[selectedPulseIndex] ?? chart.points.at(-1);
+  const activePulseX = activePulsePoint
+    ? `${(activePulsePoint.x / chart.width) * 100}%`
+    : "50%";
+  const clearPulseTimers = () => {
+    if (hidePulseTimerRef.current) {
+      clearTimeout(hidePulseTimerRef.current);
+      hidePulseTimerRef.current = null;
+    }
+
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+  const showPulseTimeline = () => {
+    if (hidePulseTimerRef.current) {
+      clearTimeout(hidePulseTimerRef.current);
+      hidePulseTimerRef.current = null;
+    }
+
+    setShowPulseScrubber(true);
+  };
+  const schedulePulseHide = () => {
+    if (hidePulseTimerRef.current) {
+      clearTimeout(hidePulseTimerRef.current);
+    }
+
+    hidePulseTimerRef.current = setTimeout(() => {
+      setShowPulseScrubber(false);
+      hidePulseTimerRef.current = null;
+    }, 3000);
+  };
+  const updatePulseScrubber = (event) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    const relativeX = ((event.clientX - bounds.left) / bounds.width) * chart.width;
+
+    setActivePulseIndex(getNearestPulseIndex(chart.pointXs, relativeX));
+  };
+  const handlePulseKeyDown = (event) => {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") {
+      return;
+    }
+
+    event.preventDefault();
+    showPulseTimeline();
+    setActivePulseIndex((currentIndex) => {
+      const nextIndex =
+        event.key === "ArrowLeft" ? currentIndex - 1 : currentIndex + 1;
+
+      return Math.min(Math.max(nextIndex, 0), chart.currentIndex);
+    });
+    schedulePulseHide();
+  };
+  const finishPulseScrub = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+
+    setIsPulseScrubbing(false);
+
+    if (showPulseScrubber) {
+      schedulePulseHide();
+    }
+  };
+
+  useEffect(() => {
+    return () => clearPulseTimers();
+  }, []);
 
   return (
     <article
@@ -603,7 +685,29 @@ function LibraryWaveGrid({
           <div
             aria-label={chart.ariaLabel}
             className="library-campus-pulse-visual"
-            role="img"
+            onKeyDown={handlePulseKeyDown}
+            onPointerCancel={finishPulseScrub}
+            onPointerDown={(event) => {
+              clearPulseTimers();
+              event.currentTarget.setPointerCapture?.(event.pointerId);
+              updatePulseScrubber(event);
+              longPressTimerRef.current = setTimeout(() => {
+                setIsPulseScrubbing(true);
+                showPulseTimeline();
+              }, 240);
+            }}
+            onPointerMove={(event) => {
+              if (isPulseScrubbing || event.buttons === 1 || showPulseScrubber) {
+                updatePulseScrubber(event);
+              }
+            }}
+            onPointerUp={finishPulseScrub}
+            role="slider"
+            tabIndex={0}
+            aria-valuemax={chart.currentIndex}
+            aria-valuemin={0}
+            aria-valuenow={selectedPulseIndex}
+            aria-valuetext={activePulsePoint?.label}
           >
             <svg aria-hidden="true" viewBox="0 0 320 190">
               <line
@@ -635,7 +739,58 @@ function LibraryWaveGrid({
                   />
                 </g>
               ))}
+              {activePulsePoint ? (
+                <g
+                  className={`library-campus-pulse-scrubber ${
+                    showPulseScrubber ? "visible" : ""
+                  }`}
+                >
+                  <line
+                    className="library-campus-pulse-scrubber-line"
+                    x1={activePulsePoint.x}
+                    x2={activePulsePoint.x}
+                    y1={chart.graphTop}
+                    y2={chart.baseline}
+                  />
+                  {chart.series.map((series) => {
+                    const point = series.points[selectedPulseIndex];
+
+                    return (
+                      <circle
+                        className={`library-campus-pulse-dot ${series.colorClass}`}
+                        cx={point.x}
+                        cy={point.y}
+                        key={series.library.id}
+                        r="4"
+                      />
+                    );
+                  })}
+                </g>
+              ) : null}
             </svg>
+
+            {activePulsePoint ? (
+              <div
+                aria-hidden={!showPulseScrubber}
+                className={`library-campus-pulse-floating ${
+                  showPulseScrubber ? "visible" : ""
+                }`}
+                style={{ "--pulse-x": activePulseX }}
+              >
+                <strong>{activePulsePoint.label}</strong>
+                <div>
+                  {activePulsePoint.items.map((item) => (
+                    <span
+                      className={`library-campus-pulse-floating-item ${item.colorClass}`}
+                      key={item.id}
+                    >
+                      <i aria-hidden="true" />
+                      {item.label} {item.value}%
+                    </span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="library-campus-pulse-selectors">
@@ -740,6 +895,29 @@ function CapacityBarChart({ bars, maxValue, showForecast = false, size = "compac
 }
 
 function AmenityIconGroups({ amenities, compact = false }) {
+  if (compact) {
+    const visibleAmenities = amenities.slice(0, 8);
+    const hiddenAmenityCount = Math.max(amenities.length - visibleAmenities.length, 0);
+
+    return (
+      <div className="library-amenity-icon-grid compact">
+        {visibleAmenities.map(({ Icon, id, label: amenityLabel }) => (
+          <span className="library-amenity-icon-item" key={id}>
+            <i>
+              <Icon aria-hidden="true" />
+            </i>
+            <small>{amenityLabel}</small>
+          </span>
+        ))}
+        {hiddenAmenityCount ? (
+          <span className="library-amenity-more-count">
+            +{hiddenAmenityCount}
+          </span>
+        ) : null}
+      </div>
+    );
+  }
+
   const groups = groupAmenitiesForIconGrid(amenities);
 
   return (
@@ -786,7 +964,14 @@ function filterAndSortLibraries(libraries, campusFilter) {
       return campusRank;
     }
 
-    return getLibraryChoiceScore(right) - getLibraryChoiceScore(left);
+    const occupancyRank =
+      getOccupancySortValue(left) - getOccupancySortValue(right);
+
+    if (occupancyRank !== 0) {
+      return occupancyRank;
+    }
+
+    return left.name.localeCompare(right.name);
   });
 }
 
@@ -829,6 +1014,14 @@ function getLibraryChoiceScore(library) {
   return availableSeats * 10 - occupancyPenalty;
 }
 
+function getOccupancySortValue(library) {
+  if (!library || library.unavailable || !Number.isFinite(library.occupancyPercent)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return library.occupancyPercent;
+}
+
 function getWaveShowcaseItems(libraries) {
   const librariesByBusiest = [...libraries].sort((left, right) => {
     return (right.occupancyPercent ?? 0) - (left.occupancyPercent ?? 0);
@@ -845,7 +1038,18 @@ function getWaveShowcaseItems(libraries) {
         ...libraries,
       ].map((library) => [library.id, library]),
     ).values(),
-  ).slice(0, 4);
+  )
+    .slice(0, 4)
+    .sort((left, right) => {
+      const occupancyRank =
+        getOccupancySortValue(left) - getOccupancySortValue(right);
+
+      if (occupancyRank !== 0) {
+        return occupancyRank;
+      }
+
+      return left.name.localeCompare(right.name);
+    });
 }
 
 function buildCampusPulseChart(libraries) {
@@ -892,8 +1096,14 @@ function buildCampusPulseChart(libraries) {
   const xForIndex = (index) => {
     return left + ((right - left) / (pointCount - 1)) * index;
   };
+  const labels = Array.from({ length: pointCount }, (_, index) => {
+    return index === pointCount - 1
+      ? `Now ${formatTime(new Date())}`
+      : getDetailedHourRangeLabel(index - pointCount + 1);
+  });
   const series = rawSeries.map((item) => {
     const points = item.values.map((value, index) => ({
+      value,
       x: xForIndex(index),
       y: yForValue(value),
     }));
@@ -903,18 +1113,44 @@ function buildCampusPulseChart(libraries) {
       ...item,
       areaPath: `${linePath} L ${points.at(-1).x.toFixed(2)} ${baseline} L ${points[0].x.toFixed(2)} ${baseline} Z`,
       linePath,
+      points,
     };
   });
+  const pointXs = labels.map((_, index) => xForIndex(index));
+  const points = labels.map((label, index) => ({
+    index,
+    items: series.map((item) => ({
+      colorClass: item.colorClass,
+      id: item.library.id,
+      label: getDiagramLabel(item.library),
+      value: item.values[index],
+    })),
+    label,
+    x: xForIndex(index),
+  }));
 
   return {
     ariaLabel: series
       .map((item) => `${getDiagramLabel(item.library)} ${item.values.at(-1)} percent occupied`)
       .join(", "),
     baseline,
+    currentIndex: pointCount - 1,
+    graphTop,
+    pointXs,
+    points,
     series,
     thresholdY: yForValue(100),
     width,
   };
+}
+
+function getNearestPulseIndex(pointXs, pointerX) {
+  return pointXs.reduce((nearestIndex, pointX, index) => {
+    const nearestDistance = Math.abs(pointXs[nearestIndex] - pointerX);
+    const currentDistance = Math.abs(pointX - pointerX);
+
+    return currentDistance < nearestDistance ? index : nearestIndex;
+  }, 0);
 }
 
 function getCampusPulseProfile(library, pointCount) {
@@ -1060,6 +1296,30 @@ function getHourRangeLabel(offset) {
   const endHour = (startHour + 1) % 24;
 
   return `${startHour}-${endHour}`;
+}
+
+function getDetailedHourRangeLabel(offset) {
+  const startHour = (getBrisbaneHour() + offset + 24) % 24;
+  const endHour = (startHour + 1) % 24;
+  const startPeriod = getHourPeriod(startHour);
+  const endPeriod = getHourPeriod(endHour);
+
+  if (startPeriod === endPeriod) {
+    return `${formatClockHour(startHour)}-${formatClockHour(endHour, true)}`;
+  }
+
+  return `${formatClockHour(startHour, true)}-${formatClockHour(endHour, true)}`;
+}
+
+function formatClockHour(hour, includePeriod = false) {
+  const displayHour = hour % 12 || 12;
+  const period = getHourPeriod(hour);
+
+  return `${displayHour}:00${includePeriod ? ` ${period}` : ""}`;
+}
+
+function getHourPeriod(hour) {
+  return hour >= 12 ? "pm" : "am";
 }
 
 function getBrisbaneHour() {

@@ -3,6 +3,7 @@ import {
   FaChair,
   FaClock,
   FaDesktop,
+  FaEgg,
   FaFilm,
   FaGraduationCap,
   FaLaptop,
@@ -85,7 +86,7 @@ export const AMENITY_DETAILS = {
     category: "Specialty",
     description: "Rest pods for short breaks between study blocks.",
     label: "Energy pods",
-    Icon: FaStar,
+    Icon: FaEgg,
   },
   "exam-booths": {
     category: "Bookable",
