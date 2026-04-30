@@ -535,22 +535,26 @@ export function getFeaturedAmenitySummary(libraries) {
   return [
     {
       count: countByCategory.get("Equipment") ?? 0,
-      label: "equipment options",
+      label: "Equipment",
+      category: "Equipment",
       Icon: FaDesktop,
     },
     {
       count: countByCategory.get("Study") ?? 0,
-      label: "study zones",
+      label: "Study zones",
+      category: "Study",
       Icon: FaChair,
     },
     {
       count: countByCategory.get("Accessibility") ?? 0,
-      label: "accessibility features",
+      label: "Accessibility",
+      category: "Accessibility",
       Icon: FaUniversalAccess,
     },
     {
       count: countByCategory.get("Specialty") ?? 0,
-      label: "special resources",
+      label: "Resources",
+      category: "Specialty",
       Icon: FaStar,
     },
   ];

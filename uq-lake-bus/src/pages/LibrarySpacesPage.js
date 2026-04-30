@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   FaArrowLeft,
   FaBookOpen,
@@ -14,7 +15,6 @@ import {
 
 import EmptyState from "../components/EmptyState";
 import {
-  AMENITY_CATEGORY_FILTERS as AMENITY_FILTERS,
   getAmenityItems as getLibraryAmenityItems,
   getFeaturedAmenitySummary as getLibraryFeaturedAmenitySummary,
   getFeatureSummary,
@@ -66,6 +66,73 @@ const LIBRARY_DIAGRAM_LABELS = new Map([
   ["jk-murray-library-uq-gatton", "Gatton"],
   ["walter-harrison-law-library", "Law"],
 ]);
+const FEATURE_FILTER_CATEGORIES = [
+  "All",
+  "Quiet Zones",
+  "Collaborative",
+  "Tech",
+  "Accessibility",
+];
+const QUIET_FEATURE_IDS = new Set([
+  "low-light",
+  "postgrad",
+  "quiet-study",
+]);
+const COLLABORATIVE_FEATURE_IDS = new Set([
+  "group-study",
+  "presentation",
+  "soundproof-booths",
+  "training",
+]);
+const TECH_FEATURE_IDS = new Set([
+  "computers",
+  "device-charging",
+  "laptop-lockers",
+  "media",
+  "monitors",
+  "printing",
+  "virtual-help",
+]);
+
+function doesAmenityMatchFeatureFilter(amenity, activeFilter) {
+  if (activeFilter === "All") {
+    return true;
+  }
+
+  if (activeFilter === "Quiet Zones") {
+    return QUIET_FEATURE_IDS.has(amenity.id);
+  }
+
+  if (activeFilter === "Collaborative") {
+    return COLLABORATIVE_FEATURE_IDS.has(amenity.id);
+  }
+
+  if (activeFilter === "Tech") {
+    return amenity.category === "Equipment" || TECH_FEATURE_IDS.has(amenity.id);
+  }
+
+  if (activeFilter === "Accessibility") {
+    return amenity.category === "Accessibility";
+  }
+
+  return amenity.category === activeFilter;
+}
+
+function getSummaryFeatureFilter(category) {
+  if (category === "Equipment" || category === "Specialty") {
+    return "Tech";
+  }
+
+  if (category === "Study") {
+    return "Quiet Zones";
+  }
+
+  if (category === "Accessibility") {
+    return "Accessibility";
+  }
+
+  return "All";
+}
 
 export default function LibrarySpacesPage({
   libraryError,
@@ -307,13 +374,18 @@ function LibraryListItem({ library, onSelect }) {
 }
 
 function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
-  const [selectedCategory, setSelectedCategory] = useState("All");
+  const [activeFilter, setActiveFilter] = useState("All");
+  const [expandedAmenityCards, setExpandedAmenityCards] = useState(
+    () => new Set(),
+  );
+  const detailsRef = useRef(null);
+  const filterButtonRefs = useRef(new Map());
   const availableLibraries = libraries.filter((library) => !library.unavailable);
   const featuredAmenities = getLibraryFeaturedAmenitySummary(availableLibraries);
   const filteredLibraryAmenities = libraries
     .map((library) => {
       const amenities = getLibraryAmenityItems(library).filter((amenity) => {
-        return selectedCategory === "All" || amenity.category === selectedCategory;
+        return doesAmenityMatchFeatureFilter(amenity, activeFilter);
       });
 
       return {
@@ -322,93 +394,189 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
       };
     })
     .filter(({ amenities }) => amenities.length);
+  const handleFilterSelect = (filter, { scrollToDetails = false } = {}) => {
+    setActiveFilter(filter);
+
+    window.requestAnimationFrame(() => {
+      if (scrollToDetails) {
+        detailsRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+
+      filterButtonRefs.current.get(filter)?.scrollIntoView({
+        behavior: "smooth",
+        block: "nearest",
+        inline: "center",
+      });
+    });
+  };
+  const handleAmenityToggle = (libraryId) => {
+    setExpandedAmenityCards((currentExpandedCards) => {
+      const nextExpandedCards = new Set(currentExpandedCards);
+
+      if (nextExpandedCards.has(libraryId)) {
+        nextExpandedCards.delete(libraryId);
+      } else {
+        nextExpandedCards.add(libraryId);
+      }
+
+      return nextExpandedCards;
+    });
+  };
+
+  useEffect(() => {
+    setExpandedAmenityCards(new Set());
+  }, [activeFilter]);
+
+  useEffect(() => {
+    document.body.classList.add("library-amenities-overlay-open");
+
+    return () => {
+      document.body.classList.remove("library-amenities-overlay-open");
+    };
+  }, []);
 
   return (
-    <section className="library-amenities-layout">
-      <section className="surface-panel library-amenities-hero">
-        <button type="button" className="library-detail-back" onClick={onBack}>
+    <div className="library-amenities-overlay-canvas">
+      <motion.div
+        animate={{ opacity: 1, y: 0 }}
+        className="library-amenities-overlay-card"
+        initial={{ opacity: 0, y: 20 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <button
+          type="button"
+          className="library-overlay-back"
+          onClick={onBack}
+        >
           <FaArrowLeft aria-hidden="true" />
-          Study spaces
+          Back to study spaces
         </button>
 
-        <div className="library-amenities-title">
-          <p className="eyebrow">Library amenities</p>
-          <h1 className="section-title">Pick a space by what you need</h1>
-          <p>
-            Quickly compare equipment, quiet zones, access features and special
-            study spaces.
-          </p>
-        </div>
+        <section className="library-amenities-layout">
+          <section className="library-amenities-hero">
+            <div className="library-amenities-title">
+              <p className="eyebrow">Library amenities</p>
+              <h1 className="section-title">Find your perfect space</h1>
+            </div>
 
-        <div className="library-amenities-summary-grid">
-          {featuredAmenities.map(({ Icon, count, label }) => (
-            <article className="library-amenities-summary-card" key={label}>
-              <span>
-                <Icon aria-hidden="true" />
-              </span>
-              <strong>{count}</strong>
-              <small>{label}</small>
-            </article>
-          ))}
-        </div>
-      </section>
+            <div className="library-amenities-summary-grid">
+              {featuredAmenities.map(({ Icon, category, count, label }) => (
+                <button
+                  className="library-amenities-summary-card"
+                  key={label}
+                  onClick={() =>
+                    handleFilterSelect(getSummaryFeatureFilter(category), {
+                      scrollToDetails: true,
+                    })
+                  }
+                  type="button"
+                >
+                  <span>
+                    <Icon aria-hidden="true" size={22} strokeWidth={2} />
+                  </span>
+                  <strong>{count}</strong>
+                  <small>{label}</small>
+                </button>
+              ))}
+            </div>
+          </section>
 
-      <section className="surface-panel library-amenities-panel">
-        <div className="section-head feed-head">
-          <div>
-            <p className="eyebrow">Details</p>
-            <h2 className="section-title">Library-by-library features</h2>
-          </div>
-        </div>
+          <section className="library-amenities-panel" ref={detailsRef}>
+            <div className="section-head feed-head">
+              <div>
+                <p className="eyebrow">Details</p>
+                <h2 className="section-title">Library-by-library features</h2>
+              </div>
+            </div>
 
-        <div
-          aria-label="Filter amenities by type"
-          className="library-amenity-filter"
-        >
-          {AMENITY_FILTERS.map((category) => (
-            <button
-              aria-pressed={selectedCategory === category}
-              className={selectedCategory === category ? "active" : ""}
-              key={category}
-              onClick={() => setSelectedCategory(category)}
-              type="button"
+            <div
+              aria-label="Filter amenities by type"
+              className="library-amenity-filter"
+              style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
             >
-              {category}
-            </button>
-          ))}
-        </div>
+              {FEATURE_FILTER_CATEGORIES.map((category) => (
+                <button
+                  aria-pressed={activeFilter === category}
+                  className={activeFilter === category ? "active" : ""}
+                  key={category}
+                  onClick={() => handleFilterSelect(category)}
+                  ref={(node) => {
+                    if (node) {
+                      filterButtonRefs.current.set(category, node);
+                    } else {
+                      filterButtonRefs.current.delete(category);
+                    }
+                  }}
+                  type="button"
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
 
-        <div className="library-amenities-list">
-          {filteredLibraryAmenities.length ? (
-            filteredLibraryAmenities.map(({ amenities, library }) => (
-              <article
-                className="library-amenities-library-card"
-                key={library.id}
-              >
-                <div className="library-amenities-library-head">
-                  <div>
-                    <h3>{library.name}</h3>
-                    <p>{getFeatureSummary(library)}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => onSelectLibrary(library.id)}
-                  >
-                    View
-                  </button>
-                </div>
+            <motion.div className="library-amenities-list" layout>
+              {filteredLibraryAmenities.length ? (
+                <AnimatePresence mode="popLayout">
+                  {filteredLibraryAmenities.map(({ amenities, library }, index) => {
+                    const isExpanded = expandedAmenityCards.has(library.id);
 
-                <div className="library-amenity-grid">
-                  <AmenityIconGroups amenities={amenities} compact />
-                </div>
-              </article>
-            ))
-          ) : (
-            <EmptyState compact message="No amenities match that filter yet." />
-          )}
-        </div>
-      </section>
-    </section>
+                    return (
+                      <motion.article
+                        animate={{ opacity: 1, y: 0 }}
+                        className="library-amenities-library-card"
+                        exit={{ opacity: 0, scale: 0.97, y: -8 }}
+                        initial={{ opacity: 0, y: 10 }}
+                        key={library.id}
+                        layout
+                        style={{ "--library-card-index": index }}
+                        transition={{
+                          layout: {
+                            duration: 0.34,
+                            ease: [0.2, 0.8, 0.2, 1],
+                          },
+                          opacity: { duration: 0.18 },
+                          scale: { duration: 0.18 },
+                          y: { duration: 0.24 },
+                        }}
+                      >
+                        <div className="library-amenities-library-head">
+                          <div>
+                            <h3>{library.name}</h3>
+                            <p>{getFeatureSummary(library)}</p>
+                          </div>
+                        </div>
+
+                        <div className="library-amenity-grid">
+                          <AmenityIconGroups
+                            amenities={amenities}
+                            compact
+                            expanded={isExpanded}
+                            onToggle={() => handleAmenityToggle(library.id)}
+                          />
+                        </div>
+
+                        <button
+                          className="library-amenity-view-button"
+                          type="button"
+                          onClick={() => onSelectLibrary(library.id)}
+                        >
+                          View Details
+                        </button>
+                      </motion.article>
+                    );
+                  })}
+                </AnimatePresence>
+              ) : (
+                <EmptyState compact message="No amenities match that filter yet." />
+              )}
+            </motion.div>
+          </section>
+        </section>
+      </motion.div>
+    </div>
   );
 }
 
@@ -894,27 +1062,63 @@ function CapacityBarChart({ bars, maxValue, showForecast = false, size = "compac
   );
 }
 
-function AmenityIconGroups({ amenities, compact = false }) {
+function AmenityIconGroups({
+  amenities,
+  compact = false,
+  expanded = false,
+  onToggle,
+}) {
   if (compact) {
-    const visibleAmenities = amenities.slice(0, 8);
+    const visibleAmenities = expanded ? amenities : amenities.slice(0, 8);
     const hiddenAmenityCount = Math.max(amenities.length - visibleAmenities.length, 0);
+    const canToggle = amenities.length > 8;
 
     return (
-      <div className="library-amenity-icon-grid compact">
-        {visibleAmenities.map(({ Icon, id, label: amenityLabel }) => (
-          <span className="library-amenity-icon-item" key={id}>
-            <i>
-              <Icon aria-hidden="true" />
-            </i>
-            <small>{amenityLabel}</small>
-          </span>
-        ))}
-        {hiddenAmenityCount ? (
-          <span className="library-amenity-more-count">
-            +{hiddenAmenityCount}
-          </span>
-        ) : null}
-      </div>
+      <motion.div className="library-amenity-icon-grid compact" layout>
+        <AnimatePresence mode="popLayout">
+          {visibleAmenities.map(({ Icon, id, label: amenityLabel }, index) => (
+            <motion.span
+              animate={{ opacity: 1, scale: 1 }}
+              className="library-amenity-icon-item"
+              exit={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              key={id}
+              layout
+              style={{ "--feature-index": index }}
+              transition={{
+                layout: { duration: 0.3, ease: [0.2, 0.8, 0.2, 1] },
+                opacity: { duration: 0.16 },
+                scale: { duration: 0.18 },
+              }}
+            >
+              <i>
+                <Icon aria-hidden="true" size={20} strokeWidth={2.5} />
+              </i>
+              <small>{amenityLabel}</small>
+            </motion.span>
+          ))}
+          {canToggle ? (
+            <motion.button
+              animate={{ opacity: 1, scale: 1 }}
+              aria-expanded={expanded}
+              className="library-amenity-more-count"
+              exit={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.9 }}
+              key="amenity-toggle"
+              layout
+              onClick={onToggle}
+              transition={{
+                layout: { duration: 0.3, ease: [0.2, 0.8, 0.2, 1] },
+                opacity: { duration: 0.16 },
+                scale: { duration: 0.18 },
+              }}
+              type="button"
+            >
+              {expanded ? "Show less" : `+${hiddenAmenityCount} more`}
+            </motion.button>
+          ) : null}
+        </AnimatePresence>
+      </motion.div>
     );
   }
 
