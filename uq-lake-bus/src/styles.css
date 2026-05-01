@@ -9107,14 +9107,28 @@ body[data-page="planner"][data-stop-theme="chancellors"]::after {
   stroke-width: 2.1;
 }
 
-.library-campus-pulse-threshold-label {
-  fill: #3f4d5a;
-  font-size: 8.5px;
+.library-campus-pulse-threshold-group {
+  pointer-events: none;
+}
+
+.library-campus-pulse-threshold-tag {
+  position: absolute;
+  top: var(--threshold-label-top);
+  left: 18px;
+  z-index: 2;
+  padding: 3px 8px;
+  border: 1px solid rgba(164, 176, 189, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 5px 12px rgba(18, 34, 46, 0.06);
+  color: #3f4d5a;
+  font-size: 0.52rem;
   font-weight: 900;
   letter-spacing: 0.02em;
-  paint-order: stroke;
-  stroke: #ffffff;
-  stroke-width: 4px;
+  line-height: 1;
+  pointer-events: none;
+  text-transform: uppercase;
+  transform: translateY(calc(-100% - 8px));
 }
 
 .library-campus-pulse-series {

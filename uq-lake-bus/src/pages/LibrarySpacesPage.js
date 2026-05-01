@@ -802,6 +802,7 @@ function LibraryWaveGrid({
   const activePulseX = activePulsePoint
     ? `${(activePulsePoint.x / chart.width) * 100}%`
     : "50%";
+  const thresholdLabelTop = `${(chart.thresholdY / 190) * 100}%`;
   const clearPulseTimers = () => {
     if (hidePulseTimerRef.current) {
       clearTimeout(hidePulseTimerRef.current);
@@ -911,21 +912,14 @@ function LibraryWaveGrid({
             aria-valuenow={selectedPulseIndex}
             aria-valuetext={activePulsePoint?.label}
           >
+            <span
+              className="library-campus-pulse-threshold-tag"
+              style={{ "--threshold-label-top": thresholdLabelTop }}
+            >
+              100% capacity
+            </span>
+
             <svg aria-hidden="true" viewBox="0 0 320 190">
-              <line
-                className="library-campus-pulse-threshold"
-                x1="8"
-                x2="312"
-                y1={chart.thresholdY}
-                y2={chart.thresholdY}
-              />
-              <text
-                className="library-campus-pulse-threshold-label"
-                x="10"
-                y={Math.max(18, chart.thresholdY - 8)}
-              >
-                100% CAPACITY
-              </text>
               {chart.series.map((series) => (
                 <g
                   className={`library-campus-pulse-series ${series.colorClass}`}
@@ -941,6 +935,15 @@ function LibraryWaveGrid({
                   />
                 </g>
               ))}
+              <g className="library-campus-pulse-threshold-group">
+                <line
+                  className="library-campus-pulse-threshold"
+                  x1="16"
+                  x2="312"
+                  y1={chart.thresholdY}
+                  y2={chart.thresholdY}
+                />
+              </g>
               {activePulsePoint ? (
                 <g
                   className={`library-campus-pulse-scrubber ${
