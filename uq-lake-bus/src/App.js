@@ -69,7 +69,13 @@ const STOPS = {
     switchLabel: "UQ Lakes station",
     themeClass: "theme-lakes",
     themeKey: "lakes",
-    searchAliases: ["uq", "uq lakes", "uni of qld", "university of queensland", "st lucia"],
+    searchAliases: [
+      "uq",
+      "uq lakes",
+      "uni of qld",
+      "university of queensland",
+      "st lucia",
+    ],
     studentNote: "",
     logoSrc: uqLakesLockup,
     sheetDescription: "Current live board for the lakeside UQ stop.",
@@ -100,7 +106,12 @@ const STOP_OPTIONS = Object.values(STOPS);
 const OFFICIAL_STATION_CHOICES = [
   {
     label: "South Bank busway station",
-    aliases: ["South Bank", "Southbank", "South Bank station", "South Bank busway"],
+    aliases: [
+      "South Bank",
+      "Southbank",
+      "South Bank station",
+      "South Bank busway",
+    ],
   },
   {
     label: "South Bank station",
@@ -422,7 +433,9 @@ export default function App() {
       return undefined;
     }
 
-    setPlannerOriginQuery((currentQuery) => currentQuery || activeStop.displayName);
+    setPlannerOriginQuery(
+      (currentQuery) => currentQuery || activeStop.displayName,
+    );
   }, [activeStop.displayName, currentPage]);
 
   useEffect(() => {
@@ -572,7 +585,10 @@ export default function App() {
           return;
         }
 
-        console.error("Could not load UQ library study-space data.", fetchError);
+        console.error(
+          "Could not load UQ library study-space data.",
+          fetchError,
+        );
         setLibrarySpacesError("Could not load study spaces right now.");
       } finally {
         if (isActive && !silent) {
@@ -610,7 +626,11 @@ export default function App() {
   }, [currentPage]);
 
   useEffect(() => {
-    if (activeStop.sourceMode === "live" && loading && departures.length === 0) {
+    if (
+      activeStop.sourceMode === "live" &&
+      loading &&
+      departures.length === 0
+    ) {
       return;
     }
 
@@ -721,7 +741,9 @@ export default function App() {
     setStopSheetOpen(false);
 
     if (pageId === PLANNER_PAGE_ID) {
-      setPlannerOriginQuery((currentQuery) => currentQuery || activeStop.displayName);
+      setPlannerOriginQuery(
+        (currentQuery) => currentQuery || activeStop.displayName,
+      );
     }
 
     setCurrentPage(pageId);
@@ -873,7 +895,9 @@ export default function App() {
             stopName: destinationStop.label,
           }),
         ]);
-      const availableDepartures = Array.isArray(originDeparturesPayload.departures)
+      const availableDepartures = Array.isArray(
+        originDeparturesPayload.departures,
+      )
         ? originDeparturesPayload.departures
         : [];
       const availableDestinationDepartures = Array.isArray(
@@ -1341,7 +1365,10 @@ export default function App() {
             {showLoadingState ? (
               <div className="feed-list">
                 {[1, 2, 3, 4].map((item) => (
-                  <article className="departure-card skeleton-card" key={item} />
+                  <article
+                    className="departure-card skeleton-card"
+                    key={item}
+                  />
                 ))}
               </div>
             ) : filterPending ? (
@@ -1351,7 +1378,10 @@ export default function App() {
                 </div>
                 <div className="feed-list feed-list-pending">
                   {[1, 2, 3].map((item) => (
-                    <article className="departure-card skeleton-card" key={item} />
+                    <article
+                      className="departure-card skeleton-card"
+                      key={item}
+                    />
                   ))}
                 </div>
               </>
@@ -1371,10 +1401,7 @@ export default function App() {
                 })}
               </div>
             ) : (
-              <EmptyState
-                compact
-                message="No more buses in this selection."
-              />
+              <EmptyState compact message="No more buses in this selection." />
             )}
           </section>
         </>
@@ -1385,7 +1412,10 @@ export default function App() {
               <h1 className="section-title">Find a direct bus</h1>
             </div>
 
-            <div className="planner-quick-actions" aria-label="Quick station stops">
+            <div
+              className="planner-quick-actions"
+              aria-label="Quick station stops"
+            >
               {PLANNER_QUICK_STOPS.map((stop) => (
                 <button
                   key={stop.value}
@@ -1468,7 +1498,6 @@ export default function App() {
                 </button>
               </div>
             </form>
-
           </section>
 
           <section className="surface-panel feed-panel planner-results-panel">
@@ -1484,7 +1513,9 @@ export default function App() {
                 <div className="planner-summary-meta">
                   <span className="destination-search-status">
                     {plannerResultDepartures.length} upcoming{" "}
-                    {plannerResultDepartures.length === 1 ? "departure" : "departures"}
+                    {plannerResultDepartures.length === 1
+                      ? "departure"
+                      : "departures"}
                   </span>
                   {plannerSearchResult.generatedAt ? (
                     <span className="planner-summary-note">
@@ -1502,7 +1533,10 @@ export default function App() {
                 </div>
                 <div className="feed-list feed-list-pending">
                   {[1, 2, 3].map((item) => (
-                    <article className="departure-card skeleton-card" key={item} />
+                    <article
+                      className="departure-card skeleton-card"
+                      key={item}
+                    />
                   ))}
                 </div>
               </>
@@ -1515,7 +1549,8 @@ export default function App() {
                         key={departure.id}
                         departure={departure}
                         plannerJourney={{
-                          destinationLabel: plannerSearchResult.destinationStop.label,
+                          destinationLabel:
+                            plannerSearchResult.destinationStop.label,
                           originLabel: plannerSearchResult.originStop.label,
                         }}
                         showFavoriteAction={false}
@@ -1543,7 +1578,9 @@ export default function App() {
       ) : (
         <LibrarySpacesPage
           libraryError={librarySpacesError}
-          libraryLoading={librarySpacesLoading || (!librarySpaces && !librarySpacesError)}
+          libraryLoading={
+            librarySpacesLoading || (!librarySpaces && !librarySpacesError)
+          }
           librarySpaces={librarySpaces}
         />
       )}
@@ -1827,7 +1864,9 @@ function PlannerStopField({
           </span>
           <span>{label}</span>
         </label>
-        {fieldStatus ? <span className="planner-field-status">{fieldStatus}</span> : null}
+        {fieldStatus ? (
+          <span className="planner-field-status">{fieldStatus}</span>
+        ) : null}
       </div>
 
       <div className="planner-input-shell">
@@ -1878,9 +1917,7 @@ function PlannerStopField({
           ))}
         </div>
       ) : showEmptyState ? (
-        <div className="planner-suggestion-empty">
-          No bus stop found.
-        </div>
+        <div className="planner-suggestion-empty">No bus stop found.</div>
       ) : null}
     </div>
   );
@@ -1991,7 +2028,9 @@ function DepartureCard({
           ) : null}
         </div>
 
-        <div className={`trigger-side ${isPlannerJourney ? "planner-side" : ""}`}>
+        <div
+          className={`trigger-side ${isPlannerJourney ? "planner-side" : ""}`}
+        >
           {isPlannerJourney ? (
             <div className="planner-time-row">
               <span className="planner-time-chip">
@@ -1999,7 +2038,9 @@ function DepartureCard({
                 {departure.displayTime}
               </span>
               <strong>{departure.countdownText}</strong>
-              <span className={`planner-live-chip ${departure.live ? "live" : ""}`}>
+              <span
+                className={`planner-live-chip ${departure.live ? "live" : ""}`}
+              >
                 <FaBroadcastTower aria-hidden="true" />
                 {departure.live ? "Live" : "Scheduled"}
               </span>
@@ -2106,7 +2147,13 @@ function DestinationIcon() {
 function OriginIcon() {
   return (
     <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-      <circle cx="10" cy="10" r="5.75" stroke="currentColor" strokeWidth="1.5" />
+      <circle
+        cx="10"
+        cy="10"
+        r="5.75"
+        stroke="currentColor"
+        strokeWidth="1.5"
+      />
       <circle cx="10" cy="10" r="1.75" fill="currentColor" />
     </svg>
   );
@@ -2502,7 +2549,10 @@ function createSearchStop(stopConfig) {
     return null;
   }
 
-  const aliases = buildStopAliases(label, [rawLabel, ...(stopConfig?.aliases ?? [])]);
+  const aliases = buildStopAliases(label, [
+    rawLabel,
+    ...(stopConfig?.aliases ?? []),
+  ]);
 
   return {
     id: label || rawId,
@@ -2527,7 +2577,13 @@ function buildStopAliases(label, extraAliases = []) {
 
   return Array.from(
     new Set(
-      [label, strippedLabel, compactLabel, ...abbreviationVariants, ...extraAliases]
+      [
+        label,
+        strippedLabel,
+        compactLabel,
+        ...abbreviationVariants,
+        ...extraAliases,
+      ]
         .map((alias) => String(alias ?? "").trim())
         .filter(Boolean),
     ),
@@ -2564,8 +2620,8 @@ function getCanonicalStationLabel(values) {
     .filter(Boolean);
 
   const matchedStation = OFFICIAL_STATION_CHOICES.find((station) => {
-    const stationKeys = buildStopAliases(station.label, station.aliases).map((alias) =>
-      normalizeSearchCandidate(alias),
+    const stationKeys = buildStopAliases(station.label, station.aliases).map(
+      (alias) => normalizeSearchCandidate(alias),
     );
 
     return normalizedValues.some((value) => {
@@ -2638,10 +2694,14 @@ function resolveSearchStop(query, stops) {
       return stop.aliasKeys.includes(normalizedQuery);
     }) ??
     stops.find((stop) => {
-      return stop.aliasKeys.some((aliasKey) => aliasKey.startsWith(normalizedQuery));
+      return stop.aliasKeys.some((aliasKey) =>
+        aliasKey.startsWith(normalizedQuery),
+      );
     }) ??
     stops.find((stop) => {
-      return stop.aliasKeys.some((aliasKey) => aliasKey.includes(normalizedQuery));
+      return stop.aliasKeys.some((aliasKey) =>
+        aliasKey.includes(normalizedQuery),
+      );
     }) ??
     null
   );
@@ -2744,7 +2804,10 @@ function findRoutePathStopOrderMatch(departure, originStop, destinationStop) {
   }
 
   const originIndex = findStopSegmentIndex(headsignSegments, originStop);
-  const destinationIndex = findStopSegmentIndex(headsignSegments, destinationStop);
+  const destinationIndex = findStopSegmentIndex(
+    headsignSegments,
+    destinationStop,
+  );
 
   if (originIndex < 0 || destinationIndex < 0) {
     return null;
@@ -2795,8 +2858,12 @@ function hasMatchingDownstreamDeparture(
   destinationDepartures = [],
 ) {
   const originTime = new Date(originDeparture?.scheduledUtc).getTime();
-  const originHeadsign = normalizeSearchCandidate(originDeparture?.fullHeadsign);
-  const originDestination = normalizeSearchCandidate(originDeparture?.destination);
+  const originHeadsign = normalizeSearchCandidate(
+    originDeparture?.fullHeadsign,
+  );
+  const originDestination = normalizeSearchCandidate(
+    originDeparture?.destination,
+  );
 
   if (!Number.isFinite(originTime)) {
     return false;
@@ -2812,7 +2879,9 @@ function hasMatchingDownstreamDeparture(
       return false;
     }
 
-    const destinationTime = new Date(destinationDeparture?.scheduledUtc).getTime();
+    const destinationTime = new Date(
+      destinationDeparture?.scheduledUtc,
+    ).getTime();
     const minutesBetweenStops = (destinationTime - originTime) / 60000;
 
     if (
@@ -2839,7 +2908,9 @@ function hasMatchingDownstreamDeparture(
     );
 
     return (
-      (originHeadsign && destinationHeadsign && originHeadsign === destinationHeadsign) ||
+      (originHeadsign &&
+        destinationHeadsign &&
+        originHeadsign === destinationHeadsign) ||
       (originDestination &&
         destinationLabel &&
         originDestination === destinationLabel)
@@ -2871,32 +2942,34 @@ async function fetchTranslinkStops(query) {
   const stops = Array.isArray(payload?.stops) ? payload.stops : [];
 
   const uniqueStops = Array.from(
-    stops.reduce((stopMap, stop) => {
-      const searchStop = createSearchStop(stop);
+    stops
+      .reduce((stopMap, stop) => {
+        const searchStop = createSearchStop(stop);
 
-      if (!searchStop) {
+        if (!searchStop) {
+          return stopMap;
+        }
+
+        const stopKey = normalizeSearchCandidate(searchStop.label);
+        const existingStop = stopMap.get(stopKey);
+
+        if (existingStop) {
+          const aliases = Array.from(
+            new Set([...existingStop.aliases, ...searchStop.aliases]),
+          );
+
+          stopMap.set(stopKey, {
+            ...existingStop,
+            aliases,
+            aliasKeys: aliases.map((alias) => normalizeSearchCandidate(alias)),
+          });
+          return stopMap;
+        }
+
+        stopMap.set(stopKey, searchStop);
         return stopMap;
-      }
-
-      const stopKey = normalizeSearchCandidate(searchStop.label);
-      const existingStop = stopMap.get(stopKey);
-
-      if (existingStop) {
-        const aliases = Array.from(
-          new Set([...existingStop.aliases, ...searchStop.aliases]),
-        );
-
-        stopMap.set(stopKey, {
-          ...existingStop,
-          aliases,
-          aliasKeys: aliases.map((alias) => normalizeSearchCandidate(alias)),
-        });
-        return stopMap;
-      }
-
-      stopMap.set(stopKey, searchStop);
-      return stopMap;
-    }, new Map()).values(),
+      }, new Map())
+      .values(),
   );
 
   stopSearchCache.set(cacheKey, uniqueStops);

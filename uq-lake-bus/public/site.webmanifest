@@ -1,0 +1,23 @@
+{
+  "name": "UQ Bus Time Board",
+  "short_name": "UQ Board",
+  "description": "Live UQ bus times, trip planning, and library study-space status.",
+  "start_url": "/?page=board",
+  "display": "standalone",
+  "background_color": "#eef3f1",
+  "theme_color": "#51247a",
+  "icons": [
+    {
+      "src": "/app-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/app-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
