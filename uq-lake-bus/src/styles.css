@@ -10097,3 +10097,112 @@ body.library-amenities-overlay-open .app-shell.page-spaces .page-switcher {
     font-size: 0.76rem;
   }
 }
+
+/* Amenities overlay desktop repair: escape the main app's two-column shell. */
+body.library-amenities-overlay-open .app-shell.page-spaces {
+  width: 100%;
+  display: block;
+  grid-template-columns: none;
+}
+
+.page-spaces .library-amenities-overlay-canvas {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.page-spaces .library-amenities-overlay-card {
+  box-sizing: border-box;
+}
+
+.page-spaces .library-overlay-back {
+  white-space: nowrap;
+}
+
+.page-spaces .library-amenities-layout,
+.page-spaces .library-amenities-list {
+  display: grid;
+}
+
+.page-spaces .library-amenities-layout {
+  gap: 22px;
+}
+
+.page-spaces .library-amenities-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+.page-spaces .library-amenities-list {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 900px) {
+  .page-spaces .library-amenities-overlay-card {
+    max-width: min(1120px, calc(100vw - 96px));
+    padding: 48px;
+  }
+
+  .page-spaces .library-amenities-overlay-card .library-amenities-hero {
+    grid-template-columns: minmax(250px, 0.78fr) minmax(420px, 1.22fr);
+    align-items: center;
+    gap: 34px;
+  }
+
+  .page-spaces .library-amenities-title .section-title {
+    max-width: 8.5em;
+    font-size: clamp(2.55rem, 4.4vw, 4.05rem);
+    line-height: 0.92;
+  }
+
+  .page-spaces .library-amenities-summary-grid {
+    gap: 14px;
+  }
+
+  .page-spaces .library-amenities-summary-card {
+    min-height: 92px;
+    grid-template-columns: 54px minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .page-spaces .library-amenities-summary-card > span {
+    width: 54px;
+    height: 54px;
+  }
+
+  .page-spaces .library-amenities-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    align-items: start;
+  }
+
+  .page-spaces .library-amenity-icon-grid.compact {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .page-spaces .library-amenity-icon-grid.compact .library-amenity-icon-item {
+    border-radius: 20px;
+    padding: 14px 10px;
+  }
+}
+
+@media (min-width: 1180px) {
+  .page-spaces .library-amenities-overlay-card {
+    max-width: min(1240px, calc(100vw - 112px));
+  }
+
+  .page-spaces .library-amenity-icon-grid.compact {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 680px) {
+  .page-spaces .library-amenities-layout {
+    gap: 14px;
+  }
+
+  .page-spaces .library-amenities-overlay-card {
+    max-width: 100%;
+  }
+}
