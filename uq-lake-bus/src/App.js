@@ -1094,9 +1094,9 @@ export default function App() {
           className={`page-switcher-indicator ${
             currentPage === LIBRARY_SPACES_PAGE_ID
               ? "spaces"
-              : currentPage === PLANNER_PAGE_ID
-                ? "planner"
-                : "board"
+              : currentPage === BOARD_PAGE_ID
+                ? "board"
+                : "hidden"
           }`}
         />
         <button
@@ -1109,17 +1109,6 @@ export default function App() {
         >
           <FaBusAlt className="page-switcher-icon" aria-hidden="true" />
           <span>Live board</span>
-        </button>
-        <button
-          type="button"
-          className={`page-switcher-button ${
-            currentPage === PLANNER_PAGE_ID ? "active" : ""
-          }`}
-          aria-pressed={currentPage === PLANNER_PAGE_ID}
-          onClick={() => handlePageChange(PLANNER_PAGE_ID)}
-        >
-          <FaRoute className="page-switcher-icon" aria-hidden="true" />
-          <span>Trip planner</span>
         </button>
         <button
           type="button"
@@ -1146,6 +1135,15 @@ export default function App() {
                   <div className="brand-copy">
                     <div className="brand-copy-top">
                       <p className="eyebrow">{activeStop.displayName}</p>
+                      <button
+                        type="button"
+                        className="live-planner-shortcut"
+                        aria-label="Open trip planner"
+                        onClick={() => handlePageChange(PLANNER_PAGE_ID)}
+                      >
+                        <FaRoute aria-hidden="true" />
+                        <span>Plan</span>
+                      </button>
                       {activeStop.studentNote ? (
                         <span className="student-note">
                           {activeStop.studentNote}

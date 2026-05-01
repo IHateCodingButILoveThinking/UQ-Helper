@@ -517,7 +517,18 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
               ))}
             </div>
 
-            <motion.div className="library-amenities-list" layout>
+            <motion.div
+              className="library-amenities-list"
+              layout
+              transition={{
+                layout: {
+                  type: "spring",
+                  stiffness: 380,
+                  damping: 32,
+                  mass: 0.75,
+                },
+              }}
+            >
               {filteredLibraryAmenities.length ? (
                 <AnimatePresence mode="popLayout">
                   {filteredLibraryAmenities.map(({ amenities, library }, index) => {
@@ -525,21 +536,44 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
 
                     return (
                       <motion.article
-                        animate={{ opacity: 1, y: 0 }}
+                        animate={{
+                          filter: "blur(0px)",
+                          opacity: 1,
+                          scale: 1,
+                          y: 0,
+                        }}
                         className="library-amenities-library-card"
-                        exit={{ opacity: 0, scale: 0.97, y: -8 }}
-                        initial={{ opacity: 0, y: 10 }}
+                        exit={{
+                          filter: "blur(8px)",
+                          opacity: 0,
+                          scale: 0.98,
+                          y: 10,
+                        }}
+                        initial={{
+                          filter: "blur(8px)",
+                          opacity: 0,
+                          scale: 0.98,
+                          y: 16,
+                        }}
                         key={library.id}
                         layout
                         style={{ "--library-card-index": index }}
                         transition={{
                           layout: {
-                            duration: 0.34,
-                            ease: [0.2, 0.8, 0.2, 1],
+                            type: "spring",
+                            stiffness: 420,
+                            damping: 34,
+                            mass: 0.72,
                           },
-                          opacity: { duration: 0.18 },
-                          scale: { duration: 0.18 },
-                          y: { duration: 0.24 },
+                          filter: { duration: 0.18 },
+                          opacity: { duration: 0.2 },
+                          scale: { duration: 0.22 },
+                          y: {
+                            type: "spring",
+                            stiffness: 420,
+                            damping: 32,
+                            mass: 0.8,
+                          },
                         }}
                       >
                         <div className="library-amenities-library-head">
@@ -1078,17 +1112,39 @@ function AmenityIconGroups({
         <AnimatePresence mode="popLayout">
           {visibleAmenities.map(({ Icon, id, label: amenityLabel }, index) => (
             <motion.span
-              animate={{ opacity: 1, scale: 1 }}
+              animate={{
+                filter: "blur(0px)",
+                opacity: 1,
+                scale: 1,
+                y: 0,
+              }}
               className="library-amenity-icon-item"
-              exit={{ opacity: 0, scale: 0.9 }}
-              initial={{ opacity: 0, scale: 0.9 }}
+              exit={{
+                filter: "blur(6px)",
+                opacity: 0,
+                scale: 0.96,
+                y: -6,
+              }}
+              initial={{
+                filter: "blur(6px)",
+                opacity: 0,
+                scale: 0.96,
+                y: 8,
+              }}
               key={id}
               layout
               style={{ "--feature-index": index }}
               transition={{
-                layout: { duration: 0.3, ease: [0.2, 0.8, 0.2, 1] },
+                layout: {
+                  type: "spring",
+                  stiffness: 500,
+                  damping: 36,
+                  mass: 0.6,
+                },
+                filter: { duration: 0.16 },
                 opacity: { duration: 0.16 },
                 scale: { duration: 0.18 },
+                y: { duration: 0.2 },
               }}
             >
               <i>
@@ -1099,18 +1155,40 @@ function AmenityIconGroups({
           ))}
           {canToggle ? (
             <motion.button
-              animate={{ opacity: 1, scale: 1 }}
+              animate={{
+                filter: "blur(0px)",
+                opacity: 1,
+                scale: 1,
+                y: 0,
+              }}
               aria-expanded={expanded}
               className="library-amenity-more-count"
-              exit={{ opacity: 0, scale: 0.9 }}
-              initial={{ opacity: 0, scale: 0.9 }}
+              exit={{
+                filter: "blur(6px)",
+                opacity: 0,
+                scale: 0.96,
+                y: -6,
+              }}
+              initial={{
+                filter: "blur(6px)",
+                opacity: 0,
+                scale: 0.96,
+                y: 8,
+              }}
               key="amenity-toggle"
               layout
               onClick={onToggle}
               transition={{
-                layout: { duration: 0.3, ease: [0.2, 0.8, 0.2, 1] },
+                layout: {
+                  type: "spring",
+                  stiffness: 500,
+                  damping: 36,
+                  mass: 0.6,
+                },
+                filter: { duration: 0.16 },
                 opacity: { duration: 0.16 },
                 scale: { duration: 0.18 },
+                y: { duration: 0.2 },
               }}
               type="button"
             >
