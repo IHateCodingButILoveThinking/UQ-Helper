@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  FaBookOpen,
   FaBroadcastTower,
+  FaBusAlt,
   FaClock,
   FaExchangeAlt,
   FaMapMarkerAlt,
@@ -1112,16 +1114,44 @@ export default function App() {
   const showPrimaryNavigation =
     currentPage !== FERRY_PAGE_ID &&
     !(currentPage === LIBRARY_SPACES_PAGE_ID && librarySubPageOpen);
-  const skipNavigationMotion = previousPage === FERRY_PAGE_ID;
 
   return (
     <main className={`app-shell ${activeStop.themeClass} page-${currentPage}`}>
       {showPrimaryNavigation ? (
-        <PhysicalPageToggle
-          activePage={primaryTogglePage}
-          disableMotion={skipNavigationMotion}
-          onPageChange={handlePageChange}
-        />
+        <nav className="surface-panel page-switcher" aria-label="Choose page">
+          <span
+            aria-hidden="true"
+            className={`page-switcher-indicator ${
+              primaryTogglePage === LIBRARY_SPACES_PAGE_ID
+                ? "spaces"
+                : primaryTogglePage === BOARD_PAGE_ID
+                  ? "board"
+                  : "hidden"
+            }`}
+          />
+          <button
+            type="button"
+            className={`page-switcher-button ${
+              primaryTogglePage === BOARD_PAGE_ID ? "active" : ""
+            }`}
+            aria-pressed={primaryTogglePage === BOARD_PAGE_ID}
+            onClick={() => handlePageChange(BOARD_PAGE_ID)}
+          >
+            <FaBusAlt className="page-switcher-icon" aria-hidden="true" />
+            <span>Transport Board</span>
+          </button>
+          <button
+            type="button"
+            className={`page-switcher-button ${
+              primaryTogglePage === LIBRARY_SPACES_PAGE_ID ? "active" : ""
+            }`}
+            aria-pressed={primaryTogglePage === LIBRARY_SPACES_PAGE_ID}
+            onClick={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
+          >
+            <FaBookOpen className="page-switcher-icon" aria-hidden="true" />
+            <span>Study Spaces</span>
+          </button>
+        </nav>
       ) : null}
 
       <AnimatePresence mode="wait" initial={false}>
@@ -1807,129 +1837,6 @@ export default function App() {
         transition={toastTransition}
       />
     </main>
-  );
-}
-
-function PhysicalPageToggle({ activePage, disableMotion = false, onPageChange }) {
-  const isSpaces = activePage === LIBRARY_SPACES_PAGE_ID;
-  const nextPage = isSpaces ? BOARD_PAGE_ID : LIBRARY_SPACES_PAGE_ID;
-  const activeLabel = isSpaces ? "Study spaces" : "Live board";
-  const labelTransition = disableMotion
-    ? { duration: 0 }
-    : { duration: 0.18, ease: [0.22, 1, 0.36, 1] };
-  const trackTransition = disableMotion
-    ? { duration: 0 }
-    : { duration: 0.2, ease: "easeInOut" };
-  const thumbTransition = disableMotion
-    ? { duration: 0 }
-    : { type: "spring", stiffness: 650, damping: 36 };
-  const iconTransition = disableMotion ? { duration: 0 } : { duration: 0.15 };
-
-  return (
-    <motion.nav
-      aria-label="Choose page"
-      className="physical-page-toggle"
-      initial={false}
-    >
-      <motion.button
-        type="button"
-        className={`physical-toggle-label ${!isSpaces ? "active" : ""}`}
-        animate={{
-          color: !isSpaces ? "#001d3d" : "#8a96a3",
-          scale: !isSpaces ? 1.08 : 1,
-        }}
-        initial={false}
-        transition={labelTransition}
-        aria-pressed={!isSpaces}
-        onClick={() => onPageChange(BOARD_PAGE_ID)}
-      >
-        Transport Board
-      </motion.button>
-
-      <motion.button
-        type="button"
-        className={`physical-toggle-track ${isSpaces ? "spaces" : "board"}`}
-        animate={{
-          backgroundColor: isSpaces ? "#f3e5f5" : "#e1f0fa",
-        }}
-        aria-label={`Switch to ${isSpaces ? "live board" : "study spaces"}`}
-        title={activeLabel}
-        initial={false}
-        transition={trackTransition}
-        onClick={() => onPageChange(nextPage)}
-      >
-        <motion.span
-          className="physical-toggle-knob"
-          animate={{
-            left: isSpaces ? "calc(100% - 28px)" : "6px",
-          }}
-          initial={false}
-          transition={thumbTransition}
-        >
-          <AnimatePresence mode="popLayout" initial={false}>
-            <motion.span
-              key={isSpaces ? "spaces" : "board"}
-              className={`physical-toggle-icon ${isSpaces ? "spaces" : "board"}`}
-              initial={{ opacity: 0, y: 15, rotate: -45, scale: 0.5 }}
-              animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -15, rotate: 45, scale: 0.5 }}
-              transition={iconTransition}
-            >
-              {isSpaces ? <ToggleLibraryIcon /> : <ToggleBusIcon />}
-            </motion.span>
-          </AnimatePresence>
-        </motion.span>
-      </motion.button>
-
-      <motion.button
-        type="button"
-        className={`physical-toggle-label ${isSpaces ? "active" : ""}`}
-        animate={{
-          color: isSpaces ? "#4a2075" : "#8a96a3",
-          scale: isSpaces ? 1.08 : 1,
-        }}
-        initial={false}
-        transition={labelTransition}
-        aria-pressed={isSpaces}
-        onClick={() => onPageChange(LIBRARY_SPACES_PAGE_ID)}
-      >
-        Study Spaces
-      </motion.button>
-    </motion.nav>
-  );
-}
-
-function ToggleBusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M7 20h10M8 17.5v2M16 17.5v2M6.5 6.5h11M7.5 13h.01M16.5 13h.01"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M7 4.5h10c1.1 0 2 .9 2 2v9c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2v-9c0-1.1.9-2 2-2Z"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
-function ToggleLibraryIcon() {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M4 19.5V5.75C4 4.78 4.78 4 5.75 4H10c1.1 0 2 .9 2 2v13.5M20 19.5V5.75C20 4.78 19.22 4 18.25 4H14c-1.1 0-2 .9-2 2v13.5M5 18h5.5c.83 0 1.5.67 1.5 1.5 0-.83.67-1.5 1.5-1.5H19"
-        stroke="currentColor"
-        strokeWidth="2.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }
 
