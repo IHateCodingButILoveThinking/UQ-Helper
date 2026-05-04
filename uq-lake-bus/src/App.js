@@ -1,20 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
-  FaBookOpen,
   FaBroadcastTower,
-  FaBusAlt,
   FaClock,
   FaExchangeAlt,
   FaMapMarkerAlt,
   FaRoute,
   FaSearch,
+  FaShip,
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
-import uqChancellorsLockup from "./assets/uq-lockup-classic.svg";
-import uqLakesLockup from "./assets/uq-lockup.svg";
+import FerryTimesPage from "./pages/FerryTimesPage";
 import LibrarySpacesPage from "./pages/LibrarySpacesPage";
 
 const REFRESH_MS = 30000;
@@ -25,6 +24,7 @@ const ALL_ROUTES_ID = "all-routes";
 const BOARD_PAGE_ID = "board";
 const PLANNER_PAGE_ID = "planner";
 const LIBRARY_SPACES_PAGE_ID = "spaces";
+const FERRY_PAGE_ID = "ferry";
 const PLANNER_FIELD_ORIGIN = "origin";
 const PLANNER_FIELD_DESTINATION = "destination";
 const WALKABLE_UQ_STOP_MESSAGE =
@@ -77,7 +77,6 @@ const STOPS = {
       "st lucia",
     ],
     studentNote: "",
-    logoSrc: uqLakesLockup,
     sheetDescription: "Current live board for the lakeside UQ stop.",
     sourceMode: "live",
   },
@@ -96,7 +95,6 @@ const STOPS = {
       "st lucia",
     ],
     studentNote: "",
-    logoSrc: uqChancellorsLockup,
     sheetDescription: "Current live board for Chancellor's Place UQ stop.",
     sourceMode: "preview",
   },
@@ -195,6 +193,8 @@ const OFFICIAL_STATION_CHOICES = [
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState(getInitialPageId);
+  const [previousPage, setPreviousPage] = useState(null);
+  const [librarySubPageOpen, setLibrarySubPageOpen] = useState(false);
   const [selectedStopId, setSelectedStopId] = useState(getInitialStopId);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -354,9 +354,11 @@ export default function App() {
     document.title =
       currentPage === LIBRARY_SPACES_PAGE_ID
         ? "UQ Library Study Spaces"
-        : currentPage === PLANNER_PAGE_ID
-          ? "Direct Bus Planner"
-          : `${activeStop.switchLabel} Bus Board`;
+        : currentPage === FERRY_PAGE_ID
+          ? "UQ F1 Ferry Times"
+          : currentPage === PLANNER_PAGE_ID
+            ? "Direct Bus Planner"
+            : `${activeStop.switchLabel} Bus Board`;
 
     return () => {
       document.documentElement.removeAttribute("data-stop-theme");
@@ -732,13 +734,22 @@ export default function App() {
 
   const handlePageChange = (pageId) => {
     if (
-      ![BOARD_PAGE_ID, PLANNER_PAGE_ID, LIBRARY_SPACES_PAGE_ID].includes(pageId)
+      ![
+        BOARD_PAGE_ID,
+        PLANNER_PAGE_ID,
+        LIBRARY_SPACES_PAGE_ID,
+        FERRY_PAGE_ID,
+      ].includes(pageId)
     ) {
       return;
     }
 
     setFilterOpen(false);
     setStopSheetOpen(false);
+
+    if (pageId !== currentPage) {
+      setPreviousPage(currentPage);
+    }
 
     if (pageId === PLANNER_PAGE_ID) {
       setPlannerOriginQuery(
@@ -1086,45 +1097,59 @@ export default function App() {
     });
   };
 
+  const primaryTogglePage =
+    currentPage === LIBRARY_SPACES_PAGE_ID
+      ? LIBRARY_SPACES_PAGE_ID
+      : BOARD_PAGE_ID;
+  const usePageMotion =
+    currentPage !== FERRY_PAGE_ID && previousPage !== FERRY_PAGE_ID;
+  const pageInitialState = usePageMotion
+    ? { opacity: 0, x: -50, scale: 0.95, filter: "blur(5px)" }
+    : { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" };
+  const pageExitState = usePageMotion
+    ? { opacity: 0, x: 50, scale: 0.95, filter: "blur(5px)" }
+    : { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" };
+  const showPrimaryNavigation =
+    currentPage !== FERRY_PAGE_ID &&
+    !(currentPage === LIBRARY_SPACES_PAGE_ID && librarySubPageOpen);
+  const skipNavigationMotion = previousPage === FERRY_PAGE_ID;
+
   return (
     <main className={`app-shell ${activeStop.themeClass} page-${currentPage}`}>
-      <nav className="surface-panel page-switcher" aria-label="Choose page">
-        <span
-          aria-hidden="true"
-          className={`page-switcher-indicator ${
-            currentPage === LIBRARY_SPACES_PAGE_ID
-              ? "spaces"
-              : currentPage === BOARD_PAGE_ID
-                ? "board"
-                : "hidden"
-          }`}
+      {showPrimaryNavigation ? (
+        <PhysicalPageToggle
+          activePage={primaryTogglePage}
+          disableMotion={skipNavigationMotion}
+          onPageChange={handlePageChange}
         />
-        <button
-          type="button"
-          className={`page-switcher-button ${
-            currentPage === BOARD_PAGE_ID ? "active" : ""
-          }`}
-          aria-pressed={currentPage === BOARD_PAGE_ID}
-          onClick={() => handlePageChange(BOARD_PAGE_ID)}
-        >
-          <FaBusAlt className="page-switcher-icon" aria-hidden="true" />
-          <span>Live board</span>
-        </button>
-        <button
-          type="button"
-          className={`page-switcher-button ${
-            currentPage === LIBRARY_SPACES_PAGE_ID ? "active" : ""
-          }`}
-          aria-pressed={currentPage === LIBRARY_SPACES_PAGE_ID}
-          onClick={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
-        >
-          <FaBookOpen className="page-switcher-icon" aria-hidden="true" />
-          <span>Study spaces</span>
-        </button>
-      </nav>
+      ) : null}
 
-      {currentPage === BOARD_PAGE_ID ? (
-        <>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={currentPage}
+          className={[
+            "page-content-motion",
+            currentPage === BOARD_PAGE_ID ? "board-content-motion" : "",
+            currentPage === FERRY_PAGE_ID ? "ferry-content-motion" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          initial={pageInitialState}
+          animate={{
+            opacity: 1,
+            x: 0,
+            scale: 1,
+            filter: "blur(0px)",
+          }}
+          exit={pageExitState}
+          transition={{
+            type: "spring",
+            bounce: 0.22,
+            duration: usePageMotion ? 0.3 : 0,
+          }}
+        >
+          {currentPage === BOARD_PAGE_ID ? (
+            <>
           <div className="side-stack">
             <section className="surface-panel hero-panel">
               <div className="hero-glow hero-glow-top" aria-hidden="true" />
@@ -1135,6 +1160,14 @@ export default function App() {
                   <div className="brand-copy">
                     <div className="brand-copy-top">
                       <p className="eyebrow">{activeStop.displayName}</p>
+                      {activeStop.studentNote ? (
+                        <span className="student-note">
+                          {activeStop.studentNote}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="hero-action-group">
                       <button
                         type="button"
                         className="live-planner-shortcut"
@@ -1144,43 +1177,48 @@ export default function App() {
                         <FaRoute aria-hidden="true" />
                         <span>Plan</span>
                       </button>
-                      {activeStop.studentNote ? (
-                        <span className="student-note">
-                          {activeStop.studentNote}
-                        </span>
-                      ) : null}
-                    </div>
 
-                    <button
-                      type="button"
-                      className={`stop-control ${stopSheetOpen ? "open" : ""}`}
-                      aria-expanded={stopSheetOpen}
-                      aria-haspopup="listbox"
-                      aria-label={`Switch UQ bus stop. Current stop ${activeStop.switchLabel}`}
-                      onClick={() => {
-                        setFilterOpen(false);
-                        setStopSheetOpen((currentOpen) => !currentOpen);
-                      }}
-                    >
-                      <span
-                        className={`stop-control-icon ${showLoadingState ? "pending" : ""}`}
-                        aria-hidden="true"
-                      >
-                        {showLoadingState ? <SpinnerIcon /> : <SwitchIcon />}
-                      </span>
-                      <span className="stop-control-label">Switch stop</span>
-                      <span className="stop-control-arrow" aria-hidden="true">
-                        <ChevronIcon />
-                      </span>
-                    </button>
+                      <div className="hero-control-stack">
+                        <button
+                          type="button"
+                          className={`stop-control ${stopSheetOpen ? "open" : ""}`}
+                          aria-expanded={stopSheetOpen}
+                          aria-haspopup="listbox"
+                          aria-label={`Switch UQ bus stop. Current stop ${activeStop.switchLabel}`}
+                          onClick={() => {
+                            setFilterOpen(false);
+                            setStopSheetOpen((currentOpen) => !currentOpen);
+                          }}
+                        >
+                          <span
+                            className={`stop-control-icon ${showLoadingState ? "pending" : ""}`}
+                            aria-hidden="true"
+                          >
+                            {showLoadingState ? <SpinnerIcon /> : <SwitchIcon />}
+                          </span>
+                          <span className="stop-control-label">Switch stop</span>
+                          <span className="stop-control-arrow" aria-hidden="true">
+                            <ChevronIcon />
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="ferry-control"
+                          aria-label="Open live F1 ferry times"
+                          onClick={() => handlePageChange(FERRY_PAGE_ID)}
+                        >
+                          <span className="ferry-control-icon" aria-hidden="true">
+                            <FaShip />
+                          </span>
+                          <span className="ferry-control-label">Ferry</span>
+                          <span className="ferry-control-route">F1</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <img
-                  className="uq-lockup"
-                  src={activeStop.logoSrc}
-                  alt="The University of Queensland Australia"
-                />
               </div>
 
               {nextDeparture ? (
@@ -1403,7 +1441,7 @@ export default function App() {
             )}
           </section>
         </>
-      ) : currentPage === PLANNER_PAGE_ID ? (
+          ) : currentPage === PLANNER_PAGE_ID ? (
         <section className="planner-layout">
           <section className="surface-panel planner-panel">
             <div className="planner-copy">
@@ -1573,33 +1611,40 @@ export default function App() {
             )}
           </section>
         </section>
-      ) : (
+          ) : currentPage === FERRY_PAGE_ID ? (
+        <FerryTimesPage onBack={() => handlePageChange(BOARD_PAGE_ID)} />
+          ) : (
         <LibrarySpacesPage
           libraryError={librarySpacesError}
           libraryLoading={
             librarySpacesLoading || (!librarySpaces && !librarySpacesError)
           }
           librarySpaces={librarySpaces}
+          onSubPageOpenChange={setLibrarySubPageOpen}
         />
-      )}
+          )}
+        </motion.div>
+      </AnimatePresence>
 
-      <footer className="app-footer">
-        <div className="app-footer-copy">
-          <strong>{footerCopy.title}</strong>
-          <p>{footerCopy.text}</p>
-        </div>
+      {currentPage !== FERRY_PAGE_ID ? (
+        <footer className="app-footer">
+          <div className="app-footer-copy">
+            <strong>{footerCopy.title}</strong>
+            <p>{footerCopy.text}</p>
+          </div>
 
-        {footerSourceUrl ? (
-          <a
-            className="app-footer-link"
-            href={footerSourceUrl}
-            target="_blank"
-            rel="noreferrer"
-          >
-            View source
-          </a>
-        ) : null}
-      </footer>
+          {footerSourceUrl ? (
+            <a
+              className="app-footer-link"
+              href={footerSourceUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              View source
+            </a>
+          ) : null}
+        </footer>
+      ) : null}
 
       {currentPage === BOARD_PAGE_ID && filterOpen ? (
         <div className="filter-sheet-layer">
@@ -1762,6 +1807,129 @@ export default function App() {
         transition={toastTransition}
       />
     </main>
+  );
+}
+
+function PhysicalPageToggle({ activePage, disableMotion = false, onPageChange }) {
+  const isSpaces = activePage === LIBRARY_SPACES_PAGE_ID;
+  const nextPage = isSpaces ? BOARD_PAGE_ID : LIBRARY_SPACES_PAGE_ID;
+  const activeLabel = isSpaces ? "Study spaces" : "Live board";
+  const labelTransition = disableMotion
+    ? { duration: 0 }
+    : { duration: 0.18, ease: [0.22, 1, 0.36, 1] };
+  const trackTransition = disableMotion
+    ? { duration: 0 }
+    : { duration: 0.2, ease: "easeInOut" };
+  const thumbTransition = disableMotion
+    ? { duration: 0 }
+    : { type: "spring", stiffness: 650, damping: 36 };
+  const iconTransition = disableMotion ? { duration: 0 } : { duration: 0.15 };
+
+  return (
+    <motion.nav
+      aria-label="Choose page"
+      className="physical-page-toggle"
+      initial={false}
+    >
+      <motion.button
+        type="button"
+        className={`physical-toggle-label ${!isSpaces ? "active" : ""}`}
+        animate={{
+          color: !isSpaces ? "#001d3d" : "#8a96a3",
+          scale: !isSpaces ? 1.08 : 1,
+        }}
+        initial={false}
+        transition={labelTransition}
+        aria-pressed={!isSpaces}
+        onClick={() => onPageChange(BOARD_PAGE_ID)}
+      >
+        Transport Board
+      </motion.button>
+
+      <motion.button
+        type="button"
+        className={`physical-toggle-track ${isSpaces ? "spaces" : "board"}`}
+        animate={{
+          backgroundColor: isSpaces ? "#f3e5f5" : "#e1f0fa",
+        }}
+        aria-label={`Switch to ${isSpaces ? "live board" : "study spaces"}`}
+        title={activeLabel}
+        initial={false}
+        transition={trackTransition}
+        onClick={() => onPageChange(nextPage)}
+      >
+        <motion.span
+          className="physical-toggle-knob"
+          animate={{
+            left: isSpaces ? "calc(100% - 28px)" : "6px",
+          }}
+          initial={false}
+          transition={thumbTransition}
+        >
+          <AnimatePresence mode="popLayout" initial={false}>
+            <motion.span
+              key={isSpaces ? "spaces" : "board"}
+              className={`physical-toggle-icon ${isSpaces ? "spaces" : "board"}`}
+              initial={{ opacity: 0, y: 15, rotate: -45, scale: 0.5 }}
+              animate={{ opacity: 1, y: 0, rotate: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -15, rotate: 45, scale: 0.5 }}
+              transition={iconTransition}
+            >
+              {isSpaces ? <ToggleLibraryIcon /> : <ToggleBusIcon />}
+            </motion.span>
+          </AnimatePresence>
+        </motion.span>
+      </motion.button>
+
+      <motion.button
+        type="button"
+        className={`physical-toggle-label ${isSpaces ? "active" : ""}`}
+        animate={{
+          color: isSpaces ? "#4a2075" : "#8a96a3",
+          scale: isSpaces ? 1.08 : 1,
+        }}
+        initial={false}
+        transition={labelTransition}
+        aria-pressed={isSpaces}
+        onClick={() => onPageChange(LIBRARY_SPACES_PAGE_ID)}
+      >
+        Study Spaces
+      </motion.button>
+    </motion.nav>
+  );
+}
+
+function ToggleBusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M7 20h10M8 17.5v2M16 17.5v2M6.5 6.5h11M7.5 13h.01M16.5 13h.01"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M7 4.5h10c1.1 0 2 .9 2 2v9c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2v-9c0-1.1.9-2 2-2Z"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function ToggleLibraryIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4 19.5V5.75C4 4.78 4.78 4 5.75 4H10c1.1 0 2 .9 2 2v13.5M20 19.5V5.75C20 4.78 19.22 4 18.25 4H14c-1.1 0-2 .9-2 2v13.5M5 18h5.5c.83 0 1.5.67 1.5 1.5 0-.83.67-1.5 1.5-1.5H19"
+        stroke="currentColor"
+        strokeWidth="2.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -2243,6 +2411,10 @@ function getInitialPageId() {
 
   if (pageId === LIBRARY_SPACES_PAGE_ID) {
     return LIBRARY_SPACES_PAGE_ID;
+  }
+
+  if (pageId === FERRY_PAGE_ID) {
+    return FERRY_PAGE_ID;
   }
 
   return BOARD_PAGE_ID;
@@ -3018,7 +3190,7 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
     url.searchParams.set("page", pageId);
   }
 
-  if (pageId === LIBRARY_SPACES_PAGE_ID) {
+  if (pageId === LIBRARY_SPACES_PAGE_ID || pageId === FERRY_PAGE_ID) {
     url.searchParams.delete("stop");
     url.searchParams.delete("route");
     return `${url.pathname}${url.search}${url.hash}`;

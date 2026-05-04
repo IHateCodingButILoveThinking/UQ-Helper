@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express from "express";
 
 import { fetchDepartures, fetchStopMatches } from "./departures.js";
+import { fetchFerryDepartures } from "./ferries.js";
 import { fetchLibrarySpaces } from "./library-spaces.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -47,6 +48,19 @@ app.get("/api/stops/search", async (request, response) => {
     console.error("Could not search Translink stops", error);
     response.status(500).json({
       error: "Could not search Translink stops right now.",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+app.get("/api/ferries", async (_request, response) => {
+  try {
+    const ferries = await fetchFerryDepartures();
+    response.json(ferries);
+  } catch (error) {
+    console.error("Could not fetch Translink ferry departures", error);
+    response.status(500).json({
+      error: "Could not load live ferry times right now.",
       details: error instanceof Error ? error.message : "Unknown error",
     });
   }

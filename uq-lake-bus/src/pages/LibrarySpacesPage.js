@@ -138,6 +138,7 @@ export default function LibrarySpacesPage({
   libraryError,
   libraryLoading,
   librarySpaces,
+  onSubPageOpenChange,
 }) {
   const [selectedCampusFilterId, setSelectedCampusFilterId] = useState(
     DEFAULT_CAMPUS_FILTER_ID,
@@ -171,6 +172,14 @@ export default function LibrarySpacesPage({
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, [selectedLibraryId, showAmenitiesGuide]);
+
+  useEffect(() => {
+    onSubPageOpenChange?.(Boolean(selectedLibraryId || showAmenitiesGuide));
+
+    return () => {
+      onSubPageOpenChange?.(false);
+    };
+  }, [onSubPageOpenChange, selectedLibraryId, showAmenitiesGuide]);
 
   if (showAmenitiesGuide) {
     return (

@@ -8,6 +8,9 @@
     "api/departures.js": {
       "maxDuration": 30
     },
+    "api/ferries.js": {
+      "maxDuration": 30
+    },
     "api/library-spaces.js": {
       "maxDuration": 30
     },

@@ -122,7 +122,7 @@ export async function fetchDepartures(options = {}) {
   const station = await fetchJson(
     `https://jp.translink.com.au/api/stop/timetable/${encodeURIComponent(stopLookup)}`,
   );
-  const stationStops = Array.isArray(station?.stops) ? station.stops : [];
+  const stationStops = normalizeTimetableLookupStops(station);
 
   if (!stationStops.length) {
     throw new Error(`Could not find stop data for ${stopLookup}.`);
@@ -167,6 +167,26 @@ export async function fetchDepartures(options = {}) {
   });
 
   return payload;
+}
+
+function normalizeTimetableLookupStops(station) {
+  if (Array.isArray(station?.stops)) {
+    return station.stops;
+  }
+
+  const id = String(station?.id ?? "").trim();
+  const name = String(station?.name ?? "").trim();
+
+  if (!id || !name) {
+    return [];
+  }
+
+  return [
+    {
+      id,
+      name,
+    },
+  ];
 }
 
 function getDepartureLimit(limit) {
