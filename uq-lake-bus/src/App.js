@@ -1106,11 +1106,11 @@ export default function App() {
   const usePageMotion =
     currentPage !== FERRY_PAGE_ID && previousPage !== FERRY_PAGE_ID;
   const pageInitialState = usePageMotion
-    ? { opacity: 0, x: -50, scale: 0.95, filter: "blur(5px)" }
-    : { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" };
+    ? { opacity: 0, y: 10, scale: 0.985, filter: "blur(4px)" }
+    : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
   const pageExitState = usePageMotion
-    ? { opacity: 0, x: 50, scale: 0.95, filter: "blur(5px)" }
-    : { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" };
+    ? { opacity: 0, y: -6, scale: 0.99, filter: "blur(3px)" }
+    : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
   const showPrimaryNavigation =
     currentPage !== FERRY_PAGE_ID &&
     !(currentPage === LIBRARY_SPACES_PAGE_ID && librarySubPageOpen);
@@ -1167,15 +1167,14 @@ export default function App() {
           initial={pageInitialState}
           animate={{
             opacity: 1,
-            x: 0,
+            y: 0,
             scale: 1,
             filter: "blur(0px)",
           }}
           exit={pageExitState}
           transition={{
-            type: "spring",
-            bounce: 0.22,
-            duration: usePageMotion ? 0.3 : 0,
+            duration: usePageMotion ? 0.22 : 0,
+            ease: [0.22, 1, 0.36, 1],
           }}
         >
           {currentPage === BOARD_PAGE_ID ? (
