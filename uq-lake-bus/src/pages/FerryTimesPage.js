@@ -2,19 +2,41 @@ import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FaArrowLeft,
+  FaChevronDown,
+  FaClock,
+  FaExchangeAlt,
   FaExclamationCircle,
   FaMapMarkerAlt,
   FaShip,
   FaSyncAlt,
+  FaToggleOff,
+  FaToggleOn,
 } from "react-icons/fa";
 
-const FERRY_REFRESH_MS = 30000;
+const FERRY_REFRESH_MS = 15000;
 const FERRY_REFRESH_FEEDBACK_MS = 800;
 const FERRY_ROUTE_CODE = "F1";
 const FERRY_ROUTE_NAME = "F1 Northshore Hamilton/UQ St Lucia";
 const FERRY_STOP_NAME = "UQ St Lucia ferry terminal";
 const FERRY_DEFAULT_JOURNEY_ID = "uq-to-northshore";
 const BRISBANE_TZ = "Australia/Brisbane";
+const SIMPLE_DIRECTION_TO_UQ = "toUq";
+const SIMPLE_DIRECTION_FROM_UQ = "fromUq";
+const SIMPLE_STATIONS = [
+  "Northshore Hamilton",
+  "Bretts Wharf",
+  "Teneriffe",
+  "Bulimba",
+  "Riverside",
+  "QUT Gardens Point",
+  "South Bank",
+  "West End",
+  "Guyatt Park",
+  "UQ St Lucia",
+];
+const SIMPLE_SELECTABLE_STATIONS = SIMPLE_STATIONS.filter((station) => {
+  return station !== "UQ St Lucia";
+});
 const FERRY_JOURNEYS = [
   {
     id: FERRY_DEFAULT_JOURNEY_ID,
@@ -48,10 +70,34 @@ export default function FerryTimesPage({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [isSimplified, setIsSimplified] = useState(false);
+  const [simpleDirection, setSimpleDirection] = useState(
+    SIMPLE_DIRECTION_TO_UQ,
+  );
+  const [myStation, setMyStation] = useState("South Bank");
   const [selectedJourneyId, setSelectedJourneyId] = useState(
     FERRY_DEFAULT_JOURNEY_ID,
   );
   const selectedJourney = getFerryJourney(selectedJourneyId);
+  const activeJourney = isSimplified
+    ? getSimpleFerryJourney(simpleDirection, myStation)
+    : selectedJourney;
+  const resetFerryPayload = () => {
+    setFerryData(null);
+    setError("");
+  };
+  const toggleSimpleMode = () => {
+    resetFerryPayload();
+    setIsSimplified((currentValue) => !currentValue);
+  };
+  const handleSimpleDirectionChange = (nextDirection) => {
+    resetFerryPayload();
+    setSimpleDirection(nextDirection);
+  };
+  const handleSimpleStationChange = (nextStation) => {
+    resetFerryPayload();
+    setMyStation(nextStation);
+  };
 
   const fetchData = async ({ silent = false } = {}) => {
     const refreshStartedAt = Date.now();
@@ -63,7 +109,7 @@ export default function FerryTimesPage({ onBack }) {
     }
 
     try {
-      const nextData = await fetchFerryPayload(selectedJourney);
+      const nextData = await fetchFerryPayload(activeJourney);
       setFerryData(nextData);
       setError("");
     } catch (fetchError) {
@@ -104,9 +150,15 @@ export default function FerryTimesPage({ onBack }) {
       isActive = false;
       window.clearInterval(intervalId);
     };
-  }, [selectedJourneyId]);
+  }, [activeJourney.id]);
 
   const departures = ferryData?.departures ?? [];
+  const simpleSummary = getSimpleFerrySummary({
+    departure: departures[0],
+    direction: simpleDirection,
+    hasLiveStationData: Boolean(departures[0]),
+    stationName: myStation,
+  });
   const updatedLabel = ferryData?.generatedAt
     ? formatFerryTimestamp(ferryData.generatedAt)
     : "Loading";
@@ -164,64 +216,112 @@ export default function FerryTimesPage({ onBack }) {
           <h1>Live Ferry Times</h1>
           <span>Updated {updatedLabel}</span>
         </div>
+
+        <button
+          type="button"
+          className={`ferry-simple-toggle ${isSimplified ? "active" : ""}`}
+          aria-pressed={isSimplified}
+          onClick={toggleSimpleMode}
+        >
+          {isSimplified ? (
+            <FaToggleOn aria-hidden="true" />
+          ) : (
+            <FaToggleOff aria-hidden="true" />
+          )}
+          <span>{isSimplified ? "Simple mode on" : "Simple view"}</span>
+        </button>
       </header>
 
       <main className="ferry-content">
-        <div className="ferry-journey-switcher" aria-label="Choose ferry trip">
-          {FERRY_JOURNEYS.map((journey) => (
-            <button
-              key={journey.id}
-              type="button"
-              className={`ferry-journey-chip ${
-                selectedJourneyId === journey.id ? "active" : ""
-              }`}
-              aria-pressed={selectedJourneyId === journey.id}
-              onClick={() => {
-                if (journey.id !== selectedJourneyId) {
-                  setFerryData(null);
-                  setError("");
-                  setSelectedJourneyId(journey.id);
-                }
-              }}
+        <AnimatePresence mode="wait" initial={false}>
+          {isSimplified ? (
+            <motion.div
+              key="simple-ferry"
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="ferry-simple-shell"
+              exit={{ opacity: 0, scale: 0.98, y: -8 }}
+              initial={{ opacity: 0, scale: 0.98, y: 14 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
             >
-              {journey.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="ferry-departure-list">
-          {loading ? (
-            Array.from({ length: 4 }, (_, index) => (
-              <article
-                className="ferry-departure-card skeleton-card"
-                key={index}
+              <SimpleFerryPanel
+                direction={simpleDirection}
+                isRefreshing={isRefreshing || loading}
+                myStation={myStation}
+                onDirectionChange={handleSimpleDirectionChange}
+                onStationChange={handleSimpleStationChange}
+                summary={simpleSummary}
               />
-            ))
-          ) : error ? (
-            <div className="ferry-error-card">
-              <FaExclamationCircle aria-hidden="true" />
-              <p>{error}</p>
-            </div>
-          ) : departures.length ? (
-            <AnimatePresence mode="popLayout">
-              {departures.map((departure, index) => (
-                <FerryDepartureCard
-                  departure={departure}
-                  index={index}
-                  isRefreshing={isRefreshing}
-                  journey={selectedJourney}
-                  key={departure.id}
-                  showProgress={index === 0}
-                />
-              ))}
-            </AnimatePresence>
+            </motion.div>
           ) : (
-            <div className="ferry-empty-card">
-              No F1 ferries from {selectedJourney.originLabel} to{" "}
-              {selectedJourney.destinationLabel} are listed right now.
-            </div>
+            <motion.div
+              key="detailed-ferry"
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              className="ferry-detailed-shell"
+              exit={{ opacity: 0, scale: 0.98, y: -8 }}
+              initial={{ opacity: 0, scale: 0.98, y: 14 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <div
+                className="ferry-journey-switcher"
+                aria-label="Choose ferry trip"
+              >
+                {FERRY_JOURNEYS.map((journey) => (
+                  <button
+                    key={journey.id}
+                    type="button"
+                    className={`ferry-journey-chip ${
+                      selectedJourneyId === journey.id ? "active" : ""
+                    }`}
+                    aria-pressed={selectedJourneyId === journey.id}
+                    onClick={() => {
+                      if (journey.id !== selectedJourneyId) {
+                        setFerryData(null);
+                        setError("");
+                        setSelectedJourneyId(journey.id);
+                      }
+                    }}
+                  >
+                    {journey.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="ferry-departure-list">
+                {loading ? (
+                  Array.from({ length: 4 }, (_, index) => (
+                    <article
+                      className="ferry-departure-card skeleton-card"
+                      key={index}
+                    />
+                  ))
+                ) : error ? (
+                  <div className="ferry-error-card">
+                    <FaExclamationCircle aria-hidden="true" />
+                    <p>{error}</p>
+                  </div>
+                ) : departures.length ? (
+                  <AnimatePresence mode="popLayout">
+                    {departures.map((departure, index) => (
+                      <FerryDepartureCard
+                        departure={departure}
+                        index={index}
+                        isRefreshing={isRefreshing}
+                        journey={selectedJourney}
+                        key={departure.id}
+                        showProgress={index === 0}
+                      />
+                    ))}
+                  </AnimatePresence>
+                ) : (
+                  <div className="ferry-empty-card">
+                    No F1 ferries from {selectedJourney.originLabel} to{" "}
+                    {selectedJourney.destinationLabel} are listed right now.
+                  </div>
+                )}
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </main>
     </motion.section>
   );
@@ -318,6 +418,122 @@ function buildFerryPayloadFromDepartures(timetable, journey) {
     sourceUrl: timetable?.sourceUrl,
     stopName: timetable?.stopName ?? journey.originStopName,
   };
+}
+
+function SimpleFerryPanel({
+  direction,
+  isRefreshing,
+  myStation,
+  onDirectionChange,
+  onStationChange,
+  summary,
+}) {
+  const goingToUq = direction === SIMPLE_DIRECTION_TO_UQ;
+
+  return (
+    <article className={`ferry-simple-card ${isRefreshing ? "refreshing" : ""}`}>
+      <div className="ferry-simple-topline">
+        <div>
+          <span className="ferry-simple-kicker">Simple F1 helper</span>
+          <h2>{goingToUq ? "Get me to UQ" : "Leave from UQ"}</h2>
+        </div>
+
+        <button
+          type="button"
+          className="ferry-simple-direction"
+          onClick={() =>
+            onDirectionChange(
+              goingToUq ? SIMPLE_DIRECTION_FROM_UQ : SIMPLE_DIRECTION_TO_UQ,
+            )
+          }
+        >
+          <FaExchangeAlt aria-hidden="true" />
+          <span>{goingToUq ? "To UQ" : "From UQ"}</span>
+        </button>
+      </div>
+
+      <label className="ferry-simple-select-label">
+        <span>{goingToUq ? "I am at" : "I want to go to"}</span>
+        <span className="ferry-simple-select-shell">
+          <select
+            value={myStation}
+            onChange={(event) => onStationChange(event.target.value)}
+          >
+            {SIMPLE_SELECTABLE_STATIONS.map((station) => (
+              <option key={station} value={station}>
+                {station}
+              </option>
+            ))}
+          </select>
+          <FaChevronDown aria-hidden="true" />
+        </span>
+      </label>
+
+      <div className="ferry-simple-destination">
+        <span className="ferry-simple-live-dot" aria-hidden="true" />
+        <span>
+          Destination: <strong>{summary.destinationLabel}</strong>
+        </span>
+      </div>
+
+      <div className="ferry-simple-timer">
+        <FaClock aria-hidden="true" />
+        <div>
+          <span>Estimated wait</span>
+          <strong>{summary.waitText}</strong>
+        </div>
+      </div>
+
+      <SimpleFerryWave summary={summary} />
+
+      <div className="ferry-simple-meta">
+        <span>Ferry near</span>
+        <strong>{summary.ferryLocation}</strong>
+      </div>
+    </article>
+  );
+}
+
+function SimpleFerryWave({ summary }) {
+  const wavePath = "M 4 38 C 54 10 90 66 144 38 S 234 10 324 38";
+
+  return (
+    <div className="ferry-simple-wave" aria-hidden="true">
+      <svg viewBox="0 0 328 78" preserveAspectRatio="none">
+        <path className="ferry-simple-wave-base" d={wavePath} pathLength="100" />
+        <motion.path
+          className="ferry-simple-wave-fill"
+          d={wavePath}
+          pathLength="100"
+          initial={{ strokeDasharray: "100 100", strokeDashoffset: 100 }}
+          animate={{ strokeDashoffset: 100 - summary.progressPercent }}
+          transition={{
+            type: "spring",
+            stiffness: 130,
+            damping: 22,
+            mass: 0.75,
+          }}
+        />
+      </svg>
+
+      <motion.span
+        className="ferry-simple-ship"
+        animate={{
+          rotate: [-2, 3, -2],
+          y: [0, -5, 0],
+        }}
+        style={{
+          left: `clamp(4px, calc(${summary.progressPercent}% - 18px), calc(100% - 40px))`,
+        }}
+        transition={{
+          rotate: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+          y: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
+        }}
+      >
+        <FaShip />
+      </motion.span>
+    </div>
+  );
 }
 
 function FerryDepartureCard({
@@ -444,6 +660,82 @@ function getFerryJourney(journeyId) {
   );
 }
 
+function getSimpleFerryJourney(direction, stationName) {
+  const safeStationName = getSafeSimpleStation(stationName);
+
+  if (direction === SIMPLE_DIRECTION_FROM_UQ) {
+    return {
+      ...FERRY_JOURNEYS[0],
+      destinationLabel: safeStationName,
+      id: `simple-from-uq-${normalizeSimpleStationName(safeStationName)}`,
+      label: `UQ to ${safeStationName}`,
+    };
+  }
+
+  return {
+    id: `simple-to-uq-${normalizeSimpleStationName(safeStationName)}`,
+    label: `${safeStationName} to UQ`,
+    originLabel: safeStationName,
+    originStopName: `${safeStationName} ferry terminal`,
+    destinationLabel: "UQ St Lucia",
+    destinationMatchers: ["uq st lucia", "uq"],
+  };
+}
+
+function getSimpleFerrySummary({
+  departure,
+  direction,
+  hasLiveStationData,
+  stationName,
+}) {
+  const goingToUq = direction === SIMPLE_DIRECTION_TO_UQ;
+  const directionalStations = goingToUq
+    ? SIMPLE_STATIONS
+    : [...SIMPLE_STATIONS].reverse();
+  const safeStationName = getSafeSimpleStation(stationName);
+  const stationIndex = directionalStations.findIndex(
+    (station) => station === safeStationName,
+  );
+  const targetIndex = stationIndex >= 0 ? stationIndex : 1;
+  const ferryIndex = Math.max(0, targetIndex - 2);
+  const stationDistance = Math.max(1, targetIndex - ferryIndex);
+  const hasLiveDeparture =
+    hasLiveStationData && Number.isFinite(departure?.countdownMinutes);
+  const mockWaitMinutes = stationDistance * 6;
+  const waitMinutes = hasLiveDeparture
+    ? Math.max(0, Number(departure.countdownMinutes))
+    : mockWaitMinutes;
+  const progressPercent =
+    targetIndex <= 0
+      ? 12
+      : Math.max(
+          14,
+          Math.min(92, Math.round((ferryIndex / targetIndex) * 100)),
+        );
+
+  return {
+    destinationLabel: goingToUq ? "UQ St Lucia" : safeStationName,
+    departureTimeText: hasLiveDeparture ? departure.displayTime : "",
+    ferryLocation: directionalStations[ferryIndex] ?? directionalStations[0],
+    progressPercent,
+    stationLabel: safeStationName,
+    waitText: formatFerryCountdown(waitMinutes),
+  };
+}
+
+function getSafeSimpleStation(stationName) {
+  return SIMPLE_SELECTABLE_STATIONS.includes(stationName)
+    ? stationName
+    : "South Bank";
+}
+
+function normalizeSimpleStationName(stationName) {
+  return String(stationName ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
 function matchesFerryDestination(departure, journey) {
   const destinationText = `${departure?.destination ?? ""} ${
     departure?.fullHeadsign ?? ""
@@ -518,17 +810,13 @@ function FerryWaveProgress({ currentLocation, progressPercent, statusKey }) {
       <motion.span
         className={`ferry-wave-vehicle ${statusKey} ${edgeClass}`}
         animate={{
-          left: `clamp(0px, calc(${progressPercent}% - 16px), calc(100% - 38px))`,
           rotate: [-3, 3, -3],
           y: [0, -6, 0],
         }}
+        style={{
+          left: `clamp(0px, calc(${progressPercent}% - 16px), calc(100% - 38px))`,
+        }}
         transition={{
-          left: {
-            type: "spring",
-            stiffness: 240,
-            damping: 24,
-            mass: 0.7,
-          },
           rotate: { duration: 2, ease: "easeInOut", repeat: Infinity },
           y: { duration: 2, ease: "easeInOut", repeat: Infinity },
         }}
@@ -613,6 +901,23 @@ function waitForFerryRefreshFeedback(milliseconds) {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+function formatFerryCountdown(minutesAway) {
+  const safeMinutes = Math.max(0, Math.round(Number(minutesAway) || 0));
+
+  if (safeMinutes <= 0) {
+    return "Now";
+  }
+
+  if (safeMinutes < 60) {
+    return `${safeMinutes} min`;
+  }
+
+  const hours = Math.floor(safeMinutes / 60);
+  const minutes = safeMinutes % 60;
+
+  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
 }
 
 function formatFerryTimestamp(dateTime) {

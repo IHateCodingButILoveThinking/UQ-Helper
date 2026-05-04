@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  FaArrowLeft,
   FaBookOpen,
   FaBroadcastTower,
   FaBusAlt,
   FaClock,
   FaExchangeAlt,
   FaMapMarkerAlt,
-  FaRoute,
   FaSearch,
   FaShip,
   FaTimesCircle,
@@ -126,6 +126,17 @@ const OFFICIAL_STATION_CHOICES = [
       "Culture Centre",
       "Culture Center",
       "Culture Ctr",
+    ],
+  },
+  {
+    label: "Mater Hill station",
+    aliases: [
+      "Mater Hill",
+      "Mater Hill busway",
+      "Mater Hill busway station",
+      "Mater Hospital",
+      "PA Hospital",
+      "Princess Alexandra Hospital",
     ],
   },
   {
@@ -1113,6 +1124,7 @@ export default function App() {
     : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
   const showPrimaryNavigation =
     currentPage !== FERRY_PAGE_ID &&
+    currentPage !== PLANNER_PAGE_ID &&
     !(currentPage === LIBRARY_SPACES_PAGE_ID && librarySubPageOpen);
 
   return (
@@ -1203,47 +1215,49 @@ export default function App() {
                         aria-label="Open trip planner"
                         onClick={() => handlePageChange(PLANNER_PAGE_ID)}
                       >
-                        <FaRoute aria-hidden="true" />
-                        <span>Plan</span>
+                        <FaMapMarkerAlt aria-hidden="true" />
+                        <span className="action-button-text">Plan</span>
                       </button>
 
-                      <div className="hero-control-stack">
-                        <button
-                          type="button"
-                          className={`stop-control ${stopSheetOpen ? "open" : ""}`}
-                          aria-expanded={stopSheetOpen}
-                          aria-haspopup="listbox"
-                          aria-label={`Switch UQ bus stop. Current stop ${activeStop.switchLabel}`}
-                          onClick={() => {
-                            setFilterOpen(false);
-                            setStopSheetOpen((currentOpen) => !currentOpen);
-                          }}
+                      <button
+                        type="button"
+                        className={`stop-control ${stopSheetOpen ? "open" : ""}`}
+                        aria-expanded={stopSheetOpen}
+                        aria-haspopup="listbox"
+                        aria-label={`Switch UQ bus stop. Current stop ${activeStop.switchLabel}`}
+                        onClick={() => {
+                          setFilterOpen(false);
+                          setStopSheetOpen((currentOpen) => !currentOpen);
+                        }}
+                      >
+                        <span
+                          className={`stop-control-icon ${showLoadingState ? "pending" : ""}`}
+                          aria-hidden="true"
                         >
-                          <span
-                            className={`stop-control-icon ${showLoadingState ? "pending" : ""}`}
-                            aria-hidden="true"
-                          >
-                            {showLoadingState ? <SpinnerIcon /> : <SwitchIcon />}
-                          </span>
-                          <span className="stop-control-label">Switch stop</span>
-                          <span className="stop-control-arrow" aria-hidden="true">
-                            <ChevronIcon />
-                          </span>
-                        </button>
+                          {showLoadingState ? <SpinnerIcon /> : <SwitchIcon />}
+                        </span>
+                        <span className="stop-control-label">Switch</span>
+                        <span className="stop-control-arrow" aria-hidden="true">
+                          <ChevronIcon />
+                        </span>
+                      </button>
 
-                        <button
-                          type="button"
-                          className="ferry-control"
-                          aria-label="Open live F1 ferry times"
-                          onClick={() => handlePageChange(FERRY_PAGE_ID)}
-                        >
-                          <span className="ferry-control-icon" aria-hidden="true">
-                            <FaShip />
-                          </span>
-                          <span className="ferry-control-label">Ferry</span>
-                          <span className="ferry-control-route">F1</span>
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        className="ferry-control"
+                        aria-label="Open live F1 ferry times"
+                        onClick={() => handlePageChange(FERRY_PAGE_ID)}
+                      >
+                        <motion.span
+                          aria-hidden="true"
+                          className="ferry-control-shimmer"
+                        />
+                        <span className="ferry-control-icon" aria-hidden="true">
+                          <FaShip />
+                        </span>
+                        <span className="ferry-control-label">Ferry</span>
+                        <span className="ferry-control-route">F1</span>
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1473,6 +1487,15 @@ export default function App() {
           ) : currentPage === PLANNER_PAGE_ID ? (
         <section className="planner-layout">
           <section className="surface-panel planner-panel">
+            <button
+              type="button"
+              className="planner-back-button"
+              onClick={() => handlePageChange(BOARD_PAGE_ID)}
+            >
+              <FaArrowLeft aria-hidden="true" />
+              <span>Back to board</span>
+            </button>
+
             <div className="planner-copy">
               <h1 className="section-title">Find a direct bus</h1>
             </div>
@@ -1825,7 +1848,7 @@ export default function App() {
       ) : null}
 
       <ToastContainer
-        autoClose={1200}
+        autoClose={1400}
         closeButton={false}
         draggable={false}
         hideProgressBar
@@ -2948,9 +2971,7 @@ function hasMatchingDownstreamDeparture(
   return destinationDepartures.some((destinationDeparture) => {
     if (
       String(destinationDeparture?.routeCode ?? "") !==
-        String(originDeparture?.routeCode ?? "") ||
-      String(destinationDeparture?.direction ?? "") !==
-        String(originDeparture?.direction ?? "")
+      String(originDeparture?.routeCode ?? "")
     ) {
       return false;
     }
@@ -2976,6 +2997,9 @@ function hasMatchingDownstreamDeparture(
       return true;
     }
 
+    const sameDirection =
+      String(destinationDeparture?.direction ?? "") ===
+      String(originDeparture?.direction ?? "");
     const destinationHeadsign = normalizeSearchCandidate(
       destinationDeparture?.fullHeadsign,
     );
@@ -2983,14 +3007,15 @@ function hasMatchingDownstreamDeparture(
       destinationDeparture?.destination,
     );
 
-    return (
+    const sameTripLabel =
       (originHeadsign &&
         destinationHeadsign &&
         originHeadsign === destinationHeadsign) ||
       (originDestination &&
         destinationLabel &&
-        originDestination === destinationLabel)
-    );
+        originDestination === destinationLabel);
+
+    return sameDirection ? sameTripLabel : sameTripLabel && minutesBetweenStops <= 20;
   });
 }
 

@@ -35,6 +35,18 @@ const OFFICIAL_FALLBACK_STOPS = [
     ],
   },
   {
+    id: "Mater Hill station",
+    name: "Mater Hill station",
+    aliases: [
+      "Mater Hill",
+      "Mater Hill busway",
+      "Mater Hill busway station",
+      "Mater Hospital",
+      "PA Hospital",
+      "Princess Alexandra Hospital",
+    ],
+  },
+  {
     id: "King George Square bus station",
     name: "King George Square bus station",
     aliases: ["King George Square", "KGS"],
