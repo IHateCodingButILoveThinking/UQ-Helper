@@ -3115,6 +3115,11 @@ async function fetchLibrarySpacesData() {
 function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
   const url = new URL(baseUrl);
 
+  if (pageId !== LIBRARY_SPACES_PAGE_ID) {
+    url.searchParams.delete("view");
+    url.searchParams.delete("library");
+  }
+
   if (!pageId || pageId === BOARD_PAGE_ID) {
     url.searchParams.delete("page");
   } else {

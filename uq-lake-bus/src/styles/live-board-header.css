@@ -74,7 +74,8 @@
 }
 
 .app-shell.page-board .live-planner-shortcut,
-.app-shell.page-board .stop-control {
+.app-shell.page-board .stop-control,
+.app-shell.page-board .ferry-control {
   border: 1px solid rgba(74, 32, 117, 0.05);
   background: #f2eef7;
   color: #4a2075;
@@ -101,7 +102,9 @@
 .app-shell.page-board .live-planner-shortcut:hover,
 .app-shell.page-board .live-planner-shortcut:focus-visible,
 .app-shell.page-board .stop-control:hover,
-.app-shell.page-board .stop-control:focus-visible {
+.app-shell.page-board .stop-control:focus-visible,
+.app-shell.page-board .ferry-control:hover,
+.app-shell.page-board .ferry-control:focus-visible {
   border-color: rgba(74, 32, 117, 0.08);
   background: #eae4f2;
   box-shadow: 0 5px 14px rgba(74, 32, 117, 0.08);
@@ -142,10 +145,6 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border: 1px solid #0a3250;
-  background: #0e4369;
-  color: #ffffff;
-  box-shadow: 0 4px 12px rgba(14, 67, 105, 0.2);
 }
 
 .app-shell.page-board .ferry-control-shimmer {
@@ -158,7 +157,7 @@
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(255, 255, 255, 0.54),
+    rgba(74, 32, 117, 0.12),
     transparent
   );
   transform: translateX(-140%) skewX(-30deg);
@@ -167,11 +166,6 @@
 .app-shell.page-board .ferry-control:hover .ferry-control-shimmer,
 .app-shell.page-board .ferry-control:focus-visible .ferry-control-shimmer {
   animation: ferry-control-shimmer 1.5s ease-in-out infinite;
-}
-
-.app-shell.page-board .ferry-control:hover,
-.app-shell.page-board .ferry-control:focus-visible {
-  background: #0a3250;
 }
 
 .app-shell.page-board .ferry-control > span:not(.ferry-control-shimmer) {
@@ -183,9 +177,10 @@
   width: 18px;
   height: 18px;
   flex: 0 0 auto;
-  background: rgba(255, 255, 255, 0.1);
-  color: #54b4d3;
-  filter: drop-shadow(0 0 8px rgba(84, 180, 211, 0.5));
+  background: transparent;
+  color: #4a2075;
+  filter: none;
+  opacity: 0.8;
 }
 
 .app-shell.page-board .ferry-control-icon svg {
@@ -197,8 +192,8 @@
   flex: 0 0 auto;
   padding: 3px 5px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  color: #e1f0fa;
+  background: rgba(74, 32, 117, 0.08);
+  color: #4a2075;
   font-size: 0.56rem;
   font-weight: 950;
   letter-spacing: 0.08em;

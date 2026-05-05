@@ -9475,31 +9475,48 @@ body.library-amenities-overlay-open .app-shell.page-spaces .page-switcher {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 32px -16px;
-  padding: 8px 16px;
-  border: 0;
-  border-radius: 999px;
-  background: transparent;
-  color: #a3a3a3;
+  margin: 0 0 20px;
+  padding: 6px 11px 6px 7px;
+  border: 1px solid rgba(43, 106, 92, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.72);
+  color: #2b6a5c;
   cursor: pointer;
   font: inherit;
-  font-size: 0.875rem;
-  font-weight: 800;
+  font-size: 0.78rem;
+  font-weight: 950;
+  letter-spacing: -0.01em;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 8px 18px rgba(43, 106, 92, 0.06);
+  backdrop-filter: blur(12px);
   transition:
     background 180ms ease,
+    border-color 180ms ease,
     color 180ms ease,
+    box-shadow 180ms ease,
     transform 180ms ease;
 }
 
 .page-spaces .library-overlay-back:hover,
 .page-spaces .library-overlay-back:focus-visible {
-  background: rgba(43, 106, 92, 0.05);
+  border-color: rgba(43, 106, 92, 0.22);
+  background: #f4faf8;
   color: #2b6a5c;
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.94),
+    0 10px 22px rgba(43, 106, 92, 0.09);
+  transform: translateY(-1px);
 }
 
 .page-spaces .library-overlay-back svg {
-  width: 16px;
-  height: 16px;
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  border-radius: 10px;
+  background: #edf7f4;
+  box-sizing: border-box;
   transition: transform 180ms ease;
 }
 
@@ -9683,6 +9700,62 @@ body.library-amenities-overlay-open .app-shell.page-spaces .page-switcher {
   background: transparent;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+}
+
+.page-spaces .library-amenities-campus-filter {
+  position: relative;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  margin: 0 -22px 12px;
+  overflow-x: auto;
+  padding: 0 22px 8px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.page-spaces .library-amenities-campus-filter::-webkit-scrollbar {
+  display: none;
+}
+
+.page-spaces .library-amenities-hero .library-amenities-campus-filter {
+  margin: 0;
+  padding: 0 0 4px;
+}
+
+.page-spaces .library-amenities-campus-filter button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid rgba(43, 106, 92, 0.12);
+  border-radius: 999px;
+  background: #f4f7f6;
+  color: #2b6a5c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 950;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.page-spaces .library-amenities-campus-filter button:hover,
+.page-spaces .library-amenities-campus-filter button:focus-visible {
+  border-color: rgba(43, 106, 92, 0.22);
+  background: #eef7f4;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.page-spaces .library-amenities-campus-filter button.active {
+  border-color: #2b6a5c;
+  background: #2b6a5c;
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(43, 106, 92, 0.16);
 }
 
 .page-spaces .library-amenity-filter::-webkit-scrollbar {

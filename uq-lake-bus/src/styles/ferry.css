@@ -14,17 +14,13 @@
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  border: 1px solid rgba(0, 174, 239, 0.28);
+  border: 1px solid rgba(74, 32, 117, 0.05);
   border-radius: 999px;
-  background:
-    linear-gradient(135deg, rgba(0, 43, 73, 0.96), rgba(0, 66, 112, 0.94)),
-    linear-gradient(120deg, rgba(0, 174, 239, 0.25), transparent);
-  color: #ffffff;
+  background: #f2eef7;
+  color: #4a2075;
   cursor: pointer;
   font: inherit;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 10px 20px rgba(0, 43, 73, 0.14);
+  box-shadow: 0 4px 12px rgba(74, 32, 117, 0.06);
   transition:
     border-color 180ms ease,
     box-shadow 180ms ease,
@@ -33,10 +29,9 @@
 
 .ferry-control:hover,
 .ferry-control:focus-visible {
-  border-color: rgba(0, 174, 239, 0.42);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 12px 24px rgba(0, 43, 73, 0.18);
+  border-color: rgba(74, 32, 117, 0.08);
+  background: #eae4f2;
+  box-shadow: 0 5px 14px rgba(74, 32, 117, 0.08);
   transform: translateY(-1px);
 }
 
@@ -46,7 +41,8 @@
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  background: rgba(0, 174, 239, 0.2);
+  background: rgba(74, 32, 117, 0.08);
+  color: #4a2075;
 }
 
 .ferry-control-icon svg {
@@ -68,8 +64,8 @@
 .ferry-control-route {
   padding: 4px 7px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.12);
-  color: #8de5ff;
+  background: rgba(74, 32, 117, 0.08);
+  color: #4a2075;
   font-size: 0.62rem;
   font-weight: 950;
   letter-spacing: 0.04em;
@@ -208,34 +204,41 @@ body[data-page="ferry"]::after {
 
 .ferry-simple-toggle {
   width: fit-content;
-  min-height: 42px;
+  min-height: 40px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 9px;
-  margin: 28px auto 0;
-  padding: 0 16px;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  gap: 10px;
+  margin: 26px auto 0;
+  padding: 5px 14px 5px 6px;
+  border: 1px solid rgba(0, 43, 73, 0.06);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.7);
-  color: #1d1d1f;
+  background: rgba(255, 255, 255, 0.82);
+  color: #002b49;
   cursor: pointer;
   font: inherit;
-  font-size: 0.86rem;
+  font-size: 0.82rem;
   font-weight: 950;
+  letter-spacing: -0.025em;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    0 12px 24px rgba(0, 43, 73, 0.08);
-  backdrop-filter: blur(18px);
+    inset 0 1px 0 rgba(255, 255, 255, 0.86),
+    0 12px 28px rgba(0, 43, 73, 0.1);
+  backdrop-filter: blur(20px);
   transition:
     background 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease,
     color 200ms ease,
     transform 200ms ease;
 }
 
 .ferry-simple-toggle.active {
-  background: rgba(29, 29, 31, 0.9);
-  color: #ffffff;
+  border-color: rgba(0, 43, 73, 0.1);
+  background: rgba(255, 255, 255, 0.92);
+  color: #001d3d;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 16px 34px rgba(0, 43, 73, 0.14);
 }
 
 .ferry-simple-toggle:hover,
@@ -244,9 +247,40 @@ body[data-page="ferry"]::after {
   transform: translateY(-1px);
 }
 
-.ferry-simple-toggle svg {
+.ferry-simple-toggle-track {
+  position: relative;
+  width: 44px;
+  height: 28px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #eaf8ff 0%, #d7f0f8 100%);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 43, 73, 0.08),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.72);
+}
+
+.ferry-simple-toggle.active .ferry-simple-toggle-track {
+  background: linear-gradient(135deg, #002b49 0%, #0e6389 100%);
+}
+
+.ferry-simple-toggle-knob {
   width: 22px;
   height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0e6389;
+  box-shadow: 0 3px 8px rgba(0, 43, 73, 0.16);
+}
+
+.ferry-simple-toggle-knob svg {
+  width: 11px;
+  height: 11px;
   flex: 0 0 auto;
 }
 
@@ -335,7 +369,11 @@ body[data-page="ferry"]::after {
   border: 1px solid rgba(226, 232, 240, 0.9);
   border-radius: 34px;
   background:
-    radial-gradient(circle at 92% 8%, rgba(135, 206, 235, 0.34), transparent 28%),
+    radial-gradient(
+      circle at 92% 8%,
+      rgba(135, 206, 235, 0.34),
+      transparent 28%
+    ),
     linear-gradient(180deg, #ffffff 0%, #f8fcff 100%);
   box-shadow: 0 18px 42px rgba(0, 43, 73, 0.08);
 }
@@ -489,6 +527,7 @@ body[data-page="ferry"]::after {
   display: flex;
   align-items: center;
   gap: 14px;
+  margin-bottom: 14px;
 }
 
 .ferry-simple-timer > svg {
@@ -513,57 +552,162 @@ body[data-page="ferry"]::after {
   color: #002b49;
   font-size: clamp(3.2rem, 15vw, 5.8rem);
   font-weight: 950;
-  letter-spacing: -0.12em;
+  letter-spacing: 0em;
   line-height: 0.86;
 }
 
 .ferry-simple-wave {
   position: relative;
-  height: 92px;
-  margin-top: 2px;
+  display: grid;
+  gap: 18px;
+  margin-top: 8px;
+  padding: 18px 14px 14px;
+  border: 1px solid rgba(0, 43, 73, 0.06);
+  border-radius: 24px;
+  background:
+    radial-gradient(
+      circle at 90% 15%,
+      rgba(84, 180, 211, 0.11),
+      transparent 34%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.84),
+      rgba(244, 250, 253, 0.84)
+    );
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
 }
 
-.ferry-simple-wave svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  overflow: visible;
+.ferry-simple-timeline-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
 }
 
-.ferry-simple-wave-base,
-.ferry-simple-wave-fill {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 8;
+.ferry-simple-timeline-head span {
+  color: #8a9aa5;
+  font-size: 0.68rem;
+  font-weight: 950;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.ferry-simple-wave-base {
-  stroke: #e8f0f7;
-}
-
-.ferry-simple-wave-fill {
-  stroke: #27ae60;
-  filter: drop-shadow(0 10px 14px rgba(39, 174, 96, 0.18));
+.ferry-simple-timeline-head strong {
+  min-width: 0;
+  color: #002b49;
+  font-size: 0.96rem;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+  text-align: right;
 }
 
 .ferry-simple-ship {
   position: absolute;
-  top: 31px;
-  width: 40px;
-  height: 40px;
+  top: 56px;
+  width: 34px;
+  height: 34px;
   display: inline-grid;
   place-items: center;
   border-radius: 999px;
-  background: #27ae60;
+  background:
+    radial-gradient(
+      circle at 35% 28%,
+      rgba(255, 255, 255, 0.46),
+      transparent 32%
+    ),
+    linear-gradient(135deg, #43cfc3 0%, #27ae60 100%);
   color: #ffffff;
-  box-shadow: 0 12px 24px rgba(39, 174, 96, 0.22);
+  box-shadow:
+    0 10px 22px rgba(39, 174, 96, 0.2),
+    0 0 0 7px rgba(39, 174, 96, 0.1);
   transition: left 620ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.ferry-simple-ship::after {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 5px);
+  width: 2px;
+  height: 18px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(39, 174, 96, 0.56), transparent);
+  content: "";
+  transform: translateX(-50%);
+}
+
 .ferry-simple-ship svg {
-  width: 25px;
-  height: 25px;
+  width: 15px;
+  height: 15px;
+}
+
+.ferry-simple-timeline-rail {
+  position: relative;
+  height: 8px;
+  margin-top: 38px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e6eef5;
+}
+
+.ferry-simple-timeline-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #43cfc3 0%, #27ae60 100%);
+  box-shadow: 0 8px 14px rgba(39, 174, 96, 0.18);
+}
+
+.ferry-simple-timeline-stops {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ferry-simple-timeline-stop {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+}
+
+.ferry-simple-timeline-stop > span {
+  width: 11px;
+  height: 11px;
+  border-radius: 999px;
+  background: #b9c7d4;
+  box-shadow: 0 0 0 5px rgba(185, 199, 212, 0.14);
+}
+
+.ferry-simple-timeline-stop.current > span {
+  background: #27ae60;
+  box-shadow: 0 0 0 7px rgba(39, 174, 96, 0.14);
+}
+
+.ferry-simple-timeline-stop.pickup > span {
+  background: #54b4d3;
+  box-shadow: 0 0 0 6px rgba(84, 180, 211, 0.15);
+}
+
+.ferry-simple-timeline-stop strong {
+  max-width: 100%;
+  color: #6f8191;
+  font-size: 0.66rem;
+  font-weight: 950;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
+  text-align: center;
+}
+
+.ferry-simple-timeline-stop.current strong {
+  color: #002b49;
+}
+
+.ferry-simple-timeline-stop.pickup strong {
+  color: #0e6389;
 }
 
 .ferry-simple-meta {
@@ -649,8 +793,17 @@ body[data-page="ferry"]::after {
   margin-bottom: 14px;
 }
 
+.ferry-service-tags {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
 .ferry-route-tag,
-.ferry-status-tag {
+.ferry-status-tag,
+.ferry-vessel-tag {
   min-height: 34px;
   display: inline-flex;
   align-items: center;
@@ -670,6 +823,30 @@ body[data-page="ferry"]::after {
 
 .ferry-route-tag.express {
   background: #334155;
+}
+
+.ferry-route-tag.kittycat {
+  background: #0e7490;
+  box-shadow: 0 8px 16px rgba(14, 116, 144, 0.18);
+}
+
+.ferry-vessel-tag {
+  min-height: 30px;
+  padding: 0 11px;
+  border: 1px solid rgba(0, 43, 73, 0.08);
+  background: #f4fbff;
+  color: rgba(0, 43, 73, 0.7);
+  font-size: 0.72rem;
+  box-shadow: none;
+}
+
+.ferry-vessel-tag.express {
+  background: #f4f7fb;
+}
+
+.ferry-vessel-tag.kittycat {
+  background: #ecfeff;
+  color: #0e7490;
 }
 
 .ferry-status-tag {
@@ -825,6 +1002,11 @@ body[data-page="ferry"]::after {
   transition: left 620ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.ferry-wave-vehicle > svg {
+  width: 30px;
+  height: 30px;
+}
+
 .ferry-location-bubble {
   position: absolute;
   left: 50%;
@@ -970,8 +1152,18 @@ body[data-page="ferry"]::after {
   .ferry-simple-toggle {
     min-height: 38px;
     margin-top: 22px;
-    padding: 0 13px;
+    padding: 5px 12px 5px 6px;
     font-size: 0.78rem;
+  }
+
+  .ferry-simple-toggle-track {
+    width: 42px;
+    height: 27px;
+  }
+
+  .ferry-simple-toggle-knob {
+    width: 21px;
+    height: 21px;
   }
 
   .ferry-content {

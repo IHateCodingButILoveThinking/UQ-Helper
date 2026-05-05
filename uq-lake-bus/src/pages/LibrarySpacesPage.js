@@ -16,7 +16,6 @@ import {
 import EmptyState from "../components/EmptyState";
 import {
   getAmenityItems as getLibraryAmenityItems,
-  getFeaturedAmenitySummary as getLibraryFeaturedAmenitySummary,
   getFeatureSummary,
   getLibraryMapUrl,
 } from "../data/libraryAmenities";
@@ -49,6 +48,12 @@ const CAMPUS_FILTERS = [
     campuses: null,
   },
 ];
+const AMENITIES_CAMPUS_FILTERS = CAMPUS_FILTERS.filter((filter) => {
+  return filter.id !== "all";
+});
+const SPACES_VIEW_QUERY_KEY = "view";
+const SPACES_LIBRARY_QUERY_KEY = "library";
+const SPACES_AMENITIES_VIEW = "amenities";
 const CAMPUS_ORDER = new Map([
   ["St Lucia", 0],
   ["Dutton Park", 1],
@@ -118,33 +123,22 @@ function doesAmenityMatchFeatureFilter(amenity, activeFilter) {
   return amenity.category === activeFilter;
 }
 
-function getSummaryFeatureFilter(category) {
-  if (category === "Equipment" || category === "Specialty") {
-    return "Tech";
-  }
-
-  if (category === "Study") {
-    return "Quiet Zones";
-  }
-
-  if (category === "Accessibility") {
-    return "Accessibility";
-  }
-
-  return "All";
-}
-
 export default function LibrarySpacesPage({
   libraryError,
   libraryLoading,
   librarySpaces,
   onSubPageOpenChange,
 }) {
+  const initialSpacesView = getInitialLibrarySpacesView();
   const [selectedCampusFilterId, setSelectedCampusFilterId] = useState(
     DEFAULT_CAMPUS_FILTER_ID,
   );
-  const [selectedLibraryId, setSelectedLibraryId] = useState("");
-  const [showAmenitiesGuide, setShowAmenitiesGuide] = useState(false);
+  const [selectedLibraryId, setSelectedLibraryId] = useState(
+    initialSpacesView.libraryId,
+  );
+  const [showAmenitiesGuide, setShowAmenitiesGuide] = useState(
+    initialSpacesView.showAmenitiesGuide,
+  );
   const libraries = librarySpaces?.libraries ?? [];
   const selectedCampusFilter =
     CAMPUS_FILTERS.find((filter) => filter.id === selectedCampusFilterId) ??
@@ -180,6 +174,13 @@ export default function LibrarySpacesPage({
       onSubPageOpenChange?.(false);
     };
   }, [onSubPageOpenChange, selectedLibraryId, showAmenitiesGuide]);
+
+  useEffect(() => {
+    syncLibrarySpacesUrl({
+      libraryId: selectedLibraryId,
+      showAmenitiesGuide,
+    });
+  }, [selectedLibraryId, showAmenitiesGuide]);
 
   if (showAmenitiesGuide) {
     return (
@@ -384,14 +385,21 @@ function LibraryListItem({ library, onSelect }) {
 
 function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
   const [activeFilter, setActiveFilter] = useState("All");
+  const [activeCampusFilterId, setActiveCampusFilterId] = useState(
+    DEFAULT_CAMPUS_FILTER_ID,
+  );
   const [expandedAmenityCards, setExpandedAmenityCards] = useState(
     () => new Set(),
   );
   const detailsRef = useRef(null);
   const filterButtonRefs = useRef(new Map());
-  const availableLibraries = libraries.filter((library) => !library.unavailable);
-  const featuredAmenities = getLibraryFeaturedAmenitySummary(availableLibraries);
-  const filteredLibraryAmenities = libraries
+  const activeCampusFilter =
+    AMENITIES_CAMPUS_FILTERS.find((filter) => filter.id === activeCampusFilterId) ??
+    AMENITIES_CAMPUS_FILTERS[0];
+  const campusFilteredLibraries = useMemo(() => {
+    return filterAndSortLibraries(libraries, activeCampusFilter);
+  }, [activeCampusFilter, libraries]);
+  const filteredLibraryAmenities = campusFilteredLibraries
     .map((library) => {
       const amenities = getLibraryAmenityItems(library).filter((amenity) => {
         return doesAmenityMatchFeatureFilter(amenity, activeFilter);
@@ -437,7 +445,7 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
 
   useEffect(() => {
     setExpandedAmenityCards(new Set());
-  }, [activeFilter]);
+  }, [activeCampusFilterId, activeFilter]);
 
   useEffect(() => {
     document.body.classList.add("library-amenities-overlay-open");
@@ -461,45 +469,24 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
           onClick={onBack}
         >
           <FaArrowLeft aria-hidden="true" />
-          Back to study spaces
+          Study spaces
         </button>
 
         <section className="library-amenities-layout">
-          <section className="library-amenities-hero">
-            <div className="library-amenities-title">
-              <p className="eyebrow">Library amenities</p>
-              <h1 className="section-title">Find your perfect space</h1>
-            </div>
-
-            <div className="library-amenities-summary-grid">
-              {featuredAmenities.map(({ Icon, category, count, label }) => (
-                <button
-                  className="library-amenities-summary-card"
-                  key={label}
-                  onClick={() =>
-                    handleFilterSelect(getSummaryFeatureFilter(category), {
-                      scrollToDetails: true,
-                    })
-                  }
-                  type="button"
-                >
-                  <span>
-                    <Icon aria-hidden="true" size={22} strokeWidth={2} />
-                  </span>
-                  <strong>{count}</strong>
-                  <small>{label}</small>
-                </button>
-              ))}
-            </div>
-          </section>
-
           <section className="library-amenities-panel" ref={detailsRef}>
             <div className="section-head feed-head">
               <div>
                 <p className="eyebrow">Details</p>
-                <h2 className="section-title">Library-by-library features</h2>
+                <h2 className="section-title">
+                  {activeCampusFilter.label} library features
+                </h2>
               </div>
             </div>
+
+            <CampusAmenityFilter
+              activeCampusFilterId={activeCampusFilterId}
+              onCampusFilterChange={setActiveCampusFilterId}
+            />
 
             <div
               aria-label="Filter amenities by type"
@@ -613,12 +600,37 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
                   })}
                 </AnimatePresence>
               ) : (
-                <EmptyState compact message="No amenities match that filter yet." />
+                <EmptyState
+                  compact
+                  message={`No ${activeCampusFilter.label} amenities match that filter yet.`}
+                />
               )}
             </motion.div>
           </section>
         </section>
       </motion.div>
+    </div>
+  );
+}
+
+function CampusAmenityFilter({ activeCampusFilterId, onCampusFilterChange }) {
+  return (
+    <div
+      aria-label="Filter amenities by campus"
+      className="library-amenities-campus-filter"
+      style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+    >
+      {AMENITIES_CAMPUS_FILTERS.map((filter) => (
+        <button
+          aria-pressed={activeCampusFilterId === filter.id}
+          className={activeCampusFilterId === filter.id ? "active" : ""}
+          key={filter.id}
+          onClick={() => onCampusFilterChange(filter.id)}
+          type="button"
+        >
+          {filter.shortLabel}
+        </button>
+      ))}
     </div>
   );
 }
@@ -1267,6 +1279,46 @@ function filterAndSortLibraries(libraries, campusFilter) {
 
     return left.name.localeCompare(right.name);
   });
+}
+
+function getInitialLibrarySpacesView() {
+  if (typeof window === "undefined") {
+    return {
+      libraryId: "",
+      showAmenitiesGuide: false,
+    };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const view = params.get(SPACES_VIEW_QUERY_KEY);
+  const libraryId = params.get(SPACES_LIBRARY_QUERY_KEY)?.trim() ?? "";
+
+  return {
+    libraryId: view === SPACES_AMENITIES_VIEW ? "" : libraryId,
+    showAmenitiesGuide: view === SPACES_AMENITIES_VIEW,
+  };
+}
+
+function syncLibrarySpacesUrl({ libraryId, showAmenitiesGuide }) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+  url.searchParams.set("page", "spaces");
+
+  if (showAmenitiesGuide) {
+    url.searchParams.set(SPACES_VIEW_QUERY_KEY, SPACES_AMENITIES_VIEW);
+    url.searchParams.delete(SPACES_LIBRARY_QUERY_KEY);
+  } else if (libraryId) {
+    url.searchParams.delete(SPACES_VIEW_QUERY_KEY);
+    url.searchParams.set(SPACES_LIBRARY_QUERY_KEY, libraryId);
+  } else {
+    url.searchParams.delete(SPACES_VIEW_QUERY_KEY);
+    url.searchParams.delete(SPACES_LIBRARY_QUERY_KEY);
+  }
+
+  window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
 }
 
 function buildLibrarySummary(libraries) {

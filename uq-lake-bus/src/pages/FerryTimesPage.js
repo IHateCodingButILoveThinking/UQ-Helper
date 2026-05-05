@@ -6,11 +6,11 @@ import {
   FaClock,
   FaExchangeAlt,
   FaExclamationCircle,
+  FaFlag,
+  FaMagic,
   FaMapMarkerAlt,
   FaShip,
   FaSyncAlt,
-  FaToggleOff,
-  FaToggleOn,
 } from "react-icons/fa";
 
 const FERRY_REFRESH_MS = 15000;
@@ -18,7 +18,7 @@ const FERRY_REFRESH_FEEDBACK_MS = 800;
 const FERRY_ROUTE_CODE = "F1";
 const FERRY_ROUTE_NAME = "F1 Northshore Hamilton/UQ St Lucia";
 const FERRY_STOP_NAME = "UQ St Lucia ferry terminal";
-const FERRY_DEFAULT_JOURNEY_ID = "uq-to-northshore";
+const FERRY_DEFAULT_JOURNEY_ID = "f1-citycat";
 const BRISBANE_TZ = "Australia/Brisbane";
 const SIMPLE_DIRECTION_TO_UQ = "toUq";
 const SIMPLE_DIRECTION_FROM_UQ = "fromUq";
@@ -40,28 +40,88 @@ const SIMPLE_SELECTABLE_STATIONS = SIMPLE_STATIONS.filter((station) => {
 const FERRY_JOURNEYS = [
   {
     id: FERRY_DEFAULT_JOURNEY_ID,
-    label: "UQ to Northshore",
+    label: "F1 CityCat",
     originLabel: "UQ St Lucia",
     originStopName: FERRY_STOP_NAME,
     destinationLabel: "Northshore Hamilton",
     destinationMatchers: ["northshore", "hamilton"],
+    routeCode: "F1",
+    routeName: "F1 Northshore Hamilton/UQ St Lucia",
+    serviceLabel: "CityCat",
+    vesselLabel: "CityCat fleet",
     usePrimaryFerryEndpoint: true,
   },
   {
-    id: "west-end-to-uq",
-    label: "West End to UQ",
-    originLabel: "West End",
-    originStopName: "West End ferry terminal",
-    destinationLabel: "UQ St Lucia",
-    destinationMatchers: ["uq st lucia", "uq"],
+    id: "f11-express-citycat",
+    label: "F11 Express",
+    originLabel: "Apollo Road",
+    originStopName: "Apollo Road ferry terminal",
+    destinationLabel: "Riverside",
+    destinationMatchers: ["riverside"],
+    routeCode: "F11",
+    routeName: "F11 Apollo Road/Riverside",
+    serviceLabel: "Express CityCat",
+    vesselLabel: "CityCat fleet",
   },
   {
-    id: "south-bank-to-uq",
-    label: "South Bank to UQ",
-    originLabel: "South Bank",
-    originStopName: "South Bank ferry terminal",
-    destinationLabel: "UQ St Lucia",
-    destinationMatchers: ["uq st lucia", "uq"],
+    id: "f12-express-citycat",
+    label: "F12 Express",
+    originLabel: "West End",
+    originStopName: "West End ferry terminal",
+    destinationLabel: "QUT Gardens Point",
+    destinationMatchers: ["qut", "gardens point"],
+    routeCode: "F12",
+    routeName: "F12 West End/QUT Gardens Point",
+    serviceLabel: "Express CityCat",
+    vesselLabel: "CityCat fleet",
+  },
+  {
+    id: "f21-cross-river",
+    label: "F21 Bulimba",
+    originLabel: "Bulimba",
+    originStopName: "Bulimba ferry terminal",
+    destinationLabel: "Teneriffe",
+    destinationMatchers: ["teneriffe"],
+    routeCode: "F21",
+    routeName: "F21 Bulimba/Teneriffe",
+    serviceLabel: "Cross River",
+    vesselLabel: "KittyCat ferry",
+  },
+  {
+    id: "f22-cross-river",
+    label: "F22 Dockside",
+    originLabel: "Dockside",
+    originStopName: "Dockside ferry terminal",
+    destinationLabel: "Sydney Street",
+    destinationMatchers: ["sydney street"],
+    routeCode: "F22",
+    routeName: "F22 Dockside/Sydney Street",
+    serviceLabel: "Cross River",
+    vesselLabel: "KittyCat ferry",
+  },
+  {
+    id: "f23-cross-river",
+    label: "F23 Holman",
+    originLabel: "Holman Street",
+    originStopName: "Holman Street ferry terminal",
+    destinationLabel: "Riverside",
+    destinationMatchers: ["riverside"],
+    routeCode: "F23",
+    routeName: "F23 Holman Street/Riverside",
+    serviceLabel: "Cross River",
+    vesselLabel: "KittyCat ferry",
+  },
+  {
+    id: "f24-cross-river",
+    label: "F24 Maritime",
+    originLabel: "Maritime Museum",
+    originStopName: "Maritime Museum ferry terminal",
+    destinationLabel: "QUT Gardens Point",
+    destinationMatchers: ["qut", "gardens point"],
+    routeCode: "F24",
+    routeName: "F24 Maritime Museum/QUT Gardens Point",
+    serviceLabel: "Cross River",
+    vesselLabel: "KittyCat ferry",
   },
 ];
 
@@ -223,12 +283,16 @@ export default function FerryTimesPage({ onBack }) {
           aria-pressed={isSimplified}
           onClick={toggleSimpleMode}
         >
-          {isSimplified ? (
-            <FaToggleOn aria-hidden="true" />
-          ) : (
-            <FaToggleOff aria-hidden="true" />
-          )}
-          <span>{isSimplified ? "Simple mode on" : "Simple view"}</span>
+          <span className="ferry-simple-toggle-track" aria-hidden="true">
+            <motion.span
+              animate={{ x: isSimplified ? 18 : 0 }}
+              className="ferry-simple-toggle-knob"
+              transition={{ type: "spring", stiffness: 520, damping: 32 }}
+            >
+              <FaMagic />
+            </motion.span>
+          </span>
+          <span>Simplify</span>
         </button>
       </header>
 
@@ -306,7 +370,7 @@ export default function FerryTimesPage({ onBack }) {
                         departure={departure}
                         index={index}
                         isRefreshing={isRefreshing}
-                        journey={selectedJourney}
+                        journey={activeJourney}
                         key={departure.id}
                         showProgress={index === 0}
                       />
@@ -314,8 +378,9 @@ export default function FerryTimesPage({ onBack }) {
                   </AnimatePresence>
                 ) : (
                   <div className="ferry-empty-card">
-                    No F1 ferries from {selectedJourney.originLabel} to{" "}
-                    {selectedJourney.destinationLabel} are listed right now.
+                    No {getJourneyRouteCode(activeJourney)} ferries from{" "}
+                    {activeJourney.originLabel} to{" "}
+                    {activeJourney.destinationLabel} are listed right now.
                   </div>
                 )}
               </div>
@@ -337,10 +402,15 @@ async function fetchFerryPayload(journey) {
           return addFerryPresentationFields(ferryPayload, journey);
         }
 
-        console.warn("Ferry endpoint returned no F1 departures; trying fallback.");
+        console.warn(
+          "Ferry endpoint returned no F1 departures; trying fallback.",
+        );
       }
     } catch (primaryError) {
-      console.error("Primary ferry endpoint failed; trying fallback.", primaryError);
+      console.error(
+        "Primary ferry endpoint failed; trying fallback.",
+        primaryError,
+      );
     }
   }
 
@@ -365,6 +435,10 @@ function addFerryPresentationFields(payload, journey) {
           departure.currentLocation ||
           getMockFerryCurrentLocation(countdownMinutes, journey),
         originLabel: departure.originLabel || journey.originLabel,
+        routeLabel:
+          departure.routeLabel || getFerryRouteLabel(departure, journey),
+        vesselLabel:
+          departure.vesselLabel || getFerryVesselLabel(departure, journey),
       };
     }),
   };
@@ -384,7 +458,9 @@ async function fetchJsonPayload(url) {
   }
 
   if (!contentType.includes("application/json")) {
-    throw new Error(`Expected JSON from ${url}, got ${contentType || "unknown"}.`);
+    throw new Error(
+      `Expected JSON from ${url}, got ${contentType || "unknown"}.`,
+    );
   }
 
   return JSON.parse(body);
@@ -404,7 +480,8 @@ function buildFerryPayloadFromDepartures(timetable, journey) {
     .filter((departure) => {
       return (
         String(departure?.routeCode ?? "").toUpperCase() ===
-          FERRY_ROUTE_CODE && matchesFerryDestination(departure, journey)
+          getJourneyRouteCode(journey) &&
+        matchesFerryDestination(departure, journey)
       );
     })
     .slice(0, 12)
@@ -413,8 +490,8 @@ function buildFerryPayloadFromDepartures(timetable, journey) {
   return {
     departures,
     generatedAt: new Date().toISOString(),
-    routeCode: FERRY_ROUTE_CODE,
-    routeName: FERRY_ROUTE_NAME,
+    routeCode: getJourneyRouteCode(journey),
+    routeName: journey.routeName ?? FERRY_ROUTE_NAME,
     sourceUrl: timetable?.sourceUrl,
     stopName: timetable?.stopName ?? journey.originStopName,
   };
@@ -431,7 +508,9 @@ function SimpleFerryPanel({
   const goingToUq = direction === SIMPLE_DIRECTION_TO_UQ;
 
   return (
-    <article className={`ferry-simple-card ${isRefreshing ? "refreshing" : ""}`}>
+    <article
+      className={`ferry-simple-card ${isRefreshing ? "refreshing" : ""}`}
+    >
       <div className="ferry-simple-topline">
         <div>
           <span className="ferry-simple-kicker">Simple F1 helper</span>
@@ -495,26 +574,21 @@ function SimpleFerryPanel({
 }
 
 function SimpleFerryWave({ summary }) {
-  const wavePath = "M 4 38 C 54 10 90 66 144 38 S 234 10 324 38";
+  const timelineStops =
+    summary.timelineStops?.length > 0
+      ? summary.timelineStops
+      : [{ label: summary.ferryLocation, tone: "current" }];
+  const markerLeft =
+    timelineStops.length <= 1
+      ? 0
+      : (summary.currentTimelineIndex / (timelineStops.length - 1)) * 100;
 
   return (
-    <div className="ferry-simple-wave" aria-hidden="true">
-      <svg viewBox="0 0 328 78" preserveAspectRatio="none">
-        <path className="ferry-simple-wave-base" d={wavePath} pathLength="100" />
-        <motion.path
-          className="ferry-simple-wave-fill"
-          d={wavePath}
-          pathLength="100"
-          initial={{ strokeDasharray: "100 100", strokeDashoffset: 100 }}
-          animate={{ strokeDashoffset: 100 - summary.progressPercent }}
-          transition={{
-            type: "spring",
-            stiffness: 130,
-            damping: 22,
-            mass: 0.75,
-          }}
-        />
-      </svg>
+    <div className="ferry-simple-wave">
+      <div className="ferry-simple-timeline-head">
+        <span>Current ferry</span>
+        <strong>{summary.ferryLocation}</strong>
+      </div>
 
       <motion.span
         className="ferry-simple-ship"
@@ -523,15 +597,39 @@ function SimpleFerryWave({ summary }) {
           y: [0, -5, 0],
         }}
         style={{
-          left: `clamp(4px, calc(${summary.progressPercent}% - 18px), calc(100% - 40px))`,
+          left: `clamp(0px, calc(${markerLeft}% - 20px), calc(100% - 40px))`,
         }}
         transition={{
           rotate: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
           y: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
         }}
       >
-        <FaShip />
+        <FaFlag />
       </motion.span>
+
+      <div className="ferry-simple-timeline-rail" aria-hidden="true">
+        <motion.span
+          animate={{ width: `${markerLeft}%` }}
+          className="ferry-simple-timeline-progress"
+          initial={false}
+          transition={{ type: "spring", stiffness: 140, damping: 22 }}
+        />
+      </div>
+
+      <ol
+        className="ferry-simple-timeline-stops"
+        aria-label="Ferry route timeline"
+      >
+        {timelineStops.map((stop, index) => (
+          <li
+            className={`ferry-simple-timeline-stop ${stop.tone}`}
+            key={`${stop.label}-${index}`}
+          >
+            <span aria-hidden="true" />
+            <strong>{stop.label}</strong>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
@@ -544,9 +642,13 @@ function FerryDepartureCard({
   showProgress,
 }) {
   const statusKey = normalizeFerryStatus(departure.status);
-  const routeKey = /speedycat/i.test(departure.routeLabel)
-    ? "express"
-    : "citycat";
+  const routeKey = /cross river|kittycat/i.test(
+    `${departure.routeLabel ?? ""} ${departure.vesselLabel ?? ""}`,
+  )
+    ? "kittycat"
+    : /speedycat|express/i.test(departure.routeLabel)
+      ? "express"
+      : "citycat";
   const progressPercent = Math.min(
     100,
     Math.max(4, Number(departure.progressPercent ?? 8)),
@@ -581,9 +683,15 @@ function FerryDepartureCard({
       <span className="ferry-card-glow" aria-hidden="true" />
 
       <div className="ferry-departure-tags">
-        <span className={`ferry-route-tag ${routeKey}`}>
-          {departure.routeLabel || "CityCat"}
-        </span>
+        <div className="ferry-service-tags">
+          <span className={`ferry-route-tag ${routeKey}`}>
+            {departure.routeCode ? `${departure.routeCode} ` : ""}
+            {departure.routeLabel || "CityCat"}
+          </span>
+          <span className={`ferry-vessel-tag ${routeKey}`}>
+            {departure.vesselLabel || "Ferry"}
+          </span>
+        </div>
         {showProgress ? (
           <span className={`ferry-status-tag ${statusKey}`}>
             <motion.span
@@ -606,7 +714,8 @@ function FerryDepartureCard({
           <span className="ferry-micro-label">Going to</span>
           <h2>{departure.destination}</h2>
           <p>
-            {departure.originLabel || journey.originLabel} · {departure.displayTime}
+            {departure.originLabel || journey.originLabel} ·{" "}
+            {departure.displayTime}
           </p>
         </div>
         <div className={`ferry-countdown ${statusKey}`}>
@@ -633,7 +742,8 @@ function normalizeFallbackFerryDeparture(departure, journey) {
 
   return {
     countdownMinutes,
-    countdownText: departure?.countdownText ?? formatFerryCountdown(countdownMinutes),
+    countdownText:
+      departure?.countdownText ?? formatFerryCountdown(countdownMinutes),
     currentLocation: getMockFerryCurrentLocation(countdownMinutes, journey),
     destination: cleanFerryDestination(
       departure?.destination,
@@ -645,11 +755,12 @@ function normalizeFallbackFerryDeparture(departure, journey) {
     live: Boolean(departure?.live),
     originLabel: journey.originLabel,
     progressPercent: getCountdownProgressPercent(countdownMinutes),
-    routeCode: FERRY_ROUTE_CODE,
-    routeLabel: getFerryRouteLabel(departure),
+    routeCode: getJourneyRouteCode(journey),
+    routeLabel: getFerryRouteLabel(departure, journey),
     scheduledUtc: departure?.scheduledUtc,
     status: departure?.live ? "Normal" : "Scheduled",
     terminal: "Terminal 1",
+    vesselLabel: getFerryVesselLabel(departure, journey),
   };
 }
 
@@ -679,6 +790,10 @@ function getSimpleFerryJourney(direction, stationName) {
     originStopName: `${safeStationName} ferry terminal`,
     destinationLabel: "UQ St Lucia",
     destinationMatchers: ["uq st lucia", "uq"],
+    routeCode: FERRY_ROUTE_CODE,
+    routeName: FERRY_ROUTE_NAME,
+    serviceLabel: "CityCat",
+    vesselLabel: "CityCat fleet",
   };
 }
 
@@ -712,15 +827,51 @@ function getSimpleFerrySummary({
           14,
           Math.min(92, Math.round((ferryIndex / targetIndex) * 100)),
         );
+  const timelineStops = buildSimpleFerryTimelineStops(
+    directionalStations,
+    ferryIndex,
+    targetIndex,
+  );
+  const currentTimelineIndex = timelineStops.findIndex((stop) => {
+    return stop.tone === "current";
+  });
 
   return {
+    currentTimelineIndex: currentTimelineIndex >= 0 ? currentTimelineIndex : 0,
     destinationLabel: goingToUq ? "UQ St Lucia" : safeStationName,
     departureTimeText: hasLiveDeparture ? departure.displayTime : "",
     ferryLocation: directionalStations[ferryIndex] ?? directionalStations[0],
     progressPercent,
     stationLabel: safeStationName,
+    timelineStops,
     waitText: formatFerryCountdown(waitMinutes),
   };
+}
+
+function buildSimpleFerryTimelineStops(stations, ferryIndex, targetIndex) {
+  const startIndex = Math.max(0, ferryIndex);
+  const endIndex = Math.max(startIndex, targetIndex);
+  const segment = stations.slice(startIndex, endIndex + 1);
+  const compactSegment =
+    segment.length <= 5
+      ? segment
+      : [
+          segment[0],
+          segment[1],
+          segment[Math.floor(segment.length / 2)],
+          segment.at(-2),
+          segment.at(-1),
+        ];
+
+  return compactSegment.map((station, index) => {
+    const isCurrent = index === 0;
+    const isPickup = station === stations[targetIndex];
+
+    return {
+      label: station,
+      tone: isCurrent ? "current" : isPickup ? "pickup" : "next",
+    };
+  });
 }
 
 function getSafeSimpleStation(stationName) {
@@ -747,7 +898,9 @@ function matchesFerryDestination(departure, journey) {
 }
 
 function cleanFerryDestination(destination, headsign) {
-  const rawDestination = String(destination || headsign || "Northshore Hamilton")
+  const rawDestination = String(
+    destination || headsign || "Northshore Hamilton",
+  )
     .replace(/^towards\s+/i, "")
     .replace(/\bferry\b/gi, "")
     .replace(/\bterminal\b/gi, "")
@@ -757,12 +910,30 @@ function cleanFerryDestination(destination, headsign) {
   return rawDestination || "Northshore Hamilton";
 }
 
-function getFerryRouteLabel(departure) {
+function getJourneyRouteCode(journey) {
+  return String(journey?.routeCode ?? FERRY_ROUTE_CODE).toUpperCase();
+}
+
+function getFerryRouteLabel(departure, journey) {
   const headsign = `${departure?.fullHeadsign ?? ""} ${
     departure?.destination ?? ""
   }`;
 
-  return /speedycat/i.test(headsign) ? "SpeedyCat" : "CityCat";
+  if (journey?.serviceLabel) {
+    return journey.serviceLabel;
+  }
+
+  return /speedycat|express/i.test(headsign) ? "Express CityCat" : "CityCat";
+}
+
+function getFerryVesselLabel(departure, journey) {
+  const routeCode = getJourneyRouteCode(journey);
+
+  if (/^F2[1-4]$/.test(routeCode)) {
+    return "KittyCat ferry";
+  }
+
+  return journey?.vesselLabel ?? "CityCat fleet";
 }
 
 function getCountdownProgressPercent(minutesAway) {
@@ -774,8 +945,7 @@ function getCountdownProgressPercent(minutesAway) {
 }
 
 function FerryWaveProgress({ currentLocation, progressPercent, statusKey }) {
-  const wavePath =
-    "M 4 30 Q 44 10 84 30 T 164 30 T 244 30 T 324 30";
+  const wavePath = "M 4 30 Q 44 10 84 30 T 164 30 T 244 30 T 324 30";
   const locationLabel = currentLocation || "Near the terminal";
   const edgeClass = getFerryBubbleEdgeClass(progressPercent);
 
