@@ -54,6 +54,7 @@ const AMENITIES_CAMPUS_FILTERS = CAMPUS_FILTERS.filter((filter) => {
 const SPACES_VIEW_QUERY_KEY = "view";
 const SPACES_LIBRARY_QUERY_KEY = "library";
 const SPACES_AMENITIES_VIEW = "amenities";
+const LIBRARY_SUBPAGE_EXIT_MS = 220;
 const CAMPUS_ORDER = new Map([
   ["St Lucia", 0],
   ["Dutton Park", 1],
@@ -121,6 +122,35 @@ function doesAmenityMatchFeatureFilter(amenity, activeFilter) {
   }
 
   return amenity.category === activeFilter;
+}
+
+function useSmoothLibraryBack(onBack) {
+  const [isLeaving, setIsLeaving] = useState(false);
+  const exitTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (exitTimeoutRef.current) {
+        window.clearTimeout(exitTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const handleBack = () => {
+    if (isLeaving) {
+      return;
+    }
+
+    setIsLeaving(true);
+    exitTimeoutRef.current = window.setTimeout(() => {
+      onBack();
+    }, LIBRARY_SUBPAGE_EXIT_MS);
+  };
+
+  return {
+    handleBack,
+    isLeaving,
+  };
 }
 
 export default function LibrarySpacesPage({
@@ -393,6 +423,7 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
   );
   const detailsRef = useRef(null);
   const filterButtonRefs = useRef(new Map());
+  const { handleBack, isLeaving } = useSmoothLibraryBack(onBack);
   const activeCampusFilter =
     AMENITIES_CAMPUS_FILTERS.find((filter) => filter.id === activeCampusFilterId) ??
     AMENITIES_CAMPUS_FILTERS[0];
@@ -458,15 +489,23 @@ function LibraryAmenitiesGuidePage({ libraries, onBack, onSelectLibrary }) {
   return (
     <div className="library-amenities-overlay-canvas">
       <motion.div
-        animate={{ opacity: 1, y: 0 }}
+        animate={
+          isLeaving
+            ? { filter: "blur(3px)", opacity: 0, scale: 0.985, y: 16 }
+            : { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }
+        }
         className="library-amenities-overlay-card"
-        initial={{ opacity: 0, y: 20 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ filter: "blur(3px)", opacity: 0, scale: 0.99, y: 20 }}
+        transition={{
+          duration: isLeaving ? 0.2 : 0.42,
+          ease: [0.22, 1, 0.36, 1],
+        }}
       >
         <button
           type="button"
           className="library-overlay-back"
-          onClick={onBack}
+          disabled={isLeaving}
+          onClick={handleBack}
         >
           <FaArrowLeft aria-hidden="true" />
           Study spaces
@@ -647,14 +686,32 @@ function LibraryDetailPage({
   const chart = buildCapacityBarChart(library, { includeForecast: true });
   const featureSummary = getFeatureSummary(library);
   const mapUrl = getLibraryMapUrl(library);
+  const { handleBack, isLeaving } = useSmoothLibraryBack(onBack);
   const statusLabel = library.unavailable
     ? "Unavailable"
     : getOccupancyLabel(library.occupancyPercent);
 
   return (
-    <section className="library-detail-layout">
+    <motion.section
+      animate={
+        isLeaving
+          ? { filter: "blur(3px)", opacity: 0, scale: 0.985, y: 16 }
+          : { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }
+      }
+      className="library-detail-layout"
+      initial={{ filter: "blur(2px)", opacity: 0, scale: 0.99, y: 14 }}
+      transition={{
+        duration: isLeaving ? 0.2 : 0.34,
+        ease: [0.22, 1, 0.36, 1],
+      }}
+    >
       <section className={`surface-panel library-detail-hero tone-${tone}`}>
-        <button type="button" className="library-detail-back" onClick={onBack}>
+        <button
+          type="button"
+          className="library-detail-back"
+          disabled={isLeaving}
+          onClick={handleBack}
+        >
           <FaArrowLeft aria-hidden="true" />
           Study spaces
         </button>
@@ -746,7 +803,7 @@ function LibraryDetailPage({
           <EmptyState compact message="No feature details available yet." />
         )}
       </section>
-    </section>
+    </motion.section>
   );
 }
 

@@ -9525,6 +9525,13 @@ body.library-amenities-overlay-open .app-shell.page-spaces .page-switcher {
   transform: translateX(-4px);
 }
 
+.page-spaces .library-overlay-back:disabled,
+.page-spaces .library-detail-back:disabled {
+  cursor: default;
+  opacity: 0.72;
+  transform: none;
+}
+
 .page-spaces .library-amenities-layout {
   color: #1a1c29;
 }

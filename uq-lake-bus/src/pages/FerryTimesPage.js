@@ -1,13 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FaArrowLeft,
   FaChevronDown,
-  FaClock,
   FaExchangeAlt,
   FaExclamationCircle,
   FaFlag,
-  FaMagic,
   FaMapMarkerAlt,
   FaShip,
   FaSyncAlt,
@@ -15,6 +13,8 @@ import {
 
 const FERRY_REFRESH_MS = 15000;
 const FERRY_REFRESH_FEEDBACK_MS = 800;
+const FERRY_PAGE_EXIT_MS = 230;
+const FERRY_PENDING_MINUTES = 2;
 const FERRY_ROUTE_CODE = "F1";
 const FERRY_ROUTE_NAME = "F1 Northshore Hamilton/UQ St Lucia";
 const FERRY_STOP_NAME = "UQ St Lucia ferry terminal";
@@ -22,19 +22,35 @@ const FERRY_DEFAULT_JOURNEY_ID = "f1-citycat";
 const BRISBANE_TZ = "Australia/Brisbane";
 const SIMPLE_DIRECTION_TO_UQ = "toUq";
 const SIMPLE_DIRECTION_FROM_UQ = "fromUq";
-const SIMPLE_STATIONS = [
-  "Northshore Hamilton",
-  "Bretts Wharf",
-  "Teneriffe",
-  "Bulimba",
-  "Riverside",
-  "QUT Gardens Point",
-  "South Bank",
+const F1_TO_NORTHSHORE_STATIONS = [
+  "UQ St Lucia",
   "West End",
   "Guyatt Park",
-  "UQ St Lucia",
+  "Regatta",
+  "Milton",
+  "North Quay",
+  "South Bank",
+  "QUT Gardens Point",
+  "Riverside",
+  "Howard Smith Wharves",
+  "Sydney Street",
+  "Mowbray Park",
+  "New Farm Park",
+  "Hawthorne",
+  "Bulimba",
+  "Teneriffe",
+  "Bretts Wharf",
+  "Apollo Road",
+  "Northshore Hamilton",
 ];
-const SIMPLE_SELECTABLE_STATIONS = SIMPLE_STATIONS.filter((station) => {
+const F1_TO_NORTHSHORE_SEGMENT_MINUTES = [
+  5, 3, 4, 4, 6, 4, 4, 9, 5, 7, 3, 4, 5, 4, 4, 6, 3, 4,
+];
+const F1_TO_UQ_STATIONS = [...F1_TO_NORTHSHORE_STATIONS].reverse();
+const F1_TO_UQ_SEGMENT_MINUTES = [
+  ...F1_TO_NORTHSHORE_SEGMENT_MINUTES,
+].reverse();
+const SIMPLE_SELECTABLE_STATIONS = F1_TO_NORTHSHORE_STATIONS.filter((station) => {
   return station !== "UQ St Lucia";
 });
 const FERRY_JOURNEYS = [
@@ -51,78 +67,6 @@ const FERRY_JOURNEYS = [
     vesselLabel: "CityCat fleet",
     usePrimaryFerryEndpoint: true,
   },
-  {
-    id: "f11-express-citycat",
-    label: "F11 Express",
-    originLabel: "Apollo Road",
-    originStopName: "Apollo Road ferry terminal",
-    destinationLabel: "Riverside",
-    destinationMatchers: ["riverside"],
-    routeCode: "F11",
-    routeName: "F11 Apollo Road/Riverside",
-    serviceLabel: "Express CityCat",
-    vesselLabel: "CityCat fleet",
-  },
-  {
-    id: "f12-express-citycat",
-    label: "F12 Express",
-    originLabel: "West End",
-    originStopName: "West End ferry terminal",
-    destinationLabel: "QUT Gardens Point",
-    destinationMatchers: ["qut", "gardens point"],
-    routeCode: "F12",
-    routeName: "F12 West End/QUT Gardens Point",
-    serviceLabel: "Express CityCat",
-    vesselLabel: "CityCat fleet",
-  },
-  {
-    id: "f21-cross-river",
-    label: "F21 Bulimba",
-    originLabel: "Bulimba",
-    originStopName: "Bulimba ferry terminal",
-    destinationLabel: "Teneriffe",
-    destinationMatchers: ["teneriffe"],
-    routeCode: "F21",
-    routeName: "F21 Bulimba/Teneriffe",
-    serviceLabel: "Cross River",
-    vesselLabel: "KittyCat ferry",
-  },
-  {
-    id: "f22-cross-river",
-    label: "F22 Dockside",
-    originLabel: "Dockside",
-    originStopName: "Dockside ferry terminal",
-    destinationLabel: "Sydney Street",
-    destinationMatchers: ["sydney street"],
-    routeCode: "F22",
-    routeName: "F22 Dockside/Sydney Street",
-    serviceLabel: "Cross River",
-    vesselLabel: "KittyCat ferry",
-  },
-  {
-    id: "f23-cross-river",
-    label: "F23 Holman",
-    originLabel: "Holman Street",
-    originStopName: "Holman Street ferry terminal",
-    destinationLabel: "Riverside",
-    destinationMatchers: ["riverside"],
-    routeCode: "F23",
-    routeName: "F23 Holman Street/Riverside",
-    serviceLabel: "Cross River",
-    vesselLabel: "KittyCat ferry",
-  },
-  {
-    id: "f24-cross-river",
-    label: "F24 Maritime",
-    originLabel: "Maritime Museum",
-    originStopName: "Maritime Museum ferry terminal",
-    destinationLabel: "QUT Gardens Point",
-    destinationMatchers: ["qut", "gardens point"],
-    routeCode: "F24",
-    routeName: "F24 Maritime Museum/QUT Gardens Point",
-    serviceLabel: "Cross River",
-    vesselLabel: "KittyCat ferry",
-  },
 ];
 
 export default function FerryTimesPage({ onBack }) {
@@ -130,6 +74,8 @@ export default function FerryTimesPage({ onBack }) {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [clockTick, setClockTick] = useState(() => Date.now());
   const [isSimplified, setIsSimplified] = useState(false);
   const [simpleDirection, setSimpleDirection] = useState(
     SIMPLE_DIRECTION_TO_UQ,
@@ -138,6 +84,7 @@ export default function FerryTimesPage({ onBack }) {
   const [selectedJourneyId, setSelectedJourneyId] = useState(
     FERRY_DEFAULT_JOURNEY_ID,
   );
+  const backTimeoutRef = useRef(null);
   const selectedJourney = getFerryJourney(selectedJourneyId);
   const activeJourney = isSimplified
     ? getSimpleFerryJourney(simpleDirection, myStation)
@@ -157,6 +104,16 @@ export default function FerryTimesPage({ onBack }) {
   const handleSimpleStationChange = (nextStation) => {
     resetFerryPayload();
     setMyStation(nextStation);
+  };
+  const handleBack = () => {
+    if (isLeaving) {
+      return;
+    }
+
+    setIsLeaving(true);
+    backTimeoutRef.current = window.setTimeout(() => {
+      onBack();
+    }, FERRY_PAGE_EXIT_MS);
   };
 
   const fetchData = async ({ silent = false } = {}) => {
@@ -212,8 +169,27 @@ export default function FerryTimesPage({ onBack }) {
     };
   }, [activeJourney.id]);
 
+  useEffect(() => {
+    return () => {
+      if (backTimeoutRef.current) {
+        window.clearTimeout(backTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setClockTick(Date.now());
+    }, 1000);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
   const departures = ferryData?.departures ?? [];
   const simpleSummary = getSimpleFerrySummary({
+    clockTick,
     departure: departures[0],
     direction: simpleDirection,
     hasLiveStationData: Boolean(departures[0]),
@@ -225,7 +201,23 @@ export default function FerryTimesPage({ onBack }) {
 
   return (
     <motion.section
-      animate={{ clipPath: "inset(0% 0% 0% 0% round 0px)", opacity: 1, y: 0 }}
+      animate={
+        isLeaving
+          ? {
+              clipPath: "inset(3% 2% 0% 2% round 30px)",
+              filter: "blur(3px)",
+              opacity: 0,
+              scale: 0.985,
+              y: 18,
+            }
+          : {
+              clipPath: "inset(0% 0% 0% 0% round 0px)",
+              filter: "blur(0px)",
+              opacity: 1,
+              scale: 1,
+              y: 0,
+            }
+      }
       aria-label="Live ferry times"
       className="ferry-page"
       initial={{
@@ -234,21 +226,29 @@ export default function FerryTimesPage({ onBack }) {
         y: 22,
       }}
       transition={{
-        clipPath: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
-        opacity: { duration: 0.2 },
+        clipPath: { duration: isLeaving ? 0.2 : 0.28, ease: [0.22, 1, 0.36, 1] },
+        filter: { duration: isLeaving ? 0.18 : 0.24 },
+        opacity: { duration: isLeaving ? 0.18 : 0.2 },
+        scale: { duration: isLeaving ? 0.18 : 0.24 },
         y: { type: "spring", stiffness: 460, damping: 34 },
       }}
     >
       <header className="ferry-header">
         <div className="ferry-header-controls">
-          <button type="button" className="ferry-back-button" onClick={onBack}>
+          <button
+            type="button"
+            className="ferry-back-button"
+            aria-label="Back"
+            disabled={isLeaving}
+            onClick={handleBack}
+          >
             <FaArrowLeft aria-hidden="true" />
-            <span>Back</span>
           </button>
 
           <button
             type="button"
             className="ferry-refresh-button"
+            aria-label={isRefreshing || loading ? "Refreshing" : "Refresh"}
             disabled={isRefreshing || loading}
             onClick={() => fetchData({ silent: true })}
           >
@@ -256,44 +256,51 @@ export default function FerryTimesPage({ onBack }) {
               aria-hidden="true"
               className={isRefreshing || loading ? "spinning" : ""}
             />
-            <span>{isRefreshing || loading ? "Refreshing" : "Refresh"}</span>
           </button>
         </div>
 
         <div className="ferry-hero-copy">
-          <motion.span
-            animate={{ rotate: [-3, 3, -3], y: [0, -6, 0] }}
-            aria-hidden="true"
-            className="ferry-header-ship"
-            transition={{
-              duration: 4,
-              ease: "easeInOut",
-              repeat: Infinity,
-            }}
-          >
-            <FaShip />
-          </motion.span>
-          <h1>Live Ferry Times</h1>
-          <span>Updated {updatedLabel}</span>
+          <h1>Brisbane Ferries</h1>
         </div>
 
-        <button
-          type="button"
-          className={`ferry-simple-toggle ${isSimplified ? "active" : ""}`}
-          aria-pressed={isSimplified}
-          onClick={toggleSimpleMode}
+        <div
+          className="ferry-view-tabs"
+          aria-label="Choose ferry view"
+          role="tablist"
         >
-          <span className="ferry-simple-toggle-track" aria-hidden="true">
-            <motion.span
-              animate={{ x: isSimplified ? 18 : 0 }}
-              className="ferry-simple-toggle-knob"
-              transition={{ type: "spring", stiffness: 520, damping: 32 }}
-            >
-              <FaMagic />
-            </motion.span>
-          </span>
-          <span>Simplify</span>
-        </button>
+          <motion.span
+            aria-hidden="true"
+            className="ferry-view-tabs-indicator"
+            animate={{ x: isSimplified ? "100%" : "0%" }}
+            transition={{ type: "spring", stiffness: 430, damping: 34 }}
+          />
+          <button
+            type="button"
+            aria-selected={!isSimplified}
+            className={!isSimplified ? "active" : ""}
+            onClick={() => {
+              if (isSimplified) {
+                toggleSimpleMode();
+              }
+            }}
+            role="tab"
+          >
+            Live List
+          </button>
+          <button
+            type="button"
+            aria-selected={isSimplified}
+            className={isSimplified ? "active" : ""}
+            onClick={() => {
+              if (!isSimplified) {
+                toggleSimpleMode();
+              }
+            }}
+            role="tab"
+          >
+            Timeline
+          </button>
+        </div>
       </header>
 
       <main className="ferry-content">
@@ -506,6 +513,30 @@ function SimpleFerryPanel({
   summary,
 }) {
   const goingToUq = direction === SIMPLE_DIRECTION_TO_UQ;
+  const stationSelect = (
+    <label className="ferry-simple-route-point selectable">
+      <small>{goingToUq ? "From" : "To"}</small>
+      <span className="ferry-simple-select-shell">
+        <select
+          value={myStation}
+          onChange={(event) => onStationChange(event.target.value)}
+        >
+          {SIMPLE_SELECTABLE_STATIONS.map((station) => (
+            <option key={station} value={station}>
+              {station}
+            </option>
+          ))}
+        </select>
+        <FaChevronDown aria-hidden="true" />
+      </span>
+    </label>
+  );
+  const uqPoint = (
+    <span className="ferry-simple-route-point">
+      <small>{goingToUq ? "To" : "From"}</small>
+      <strong>UQ St Lucia</strong>
+    </span>
+  );
 
   return (
     <article
@@ -514,62 +545,160 @@ function SimpleFerryPanel({
       <div className="ferry-simple-topline">
         <div>
           <span className="ferry-simple-kicker">Simple F1 helper</span>
-          <h2>{goingToUq ? "Get me to UQ" : "Leave from UQ"}</h2>
+          <h2>{summary.routeTitle}</h2>
         </div>
+      </div>
+
+      <div className="ferry-simple-route-flow">
+        {goingToUq ? stationSelect : uqPoint}
 
         <button
           type="button"
-          className="ferry-simple-direction"
+          className="ferry-simple-route-swap"
+          aria-label={goingToUq ? "Switch to from UQ" : "Switch to to UQ"}
           onClick={() =>
             onDirectionChange(
               goingToUq ? SIMPLE_DIRECTION_FROM_UQ : SIMPLE_DIRECTION_TO_UQ,
             )
           }
         >
-          <FaExchangeAlt aria-hidden="true" />
-          <span>{goingToUq ? "To UQ" : "From UQ"}</span>
+          <FaExchangeAlt />
         </button>
+
+        {goingToUq ? uqPoint : stationSelect}
       </div>
 
-      <label className="ferry-simple-select-label">
-        <span>{goingToUq ? "I am at" : "I want to go to"}</span>
-        <span className="ferry-simple-select-shell">
-          <select
-            value={myStation}
-            onChange={(event) => onStationChange(event.target.value)}
-          >
-            {SIMPLE_SELECTABLE_STATIONS.map((station) => (
-              <option key={station} value={station}>
-                {station}
-              </option>
-            ))}
-          </select>
-          <FaChevronDown aria-hidden="true" />
-        </span>
-      </label>
-
-      <div className="ferry-simple-destination">
-        <span className="ferry-simple-live-dot" aria-hidden="true" />
-        <span>
-          Destination: <strong>{summary.destinationLabel}</strong>
-        </span>
-      </div>
-
-      <div className="ferry-simple-timer">
-        <FaClock aria-hidden="true" />
-        <div>
-          <span>Estimated wait</span>
-          <strong>{summary.waitText}</strong>
+      {summary.departureTimeText ? (
+        <div className="ferry-simple-departure-time">
+          <span>Departs {summary.originLabel}</span>
+          <strong>{summary.departureTimeText}</strong>
         </div>
-      </div>
+      ) : null}
 
-      <SimpleFerryWave summary={summary} />
+      <FlipWaitClock clock={summary.waitClock} />
 
-      <div className="ferry-simple-meta">
-        <span>Ferry near</span>
+      <LiveJourneyTimeline summary={summary} />
+
+      <div className="ferry-simple-current-card">
+        <span>Currently at</span>
         <strong>{summary.ferryLocation}</strong>
+        <small>Next stop: {summary.nextStationLabel}</small>
       </div>
     </article>
+  );
+}
+
+function FlipWaitClock({ clock }) {
+  const minutes = clock?.minutes ?? "0";
+  const seconds = clock?.seconds ?? "00";
+  const departing = Boolean(clock?.departing);
+  const pending = Boolean(clock?.pending);
+
+  return (
+    <section
+      className={`ferry-flip-clock ${departing ? "departing" : ""} ${
+        pending ? "pending" : ""
+      }`}
+      aria-label={
+        departing
+          ? "The ferry is going to depart"
+          : pending
+            ? `Pending departure in about ${minutes} minutes`
+          : `Estimated wait ${minutes} minutes ${seconds} seconds`
+      }
+    >
+      {departing || pending ? (
+        <motion.div
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          className={`ferry-departing-now ${pending ? "pending" : ""}`}
+          initial={{ opacity: 0, scale: 0.96, y: 8 }}
+          transition={{ type: "spring", stiffness: 360, damping: 26 }}
+        >
+          <span>{pending ? "Pending departure" : "Departing now"}</span>
+          <strong>
+            {pending ? `Be ready in ${minutes} min` : "Ferry is going to depart"}
+          </strong>
+        </motion.div>
+      ) : (
+        <>
+          <span className="ferry-flip-clock-label">Estimated wait</span>
+          <div className="ferry-flip-clock-row">
+            <FlipClockUnit label="min" value={minutes} />
+            <span className="ferry-flip-clock-colon">:</span>
+            <FlipClockUnit label="sec" value={seconds} />
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+function FlipClockUnit({ label, value }) {
+  return (
+    <span className="ferry-flip-unit">
+      <span className="ferry-flip-card">
+        <AnimatePresence mode="popLayout" initial={false}>
+          <motion.strong
+            animate={{ opacity: 1, rotateX: 0, y: 0 }}
+            exit={{ opacity: 0, rotateX: 82, y: 8 }}
+            initial={{ opacity: 0, rotateX: -82, y: -8 }}
+            key={value}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {value}
+          </motion.strong>
+        </AnimatePresence>
+      </span>
+      <small>{label}</small>
+    </span>
+  );
+}
+
+function LiveJourneyTimeline({ summary }) {
+  const stops = summary.liveJourneyStops?.length
+    ? summary.liveJourneyStops
+    : summary.timelineStops ?? [];
+  const progressPercent = Number.isFinite(summary.liveJourneyProgress)
+    ? summary.liveJourneyProgress
+    : 0;
+
+  return (
+    <section className="ferry-live-journey" aria-label="Live journey timeline">
+      <div className="ferry-live-journey-head">
+        <span>Live journey</span>
+        <strong>{summary.stopsAwayLabel}</strong>
+      </div>
+
+      <div className="ferry-live-journey-track">
+        <div className="ferry-live-journey-line" aria-hidden="true">
+          <span className="ferry-live-journey-base" />
+          <motion.span
+            animate={{ width: `${progressPercent}%` }}
+            className="ferry-live-journey-fill"
+            initial={false}
+            transition={{ type: "spring", stiffness: 150, damping: 24 }}
+          />
+        </div>
+        <ol className="ferry-live-journey-dots">
+          {stops.map((stop, index) => {
+            const showLabel = index === 0 || index === stops.length - 1;
+
+            return (
+              <li
+                aria-label={stop.label}
+                className={`ferry-live-journey-dot ${stop.tone} ${
+                  showLabel ? "endpoint" : "middle"
+                }`}
+                key={`${stop.label}-${index}`}
+              >
+                <span aria-hidden="true" />
+                {showLabel ? <strong>{stop.label}</strong> : null}
+              </li>
+            );
+          })}
+        </ol>
+      </div>
+    </section>
   );
 }
 
@@ -579,15 +708,18 @@ function SimpleFerryWave({ summary }) {
       ? summary.timelineStops
       : [{ label: summary.ferryLocation, tone: "current" }];
   const markerLeft =
-    timelineStops.length <= 1
-      ? 0
-      : (summary.currentTimelineIndex / (timelineStops.length - 1)) * 100;
+    Number.isFinite(summary.markerPercent) ? summary.markerPercent : 0;
 
   return (
     <div className="ferry-simple-wave">
       <div className="ferry-simple-timeline-head">
-        <span>Current ferry</span>
-        <strong>{summary.ferryLocation}</strong>
+        <span>Approach timeline</span>
+        <small>Live ETA estimate</small>
+      </div>
+
+      <div className="ferry-simple-next-stop">
+        <span>Next stop</span>
+        <strong>{summary.nextStationLabel}</strong>
       </div>
 
       <motion.span
@@ -597,7 +729,7 @@ function SimpleFerryWave({ summary }) {
           y: [0, -5, 0],
         }}
         style={{
-          left: `clamp(0px, calc(${markerLeft}% - 20px), calc(100% - 40px))`,
+          left: `clamp(0px, calc(${markerLeft}% - 17px), calc(100% - 34px))`,
         }}
         transition={{
           rotate: { duration: 2.2, repeat: Infinity, ease: "easeInOut" },
@@ -652,6 +784,16 @@ function FerryDepartureCard({
   const progressPercent = Math.min(
     100,
     Math.max(4, Number(departure.progressPercent ?? 8)),
+  );
+  const isDeparting = Number(departure.countdownMinutes ?? 0) <= 0;
+  const isPending =
+    !isDeparting &&
+    Number(departure.countdownMinutes ?? Number.POSITIVE_INFINITY) <=
+      FERRY_PENDING_MINUTES;
+  const countdownParts = getCountdownParts(
+    departure.countdownText,
+    isDeparting,
+    isPending,
   );
 
   return (
@@ -718,9 +860,18 @@ function FerryDepartureCard({
             {departure.displayTime}
           </p>
         </div>
-        <div className={`ferry-countdown ${statusKey}`}>
-          <span>Time left</span>
-          <strong>{departure.countdownText}</strong>
+        <div
+          className={`ferry-countdown ${statusKey} ${
+            isDeparting ? "departing" : ""
+          } ${isPending ? "pending" : ""}`}
+        >
+          <span>
+            {isDeparting ? "Board now" : isPending ? "Pending" : "Time left"}
+          </span>
+          <strong>
+            {countdownParts.value}
+            {countdownParts.unit ? <small>{countdownParts.unit}</small> : null}
+          </strong>
         </div>
       </div>
 
@@ -798,78 +949,352 @@ function getSimpleFerryJourney(direction, stationName) {
 }
 
 function getSimpleFerrySummary({
+  clockTick,
   departure,
   direction,
   hasLiveStationData,
   stationName,
 }) {
-  const goingToUq = direction === SIMPLE_DIRECTION_TO_UQ;
-  const directionalStations = goingToUq
-    ? SIMPLE_STATIONS
-    : [...SIMPLE_STATIONS].reverse();
-  const safeStationName = getSafeSimpleStation(stationName);
-  const stationIndex = directionalStations.findIndex(
-    (station) => station === safeStationName,
-  );
-  const targetIndex = stationIndex >= 0 ? stationIndex : 1;
-  const ferryIndex = Math.max(0, targetIndex - 2);
-  const stationDistance = Math.max(1, targetIndex - ferryIndex);
+  const routePlan = getSimpleRoutePlan(direction, stationName);
   const hasLiveDeparture =
     hasLiveStationData && Number.isFinite(departure?.countdownMinutes);
-  const mockWaitMinutes = stationDistance * 6;
+  const mockWaitMinutes = getMockWaitMinutesToPickup(
+    routePlan.originIndex,
+    routePlan.segmentMinutes,
+  );
   const waitMinutes = hasLiveDeparture
     ? Math.max(0, Number(departure.countdownMinutes))
     : mockWaitMinutes;
-  const progressPercent =
-    targetIndex <= 0
-      ? 12
-      : Math.max(
-          14,
-          Math.min(92, Math.round((ferryIndex / targetIndex) * 100)),
-        );
+  const approach = estimateFerryApproachToPickup({
+    pickupIndex: routePlan.originIndex,
+    segmentMinutes: routePlan.segmentMinutes,
+    stationCount: routePlan.routeStations.length,
+    waitMinutes,
+  });
   const timelineStops = buildSimpleFerryTimelineStops(
-    directionalStations,
-    ferryIndex,
-    targetIndex,
+    routePlan.routeStations,
+    approach.currentIndex,
+    approach.nextIndex,
+    routePlan.destinationIndex,
   );
   const currentTimelineIndex = timelineStops.findIndex((stop) => {
     return stop.tone === "current";
   });
+  const markerIndex = timelineStops.findIndex((stop) => {
+    return stop.tone === "next";
+  });
+  const markerProgress =
+    timelineStops.length <= 1
+      ? 0
+      : (((markerIndex > 0 ? markerIndex - 1 : 0) + approach.segmentProgress) /
+          (timelineStops.length - 1)) *
+        100;
+  const stopsToPickup = Math.max(0, routePlan.originIndex - approach.currentIndex);
+  const tripStopCount = Math.max(
+    0,
+    routePlan.destinationIndex - routePlan.originIndex,
+  );
+  const liveJourneyStops = buildLiveJourneyStops(
+    routePlan.routeStations,
+    routePlan.originIndex,
+    routePlan.destinationIndex,
+  );
+  const compactLiveJourneyStops = compactLiveJourneyStopsForDisplay(
+    liveJourneyStops,
+  );
+  const visualSegmentProgress = getJourneySegmentProgress(approach, routePlan);
+  const liveJourneyProgress =
+    liveJourneyStops.length <= 1
+      ? 100
+      : Math.max(
+          0,
+          Math.min(
+            100,
+            Math.round((visualSegmentProgress / (liveJourneyStops.length - 1)) * 100),
+          ),
+        );
 
   return {
     currentTimelineIndex: currentTimelineIndex >= 0 ? currentTimelineIndex : 0,
-    destinationLabel: goingToUq ? "UQ St Lucia" : safeStationName,
+    destinationLabel: routePlan.destinationLabel,
     departureTimeText: hasLiveDeparture ? departure.displayTime : "",
-    ferryLocation: directionalStations[ferryIndex] ?? directionalStations[0],
-    progressPercent,
-    stationLabel: safeStationName,
+    ferryLocation:
+      routePlan.routeStations[approach.currentIndex] ?? routePlan.originLabel,
+    markerPercent: Math.max(0, Math.min(100, Math.round(markerProgress))),
+    nextStationLabel: getSimpleNextStationLabel(routePlan, approach),
+    originLabel: routePlan.originLabel,
+    pickupStation: routePlan.originLabel,
+    routeTitle: `${routePlan.originLabel} to ${routePlan.destinationLabel}`,
+    stationLabel: routePlan.selectedStation,
+    liveJourneyProgress,
+    liveJourneyStops: compactLiveJourneyStops,
+    stopsAway: stopsToPickup,
+    stopsAwayLabel: getSimpleJourneyStatusLabel({
+      destinationLabel: routePlan.destinationLabel,
+      originLabel: routePlan.originLabel,
+      stopsToPickup,
+      tripStopCount,
+    }),
     timelineStops,
+    waitClock: getDisplayWaitClock(waitMinutes, clockTick),
     waitText: formatFerryCountdown(waitMinutes),
   };
 }
 
-function buildSimpleFerryTimelineStops(stations, ferryIndex, targetIndex) {
-  const startIndex = Math.max(0, ferryIndex);
-  const endIndex = Math.max(startIndex, targetIndex);
-  const segment = stations.slice(startIndex, endIndex + 1);
-  const compactSegment =
-    segment.length <= 5
-      ? segment
-      : [
-          segment[0],
-          segment[1],
-          segment[Math.floor(segment.length / 2)],
-          segment.at(-2),
-          segment.at(-1),
-        ];
+function compactLiveJourneyStopsForDisplay(stops) {
+  if (stops.length <= 2) {
+    return stops;
+  }
 
-  return compactSegment.map((station, index) => {
-    const isCurrent = index === 0;
-    const isPickup = station === stations[targetIndex];
+  return [
+    { ...stops[0], tone: "current" },
+    {
+      label: "On the way",
+      tone: "middle",
+    },
+    { ...stops[stops.length - 1], tone: "destination" },
+  ];
+}
+
+function getSimpleRoutePlan(direction, stationName) {
+  const selectedStation = getSafeSimpleStation(stationName);
+  const goingToUq = direction === SIMPLE_DIRECTION_TO_UQ;
+  const routeStations = goingToUq ? F1_TO_UQ_STATIONS : F1_TO_NORTHSHORE_STATIONS;
+  const segmentMinutes = goingToUq
+    ? F1_TO_UQ_SEGMENT_MINUTES
+    : F1_TO_NORTHSHORE_SEGMENT_MINUTES;
+  const originLabel = goingToUq ? selectedStation : "UQ St Lucia";
+  const destinationLabel = goingToUq ? "UQ St Lucia" : selectedStation;
+  const originIndex = getSimpleRouteStationIndex(routeStations, originLabel, 0);
+  const destinationIndex = getSimpleRouteStationIndex(
+    routeStations,
+    destinationLabel,
+    routeStations.length - 1,
+  );
+
+  return {
+    destinationIndex: Math.max(originIndex, destinationIndex),
+    destinationLabel,
+    originIndex,
+    originLabel,
+    routeStations,
+    segmentMinutes,
+    selectedStation,
+  };
+}
+
+function getSimpleRouteStationIndex(routeStations, stationName, fallbackIndex) {
+  const index = routeStations.findIndex((station) => station === stationName);
+
+  return index >= 0 ? index : fallbackIndex;
+}
+
+function getSimpleJourneyStatusLabel({
+  destinationLabel,
+  originLabel,
+  stopsToPickup,
+  tripStopCount,
+}) {
+  if (stopsToPickup > 0) {
+    return `${stopsToPickup} ${stopsToPickup === 1 ? "stop" : "stops"} to ${originLabel}`;
+  }
+
+  if (tripStopCount > 0) {
+    return `${tripStopCount} ${tripStopCount === 1 ? "stop" : "stops"} to ${destinationLabel}`;
+  }
+
+  return "Approaching now";
+}
+
+function getSimpleNextStationLabel(routePlan, approach) {
+  if (approach.currentIndex < routePlan.originIndex) {
+    return routePlan.routeStations[approach.nextIndex] ?? routePlan.originLabel;
+  }
+
+  const nextTripIndex = Math.min(
+    routePlan.destinationIndex,
+    routePlan.originIndex + 1,
+  );
+
+  return routePlan.routeStations[nextTripIndex] ?? routePlan.destinationLabel;
+}
+
+function getJourneySegmentProgress(approach, routePlan) {
+  if (!approach || approach.currentIndex < routePlan.originIndex) {
+    return 0;
+  }
+
+  const journeyIndex = Math.max(
+    0,
+    Math.min(
+      routePlan.destinationIndex - routePlan.originIndex,
+      approach.currentIndex - routePlan.originIndex,
+    ),
+  );
+
+  if (journeyIndex <= 0) {
+    return 0;
+  }
+
+  const safeProgress = Number.isFinite(approach.segmentProgress)
+    ? approach.segmentProgress
+    : 0;
+
+  return journeyIndex + Math.max(0, Math.min(0.94, safeProgress));
+}
+
+function buildLiveJourneyStops(stations, currentIndex, targetIndex) {
+  const startIndex = Math.max(0, Math.min(currentIndex, targetIndex));
+  const endIndex = Math.max(startIndex, targetIndex);
+
+  return stations.slice(startIndex, endIndex + 1).map((station, index, segment) => {
+    const actualIndex = startIndex + index;
+    const isCurrent = actualIndex === currentIndex;
+    const isDestination = actualIndex === targetIndex;
+    const isPast = actualIndex < currentIndex;
 
     return {
       label: station,
-      tone: isCurrent ? "current" : isPickup ? "pickup" : "next",
+      tone: isCurrent
+        ? "current"
+        : isDestination
+          ? "destination"
+          : isPast
+            ? "past"
+            : index === segment.length - 1
+              ? "destination"
+              : "upcoming",
+    };
+  });
+}
+
+function getDisplayWaitClock(waitMinutes, clockTick) {
+  const safeMinutes = Math.max(0, Math.floor(Number(waitMinutes) || 0));
+
+  if (safeMinutes <= 0) {
+    return {
+      departing: true,
+      pending: false,
+      minutes: "0",
+      seconds: "00",
+    };
+  }
+
+  const secondsIntoMinute = new Date(clockTick || Date.now()).getSeconds();
+  const estimatedSeconds = Math.max(0, safeMinutes * 60 - secondsIntoMinute);
+
+  return {
+    departing: estimatedSeconds <= 0,
+    pending: estimatedSeconds > 0 && estimatedSeconds <= FERRY_PENDING_MINUTES * 60,
+    minutes: String(Math.floor(estimatedSeconds / 60)),
+    seconds: String(estimatedSeconds % 60).padStart(2, "0"),
+  };
+}
+
+function estimateFerryApproachToPickup({
+  pickupIndex,
+  segmentMinutes,
+  stationCount,
+  waitMinutes,
+}) {
+  const safePickupIndex = Math.max(
+    0,
+    Math.min(stationCount - 1, pickupIndex),
+  );
+  if (safePickupIndex === 0) {
+    return {
+      currentIndex: 0,
+      nextIndex: 0,
+      segmentProgress: 0,
+    };
+  }
+
+  let currentIndex = Math.max(0, safePickupIndex - 1);
+  let smallestPositiveDelta = Number.POSITIVE_INFINITY;
+
+  for (let index = 0; index < safePickupIndex; index += 1) {
+    const minutesFromStop = getMinutesBetweenSimpleStops(
+      index,
+      safePickupIndex,
+      segmentMinutes,
+    );
+    const delta = minutesFromStop - waitMinutes;
+
+    if (delta >= 0 && delta < smallestPositiveDelta) {
+      smallestPositiveDelta = delta;
+      currentIndex = index;
+    }
+  }
+
+  const nextIndex = Math.min(currentIndex + 1, safePickupIndex);
+  const minutesFromCurrent = getMinutesBetweenSimpleStops(
+    currentIndex,
+    safePickupIndex,
+    segmentMinutes,
+  );
+  const minutesFromNext = getMinutesBetweenSimpleStops(
+    nextIndex,
+    safePickupIndex,
+    segmentMinutes,
+  );
+  const segmentDuration = Math.max(1, minutesFromCurrent - minutesFromNext);
+  const segmentProgress = Math.max(
+    0,
+    Math.min(1, (minutesFromCurrent - waitMinutes) / segmentDuration),
+  );
+
+  return {
+    currentIndex,
+    nextIndex,
+    segmentProgress,
+  };
+}
+
+function getMinutesBetweenSimpleStops(fromIndex, toIndex, segmentMinutes) {
+  if (fromIndex >= toIndex) {
+    return 0;
+  }
+
+  return segmentMinutes.slice(fromIndex, toIndex).reduce(
+    (totalMinutes, segmentMinutes) => totalMinutes + segmentMinutes,
+    0,
+  );
+}
+
+function getMockWaitMinutesToPickup(pickupIndex, segmentMinutes) {
+  if (pickupIndex <= 0) {
+    return 6;
+  }
+
+  const approachStartIndex = Math.max(0, pickupIndex - 2);
+
+  return Math.max(
+    6,
+    getMinutesBetweenSimpleStops(approachStartIndex, pickupIndex, segmentMinutes),
+  );
+}
+
+function buildSimpleFerryTimelineStops(stations, currentIndex, nextIndex, targetIndex) {
+  const startIndex = Math.max(0, currentIndex);
+  const endIndex = Math.max(startIndex, targetIndex);
+  const importantIndexes = [
+    startIndex,
+    Math.max(startIndex, nextIndex),
+    Math.max(startIndex, targetIndex - 1),
+    endIndex,
+  ];
+  const uniqueIndexes = Array.from(new Set(importantIndexes)).filter((index) => {
+    return index >= startIndex && index <= endIndex;
+  });
+
+  return uniqueIndexes.map((index) => {
+    const isCurrent = index === startIndex;
+    const isNext = index === nextIndex && index !== startIndex;
+    const isPickup = index === targetIndex;
+
+    return {
+      label: stations[index],
+      tone: isCurrent ? "current" : isNext ? "next" : isPickup ? "pickup" : "path",
     };
   });
 }
@@ -991,24 +1416,56 @@ function FerryWaveProgress({ currentLocation, progressPercent, statusKey }) {
           y: { duration: 2, ease: "easeInOut", repeat: Infinity },
         }}
       >
-        <motion.span
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="ferry-location-bubble"
-          initial={{ opacity: 0, scale: 0.82, y: 8 }}
-          transition={{
-            delay: 0.72,
-            type: "spring",
-            stiffness: 360,
-            damping: 22,
-          }}
-        >
-          <FaMapMarkerAlt aria-hidden="true" />
-          <span>{locationLabel}</span>
-        </motion.span>
         <FaShip />
+      </motion.span>
+
+      <motion.span
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="ferry-location-bubble"
+        initial={{ opacity: 0, scale: 0.82, y: 8 }}
+        transition={{
+          delay: 0.72,
+          type: "spring",
+          stiffness: 360,
+          damping: 22,
+        }}
+      >
+        <FaMapMarkerAlt aria-hidden="true" />
+        <span>{locationLabel}</span>
       </motion.span>
     </div>
   );
+}
+
+function getCountdownParts(countdownText, isDeparting = false, isPending = false) {
+  if (isDeparting) {
+    return {
+      unit: "",
+      value: "Departing",
+    };
+  }
+
+  if (isPending) {
+    return {
+      unit: "",
+      value: "Pending",
+    };
+  }
+
+  const text = String(countdownText ?? "").trim();
+  const match = text.match(/^(\d+)\s*(.*)$/);
+
+  if (!match) {
+    return {
+      unit: "",
+      value: text,
+    };
+  }
+
+  return {
+    unit: match[2] || "",
+    value: match[1],
+  };
 }
 
 function getFerryBubbleEdgeClass(progressPercent) {
