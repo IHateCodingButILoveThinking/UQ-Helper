@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FaArrowLeft,
@@ -156,7 +156,7 @@ function useSmoothLibraryBack(onBack) {
   };
 }
 
-function StudySpacesAd() {
+function StudySpacesFeedAd() {
   const adRef = useRef(null);
   const [isQueued, setIsQueued] = useState(false);
 
@@ -175,7 +175,7 @@ function StudySpacesAd() {
   }, [isQueued]);
 
   return (
-    <aside className="study-spaces-ad-card" aria-label="Advertisement">
+    <aside className="study-spaces-feed-ad" aria-label="Advertisement">
       <span>Advertisement</span>
       <ins
         ref={adRef}
@@ -330,8 +330,6 @@ export default function LibrarySpacesPage({
         )}
       </section>
 
-      <StudySpacesAd />
-
       <section className="surface-panel library-spaces-panel">
         <div className="section-head feed-head">
           <div>
@@ -385,12 +383,16 @@ export default function LibrarySpacesPage({
           </div>
         ) : filteredLibraries.length ? (
           <div className="library-card-grid">
-            {filteredLibraries.map((library) => (
-              <LibraryListItem
-                key={library.id}
-                library={library}
-                onSelect={() => setSelectedLibraryId(library.id)}
-              />
+            {filteredLibraries.map((library, index) => (
+              <Fragment key={library.id}>
+                {index === Math.min(2, filteredLibraries.length - 1) ? (
+                  <StudySpacesFeedAd key="study-spaces-feed-ad" />
+                ) : null}
+                <LibraryListItem
+                  library={library}
+                  onSelect={() => setSelectedLibraryId(library.id)}
+                />
+              </Fragment>
             ))}
           </div>
         ) : (
