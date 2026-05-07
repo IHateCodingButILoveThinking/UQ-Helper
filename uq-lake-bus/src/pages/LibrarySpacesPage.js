@@ -54,6 +54,7 @@ const AMENITIES_CAMPUS_FILTERS = CAMPUS_FILTERS.filter((filter) => {
 const SPACES_VIEW_QUERY_KEY = "view";
 const SPACES_LIBRARY_QUERY_KEY = "library";
 const SPACES_AMENITIES_VIEW = "amenities";
+const SPACES_TOILETS_VIEW = "toilets";
 const ADSENSE_CLIENT_ID = "ca-pub-6347959837132968";
 const STUDY_SPACES_AD_SLOT_ID = "7093043069";
 const STUDY_SPACES_AD_LAYOUT_KEY = "-h9-x+21-r+v";
@@ -102,6 +103,104 @@ const TECH_FEATURE_IDS = new Set([
   "printing",
   "virtual-help",
 ]);
+const CLEAN_TOILET_SPOTS = [
+  {
+    id: "chemistry-68-l4",
+    name: "Chemistry Building",
+    building: "Building 68",
+    floor: "Level 4",
+    vibe: "单人单间，死胡同，人流少",
+    bestFor: "安静爽拉 / 社恐友好",
+    notes: ["实验室级洗手池", "私密度高", "用户推荐为高洁净度"],
+    rating: "封神级",
+    source: "student",
+    mapQuery: "Chemistry Building 68 University of Queensland St Lucia",
+  },
+  {
+    id: "chemical-engineering-l1",
+    name: "Chemical Engineering",
+    building: "Chemical Engineering Building",
+    floor: "Level 1",
+    vibe: "豪华单间，厕纸体验好",
+    bestFor: "临时救急 / 舒适优先",
+    notes: ["单间体验", "厚厕纸", "用户推荐"],
+    rating: "豪华单间",
+    source: "student",
+    mapQuery: "Chemical Engineering Building University of Queensland St Lucia",
+  },
+  {
+    id: "social-sciences-24-24a-l3",
+    name: "Social Sciences",
+    building: "Building 24 / 24A",
+    floor: "Level 3",
+    vibe: "近 Central Library，老式但干净",
+    bestFor: "图书馆附近 / 解放双手",
+    notes: ["厕所后有平台放东西", "有擦手纸", "Central Library 出门直走"],
+    rating: "近图书馆",
+    source: "student",
+    mapQuery: "Social Sciences Building 24 University of Queensland St Lucia",
+  },
+  {
+    id: "sir-llew-edwards-14-l3",
+    name: "Sir Llew Edwards",
+    building: "Building 14",
+    floor: "Level 3",
+    vibe: "离 Central Library 很近",
+    bestFor: "近距离冲刺 / 爱蹲坑人士",
+    notes: ["出门左转就到", "有吹风机", "无擦手纸"],
+    rating: "方便款",
+    source: "student",
+    mapQuery: "Sir Llew Edwards Building 14 University of Queensland St Lucia",
+  },
+  {
+    id: "law-library-l3",
+    name: "Walter Harrison Law Library",
+    building: "Law Library",
+    floor: "Level 3",
+    vibe: "干净，深色内装，比较高级",
+    bestFor: "安静 / 精致一点",
+    notes: ["学生反馈干净无异味", "Semper Floreat 评价：干净且内装高级", "有烘手机"],
+    rating: "高级感",
+    source: "semper",
+    mapQuery: "Walter Harrison Law Library University of Queensland St Lucia",
+  },
+  {
+    id: "jd-story-admin",
+    name: "J.D. Story Administration",
+    building: "Administration Building",
+    floor: "Levels 2-5",
+    vibe: "维护很好，擦手纸稳定",
+    bestFor: "想要稳妥干净",
+    notes: ["Semper Floreat 清洁度 5/5", "无障碍友好 5/5", "2-5 层有擦手纸"],
+    rating: "稳妥干净",
+    source: "semper",
+    mapQuery: "J.D. Story Administration Building University of Queensland St Lucia",
+  },
+  {
+    id: "modwest",
+    name: "Modwest",
+    building: "Modwest",
+    floor: "Main facilities",
+    vibe: "简洁、干净、实用",
+    bestFor: "稳定不踩雷",
+    notes: ["Semper Floreat 清洁度 5/5", "无障碍友好 4/5", "有烘手机"],
+    rating: "不踩雷",
+    source: "semper",
+    mapQuery: "Modwest University of Queensland St Lucia",
+  },
+  {
+    id: "michie-hidden-gem",
+    name: "Michie",
+    building: "Michie Building",
+    floor: "Upper levels",
+    vibe: "高楼层更安静，隐藏款",
+    bestFor: "避开人群",
+    notes: ["Semper Floreat 清洁度 4.5/5", "高楼层人少", "洗手池设计较现代"],
+    rating: "隐藏款",
+    source: "semper",
+    mapQuery: "Michie Building University of Queensland St Lucia",
+  },
+];
 
 function doesAmenityMatchFeatureFilter(amenity, activeFilter) {
   if (activeFilter === "All") {
@@ -190,6 +289,44 @@ function StudySpacesFeedAd() {
   );
 }
 
+function SideToiletIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" {...props}>
+      <path
+        d="M4.5 6.5h5.2v6.2H4.5z"
+        fill="currentColor"
+        opacity="0.18"
+      />
+      <path
+        d="M4.5 6.5h5.2v6.2H4.5z"
+        stroke="currentColor"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M9.7 10.2h7.4c2.1 0 3.7 1.7 3.4 3.8-.3 2.4-2.4 4.2-4.8 4.2h-4.2c-2.1 0-3.9-1.5-4.3-3.5"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M12.2 18.2l-.9 2.8h5.9l-1.1-2.8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      />
+      <path
+        d="M3.5 5h6.8"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="2"
+      />
+    </svg>
+  );
+}
+
 export default function LibrarySpacesPage({
   libraryError,
   libraryLoading,
@@ -205,6 +342,9 @@ export default function LibrarySpacesPage({
   );
   const [showAmenitiesGuide, setShowAmenitiesGuide] = useState(
     initialSpacesView.showAmenitiesGuide,
+  );
+  const [showToiletGuide, setShowToiletGuide] = useState(
+    initialSpacesView.showToiletGuide,
   );
   const libraries = librarySpaces?.libraries ?? [];
   const selectedCampusFilter =
@@ -229,25 +369,33 @@ export default function LibrarySpacesPage({
     : "";
 
   useEffect(() => {
-    if (selectedLibraryId || showAmenitiesGuide) {
+    if (selectedLibraryId || showAmenitiesGuide || showToiletGuide) {
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, [selectedLibraryId, showAmenitiesGuide]);
+  }, [selectedLibraryId, showAmenitiesGuide, showToiletGuide]);
 
   useEffect(() => {
-    onSubPageOpenChange?.(Boolean(selectedLibraryId || showAmenitiesGuide));
+    onSubPageOpenChange?.(
+      Boolean(selectedLibraryId || showAmenitiesGuide || showToiletGuide),
+    );
 
     return () => {
       onSubPageOpenChange?.(false);
     };
-  }, [onSubPageOpenChange, selectedLibraryId, showAmenitiesGuide]);
+  }, [
+    onSubPageOpenChange,
+    selectedLibraryId,
+    showAmenitiesGuide,
+    showToiletGuide,
+  ]);
 
   useEffect(() => {
     syncLibrarySpacesUrl({
       libraryId: selectedLibraryId,
       showAmenitiesGuide,
+      showToiletGuide,
     });
-  }, [selectedLibraryId, showAmenitiesGuide]);
+  }, [selectedLibraryId, showAmenitiesGuide, showToiletGuide]);
 
   if (showAmenitiesGuide) {
     return (
@@ -260,6 +408,10 @@ export default function LibrarySpacesPage({
         }}
       />
     );
+  }
+
+  if (showToiletGuide) {
+    return <CleanToiletGuidePage onBack={() => setShowToiletGuide(false)} />;
   }
 
   if (selectedLibrary) {
@@ -285,14 +437,31 @@ export default function LibrarySpacesPage({
               <p className="eyebrow">UQ Libraries</p>
               <h1 className="section-title">Study spaces</h1>
             </div>
-            <button
-              type="button"
-              className="library-know-more-button"
-              onClick={() => setShowAmenitiesGuide(true)}
+            <div className="library-title-actions">
+              <button
+                type="button"
+                className="library-know-more-button"
+                onClick={() => {
+                  setShowToiletGuide(false);
+                  setShowAmenitiesGuide(true);
+                }}
+              >
+                <FaBookOpen aria-hidden="true" />
+                Amenities
+              </button>
+              <button
+                type="button"
+                className="library-toilet-button"
+                aria-label="Open clean UQ toilet list"
+                onClick={() => {
+                  setSelectedLibraryId("");
+                  setShowAmenitiesGuide(false);
+                  setShowToiletGuide(true);
+                }}
             >
-              <FaBookOpen aria-hidden="true" />
-              Amenities
+              <SideToiletIcon aria-hidden="true" />
             </button>
+            </div>
           </div>
           <p className="library-spaces-subtle-copy">
             Live seat availability first, then library features when you need
@@ -451,6 +620,104 @@ function LibraryListItem({ library, onSelect }) {
         <FaChevronRight className="library-card-chevron" aria-hidden="true" />
       </div>
     </button>
+  );
+}
+
+function CleanToiletGuidePage({ onBack }) {
+  const { handleBack, isLeaving } = useSmoothLibraryBack(onBack);
+
+  useEffect(() => {
+    document.body.classList.add("library-amenities-overlay-open");
+
+    return () => {
+      document.body.classList.remove("library-amenities-overlay-open");
+    };
+  }, []);
+
+  return (
+    <div className="library-amenities-overlay-canvas">
+      <motion.div
+        animate={
+          isLeaving
+            ? { filter: "blur(3px)", opacity: 0, scale: 0.985, y: 16 }
+            : { filter: "blur(0px)", opacity: 1, scale: 1, y: 0 }
+        }
+        className="library-amenities-overlay-card toilet-guide-page"
+        initial={{ filter: "blur(3px)", opacity: 0, scale: 0.99, y: 20 }}
+        transition={{
+          duration: isLeaving ? 0.2 : 0.42,
+          ease: [0.22, 1, 0.36, 1],
+        }}
+      >
+        <button
+          type="button"
+          className="toilet-guide-back"
+          aria-label="Back to study spaces"
+          disabled={isLeaving}
+          onClick={handleBack}
+        >
+          <FaArrowLeft aria-hidden="true" />
+        </button>
+
+        <section className="toilet-guide-list" aria-label="Cleanest UQ toilets">
+          {CLEAN_TOILET_SPOTS.map((spot, index) => (
+            <article className="toilet-guide-card" key={spot.id}>
+              <div className="toilet-guide-rank">
+                {String(index + 1).padStart(2, "0")}
+              </div>
+
+              <div className="toilet-guide-main">
+                <div className="toilet-guide-card-head">
+                  <div>
+                    <h2>{spot.name}</h2>
+                    <p>
+                      {spot.building} · {spot.floor}
+                    </p>
+                  </div>
+                  <span>{spot.rating}</span>
+                </div>
+
+                <p className="toilet-guide-vibe">{spot.vibe}</p>
+                <div className="toilet-guide-tags">
+                  <span>{spot.bestFor}</span>
+                  <span>
+                    {spot.source === "semper" ? "Semper 评测" : "小红书推荐"}
+                  </span>
+                </div>
+
+                <ul>
+                  {spot.notes.map((note) => (
+                    <li key={note}>{note}</li>
+                  ))}
+                </ul>
+
+                <a
+                  className="toilet-guide-map"
+                  href={getGoogleMapsUrl(spot.mapQuery)}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  <FaMapMarkedAlt aria-hidden="true" />
+                  地图导航
+                </a>
+              </div>
+            </article>
+          ))}
+        </section>
+
+        <p className="toilet-guide-source">
+          数据来源：部分厕所推荐由小红书博主 R 贡献，另参考学生补充信息与{" "}
+          <a
+            href="https://www.semperfloreat.com.au/uq-st-lucia-toilet-reviews/"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Semper Floreat UQ St Lucia Toilet Reviews
+          </a>
+          。
+        </p>
+      </motion.div>
+    </div>
   );
 }
 
@@ -1006,6 +1273,7 @@ function LibraryWaveGrid({
         <div className="library-campus-pulse-card">
           <div
             aria-label={chart.ariaLabel}
+            aria-describedby="campus-pulse-hint"
             className="library-campus-pulse-visual"
             onKeyDown={handlePulseKeyDown}
             onPointerCancel={finishPulseScrub}
@@ -1116,6 +1384,10 @@ function LibraryWaveGrid({
               </div>
             ) : null}
           </div>
+
+          <p className="library-campus-pulse-hint" id="campus-pulse-hint">
+            Long press the graph to see exact occupancy for each time period.
+          </p>
 
           <div className="library-campus-pulse-selectors">
             {chart.series.map((series) => (
@@ -1384,6 +1656,7 @@ function getInitialLibrarySpacesView() {
     return {
       libraryId: "",
       showAmenitiesGuide: false,
+      showToiletGuide: false,
     };
   }
 
@@ -1392,12 +1665,20 @@ function getInitialLibrarySpacesView() {
   const libraryId = params.get(SPACES_LIBRARY_QUERY_KEY)?.trim() ?? "";
 
   return {
-    libraryId: view === SPACES_AMENITIES_VIEW ? "" : libraryId,
+    libraryId:
+      view === SPACES_AMENITIES_VIEW || view === SPACES_TOILETS_VIEW
+        ? ""
+        : libraryId,
     showAmenitiesGuide: view === SPACES_AMENITIES_VIEW,
+    showToiletGuide: view === SPACES_TOILETS_VIEW,
   };
 }
 
-function syncLibrarySpacesUrl({ libraryId, showAmenitiesGuide }) {
+function syncLibrarySpacesUrl({
+  libraryId,
+  showAmenitiesGuide,
+  showToiletGuide,
+}) {
   if (typeof window === "undefined") {
     return;
   }
@@ -1408,6 +1689,9 @@ function syncLibrarySpacesUrl({ libraryId, showAmenitiesGuide }) {
   if (showAmenitiesGuide) {
     url.searchParams.set(SPACES_VIEW_QUERY_KEY, SPACES_AMENITIES_VIEW);
     url.searchParams.delete(SPACES_LIBRARY_QUERY_KEY);
+  } else if (showToiletGuide) {
+    url.searchParams.set(SPACES_VIEW_QUERY_KEY, SPACES_TOILETS_VIEW);
+    url.searchParams.delete(SPACES_LIBRARY_QUERY_KEY);
   } else if (libraryId) {
     url.searchParams.delete(SPACES_VIEW_QUERY_KEY);
     url.searchParams.set(SPACES_LIBRARY_QUERY_KEY, libraryId);
@@ -1417,6 +1701,10 @@ function syncLibrarySpacesUrl({ libraryId, showAmenitiesGuide }) {
   }
 
   window.history.replaceState({}, "", `${url.pathname}${url.search}${url.hash}`);
+}
+
+function getGoogleMapsUrl(query) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
 }
 
 function buildLibrarySummary(libraries) {
