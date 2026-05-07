@@ -54,6 +54,9 @@ const AMENITIES_CAMPUS_FILTERS = CAMPUS_FILTERS.filter((filter) => {
 const SPACES_VIEW_QUERY_KEY = "view";
 const SPACES_LIBRARY_QUERY_KEY = "library";
 const SPACES_AMENITIES_VIEW = "amenities";
+const ADSENSE_CLIENT_ID = "ca-pub-6347959837132968";
+const STUDY_SPACES_AD_SLOT_ID = "7093043069";
+const STUDY_SPACES_AD_LAYOUT_KEY = "-h9-x+21-r+v";
 const LIBRARY_SUBPAGE_EXIT_MS = 220;
 const CAMPUS_ORDER = new Map([
   ["St Lucia", 0],
@@ -151,6 +154,40 @@ function useSmoothLibraryBack(onBack) {
     handleBack,
     isLeaving,
   };
+}
+
+function StudySpacesAd() {
+  const adRef = useRef(null);
+  const [isQueued, setIsQueued] = useState(false);
+
+  useEffect(() => {
+    if (isQueued || !adRef.current || typeof window === "undefined") {
+      return;
+    }
+
+    try {
+      window.adsbygoogle = window.adsbygoogle || [];
+      window.adsbygoogle.push({});
+      setIsQueued(true);
+    } catch (error) {
+      console.warn("AdSense slot could not be queued yet.", error);
+    }
+  }, [isQueued]);
+
+  return (
+    <aside className="study-spaces-ad-card" aria-label="Advertisement">
+      <span>Advertisement</span>
+      <ins
+        ref={adRef}
+        className="adsbygoogle"
+        style={{ display: "block" }}
+        data-ad-format="fluid"
+        data-ad-layout-key={STUDY_SPACES_AD_LAYOUT_KEY}
+        data-ad-client={ADSENSE_CLIENT_ID}
+        data-ad-slot={STUDY_SPACES_AD_SLOT_ID}
+      />
+    </aside>
+  );
 }
 
 export default function LibrarySpacesPage({
@@ -292,6 +329,8 @@ export default function LibrarySpacesPage({
           <EmptyState compact message="No live study-space data right now." />
         )}
       </section>
+
+      <StudySpacesAd />
 
       <section className="surface-panel library-spaces-panel">
         <div className="section-head feed-head">
