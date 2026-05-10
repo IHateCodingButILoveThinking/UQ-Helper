@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FaArrowLeft,
-  FaBookOpen,
   FaBroadcastTower,
-  FaBusAlt,
   FaClock,
   FaExchangeAlt,
   FaMapMarkerAlt,
@@ -13,8 +11,10 @@ import {
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
+import { Bus, Coffee, LampDesk } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
+import FoodDirectoryPage from "./pages/FoodDirectoryPage";
 import FerryTimesPage from "./pages/FerryTimesPage";
 import LibrarySpacesPage from "./pages/LibrarySpacesPage";
 
@@ -23,10 +23,15 @@ const FILTER_PENDING_MS = 450;
 const DESTINATION_SEARCH_DEBOUNCE_MS = 220;
 const PLANNER_DEPARTURE_LIMIT = 96;
 const ALL_ROUTES_ID = "all-routes";
+const HOME_PAGE_ID = "home";
 const BOARD_PAGE_ID = "board";
 const PLANNER_PAGE_ID = "planner";
 const LIBRARY_SPACES_PAGE_ID = "spaces";
 const FERRY_PAGE_ID = "ferry";
+const FOOD_PAGE_ID = "food";
+const SPLASH_DURATION_MS = 3000;
+const UQ_SPLASH_LOGO_URL =
+  "https://static.uq.net.au/v15/logos/corporate/uq-logo-white.svg";
 const PLANNER_FIELD_ORIGIN = "origin";
 const PLANNER_FIELD_DESTINATION = "destination";
 const WALKABLE_UQ_STOP_MESSAGE =
@@ -207,6 +212,7 @@ const OFFICIAL_STATION_CHOICES = [
 export default function App() {
   const [currentPage, setCurrentPage] = useState(getInitialPageId);
   const [previousPage, setPreviousPage] = useState(null);
+  const [showSplash, setShowSplash] = useState(true);
   const [librarySubPageOpen, setLibrarySubPageOpen] = useState(false);
   const [selectedStopId, setSelectedStopId] = useState(getInitialStopId);
   const [data, setData] = useState(null);
@@ -260,6 +266,16 @@ export default function App() {
   const showError = activeStop.sourceMode === "live" && error;
   const modalOpen =
     currentPage === BOARD_PAGE_ID && (filterOpen || stopSheetOpen);
+
+  useEffect(() => {
+    const splashTimer = window.setTimeout(() => {
+      setShowSplash(false);
+    }, SPLASH_DURATION_MS);
+
+    return () => {
+      window.clearTimeout(splashTimer);
+    };
+  }, []);
 
   useEffect(() => {
     let timerId;
@@ -365,13 +381,17 @@ export default function App() {
     document.body.dataset.stopTheme = activeStop.themeKey;
     document.body.dataset.page = currentPage;
     document.title =
-      currentPage === LIBRARY_SPACES_PAGE_ID
+      currentPage === HOME_PAGE_ID
+        ? "UQ Campus"
+        : currentPage === LIBRARY_SPACES_PAGE_ID
         ? "UQ Library Study Spaces"
         : currentPage === FERRY_PAGE_ID
           ? "UQ F1 Ferry Times"
-          : currentPage === PLANNER_PAGE_ID
-            ? "Direct Bus Planner"
-            : `${activeStop.switchLabel} Bus Board`;
+          : currentPage === FOOD_PAGE_ID
+            ? "UQ Food & Drink"
+            : currentPage === PLANNER_PAGE_ID
+              ? "Direct Bus Planner"
+              : `${activeStop.switchLabel} Bus Board`;
 
     return () => {
       document.documentElement.removeAttribute("data-stop-theme");
@@ -748,10 +768,12 @@ export default function App() {
   const handlePageChange = (pageId) => {
     if (
       ![
+        HOME_PAGE_ID,
         BOARD_PAGE_ID,
         PLANNER_PAGE_ID,
         LIBRARY_SPACES_PAGE_ID,
         FERRY_PAGE_ID,
+        FOOD_PAGE_ID,
       ].includes(pageId)
     ) {
       return;
@@ -1110,60 +1132,43 @@ export default function App() {
     });
   };
 
-  const primaryTogglePage =
-    currentPage === LIBRARY_SPACES_PAGE_ID
-      ? LIBRARY_SPACES_PAGE_ID
-      : BOARD_PAGE_ID;
   const usePageMotion =
     currentPage !== FERRY_PAGE_ID && previousPage !== FERRY_PAGE_ID;
+  const isHomePage = currentPage === HOME_PAGE_ID;
   const pageInitialState = usePageMotion
-    ? { opacity: 0, y: 10, scale: 0.985, filter: "blur(4px)" }
+    ? { opacity: 0, x: isHomePage ? -22 : 22 }
     : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
   const pageExitState = usePageMotion
-    ? { opacity: 0, y: -6, scale: 0.99, filter: "blur(3px)" }
+    ? { opacity: 0, x: isHomePage ? -22 : 22 }
     : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
-  const showPrimaryNavigation =
-    currentPage !== FERRY_PAGE_ID &&
-    currentPage !== PLANNER_PAGE_ID &&
-    !(currentPage === LIBRARY_SPACES_PAGE_ID && librarySubPageOpen);
+  const showHomeBackButton =
+    currentPage === BOARD_PAGE_ID ||
+    currentPage === FOOD_PAGE_ID ||
+    (currentPage === LIBRARY_SPACES_PAGE_ID && !librarySubPageOpen);
 
   return (
     <main className={`app-shell ${activeStop.themeClass} page-${currentPage}`}>
-      {showPrimaryNavigation ? (
-        <nav className="surface-panel page-switcher" aria-label="Choose page">
-          <span
-            aria-hidden="true"
-            className={`page-switcher-indicator ${
-              primaryTogglePage === LIBRARY_SPACES_PAGE_ID
-                ? "spaces"
-                : primaryTogglePage === BOARD_PAGE_ID
-                  ? "board"
-                  : "hidden"
-            }`}
-          />
-          <button
-            type="button"
-            className={`page-switcher-button ${
-              primaryTogglePage === BOARD_PAGE_ID ? "active" : ""
-            }`}
-            aria-pressed={primaryTogglePage === BOARD_PAGE_ID}
-            onClick={() => handlePageChange(BOARD_PAGE_ID)}
-          >
-            <FaBusAlt className="page-switcher-icon" aria-hidden="true" />
-            <span>Transport Board</span>
-          </button>
-          <button
-            type="button"
-            className={`page-switcher-button ${
-              primaryTogglePage === LIBRARY_SPACES_PAGE_ID ? "active" : ""
-            }`}
-            aria-pressed={primaryTogglePage === LIBRARY_SPACES_PAGE_ID}
-            onClick={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
-          >
-            <FaBookOpen className="page-switcher-icon" aria-hidden="true" />
-            <span>Study Spaces</span>
-          </button>
-        </nav>
+      <AnimatePresence mode="wait">
+        {showSplash ? <CampusSplashScreen key="uq-splash" /> : null}
+      </AnimatePresence>
+
+      {showHomeBackButton ? (
+        <motion.button
+          type="button"
+          className="home-return-button"
+          aria-label="Back to home page"
+          onClick={() => handlePageChange(HOME_PAGE_ID)}
+          initial={{ opacity: 0, x: -18, scale: 0.98 }}
+          animate={{ opacity: 1, x: 0, scale: 1 }}
+          exit={{ opacity: 0, x: -18, scale: 0.98 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          transition={{ duration: 0.22, ease: "easeOut" }}
+        >
+          <motion.span className="home-return-icon" aria-hidden="true">
+            <FaArrowLeft />
+          </motion.span>
+        </motion.button>
       ) : null}
 
       <AnimatePresence mode="wait" initial={false}>
@@ -1179,17 +1184,26 @@ export default function App() {
           initial={pageInitialState}
           animate={{
             opacity: 1,
+            x: 0,
             y: 0,
             scale: 1,
             filter: "blur(0px)",
           }}
           exit={pageExitState}
           transition={{
-            duration: usePageMotion ? 0.22 : 0,
-            ease: [0.22, 1, 0.36, 1],
+            duration: usePageMotion ? 0.28 : 0,
+            ease: "easeOut",
           }}
         >
-          {currentPage === BOARD_PAGE_ID ? (
+          {currentPage === HOME_PAGE_ID ? (
+            <CampusHomePage
+              onOpenBoard={() => handlePageChange(BOARD_PAGE_ID)}
+              onOpenFood={() => handlePageChange(FOOD_PAGE_ID)}
+              onOpenStudySpaces={() =>
+                handlePageChange(LIBRARY_SPACES_PAGE_ID)
+              }
+            />
+          ) : currentPage === BOARD_PAGE_ID ? (
             <>
           <div className="side-stack">
             <section className="surface-panel hero-panel">
@@ -1665,6 +1679,8 @@ export default function App() {
         </section>
           ) : currentPage === FERRY_PAGE_ID ? (
         <FerryTimesPage onBack={() => handlePageChange(BOARD_PAGE_ID)} />
+          ) : currentPage === FOOD_PAGE_ID ? (
+        <FoodDirectoryPage />
           ) : (
         <LibrarySpacesPage
           libraryError={librarySpacesError}
@@ -1678,7 +1694,9 @@ export default function App() {
         </motion.div>
       </AnimatePresence>
 
-      {currentPage !== FERRY_PAGE_ID ? (
+      {currentPage !== HOME_PAGE_ID &&
+      currentPage !== FERRY_PAGE_ID &&
+      currentPage !== FOOD_PAGE_ID ? (
         <footer className="app-footer">
           <div className="app-footer-copy">
             <strong>{footerCopy.title}</strong>
@@ -1859,6 +1877,133 @@ export default function App() {
         transition={toastTransition}
       />
     </main>
+  );
+}
+
+function CampusSplashScreen() {
+  return (
+    <motion.div
+      className="uq-splash-screen"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0, scale: 1.04 }}
+      transition={{ duration: 0.6, ease: "easeInOut" }}
+      aria-label="The University of Queensland Create Change splash screen"
+    >
+      <div className="uq-splash-curves" aria-hidden="true">
+        <svg
+          viewBox="0 0 100 100"
+          preserveAspectRatio="none"
+          focusable="false"
+        >
+          <path d="M0,100 C30,70 70,70 100,100 Z" fill="#6A3A95" />
+          <path d="M0,100 C38,80 78,90 100,60 L100,100 Z" fill="#884CBA" />
+          <path d="M0,0 C30,30 70,30 100,0 Z" fill="#401962" />
+        </svg>
+      </div>
+
+      <motion.div
+        className="uq-splash-content"
+        initial={{ opacity: 0, y: 22, scale: 0.92 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ delay: 0.18, duration: 0.82, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <img
+          src={UQ_SPLASH_LOGO_URL}
+          alt="The University of Queensland Australia"
+          className="uq-splash-logo"
+          decoding="async"
+        />
+
+        <motion.span
+          className="uq-splash-divider"
+          initial={{ scaleX: 0 }}
+          animate={{ scaleX: 1 }}
+          transition={{ delay: 0.95, duration: 0.78, ease: "easeInOut" }}
+          aria-hidden="true"
+        />
+
+        <motion.p
+          className="uq-splash-motto"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.35, duration: 0.6, ease: "easeOut" }}
+        >
+          CREATE CHANGE
+        </motion.p>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function CampusHomePage({ onOpenBoard, onOpenFood, onOpenStudySpaces }) {
+  const homeActions = [
+    {
+      accentClass: "bus",
+      description: "Live campus departures",
+      Icon: Bus,
+      label: "Bus Time",
+      onClick: onOpenBoard,
+    },
+    {
+      accentClass: "study",
+      description: "Book a room in the library",
+      Icon: LampDesk,
+      label: "Study Spaces",
+      onClick: onOpenStudySpaces,
+    },
+    {
+      accentClass: "food",
+      description: "Cafes and restaurants",
+      Icon: Coffee,
+      label: "Food & Drink Around Me",
+      onClick: onOpenFood,
+    },
+  ];
+
+  return (
+    <section className="campus-home-page" aria-label="UQ Campus home">
+      <motion.header
+        className="campus-home-hero"
+        initial={{ opacity: 0, y: -16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <h1>
+          Welcome to
+          <br />
+          UQ Campus
+        </h1>
+        <p>What do you need today?</p>
+      </motion.header>
+
+      <div className="campus-home-actions">
+        {homeActions.map(({ accentClass, description, Icon, label, onClick }, index) => (
+          <motion.button
+            key={label}
+            type="button"
+            className="campus-home-card"
+            onClick={onClick}
+            initial={{ opacity: 0, y: 18, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            whileTap={{ scale: 0.965 }}
+            transition={{
+              delay: 0.08 + index * 0.08,
+              duration: 0.42,
+              ease: [0.22, 1, 0.36, 1],
+            }}
+          >
+            <span className={`campus-home-icon ${accentClass}`}>
+              <Icon aria-hidden="true" />
+            </span>
+            <span className="campus-home-card-copy">
+              <strong>{label}</strong>
+              <span>{description}</span>
+            </span>
+          </motion.button>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -2333,20 +2478,7 @@ function getInitialStopId() {
 }
 
 function getInitialPageId() {
-  const pageId = new URLSearchParams(window.location.search).get("page");
-  if (pageId === PLANNER_PAGE_ID) {
-    return PLANNER_PAGE_ID;
-  }
-
-  if (pageId === LIBRARY_SPACES_PAGE_ID) {
-    return LIBRARY_SPACES_PAGE_ID;
-  }
-
-  if (pageId === FERRY_PAGE_ID) {
-    return FERRY_PAGE_ID;
-  }
-
-  return BOARD_PAGE_ID;
+  return HOME_PAGE_ID;
 }
 
 function getInitialRouteId() {
@@ -3120,13 +3252,23 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
     url.searchParams.delete("library");
   }
 
-  if (!pageId || pageId === BOARD_PAGE_ID) {
+  if (!pageId || pageId === HOME_PAGE_ID) {
     url.searchParams.delete("page");
   } else {
     url.searchParams.set("page", pageId);
   }
 
-  if (pageId === LIBRARY_SPACES_PAGE_ID || pageId === FERRY_PAGE_ID) {
+  if (pageId === HOME_PAGE_ID) {
+    url.searchParams.delete("stop");
+    url.searchParams.delete("route");
+    return `${url.pathname}${url.search}${url.hash}`;
+  }
+
+  if (
+    pageId === LIBRARY_SPACES_PAGE_ID ||
+    pageId === FERRY_PAGE_ID ||
+    pageId === FOOD_PAGE_ID
+  ) {
     url.searchParams.delete("stop");
     url.searchParams.delete("route");
     return `${url.pathname}${url.search}${url.hash}`;

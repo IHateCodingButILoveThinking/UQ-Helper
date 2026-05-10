@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   FaArrowLeft,
@@ -55,9 +55,6 @@ const SPACES_VIEW_QUERY_KEY = "view";
 const SPACES_LIBRARY_QUERY_KEY = "library";
 const SPACES_AMENITIES_VIEW = "amenities";
 const SPACES_TOILETS_VIEW = "toilets";
-const ADSENSE_CLIENT_ID = "ca-pub-6347959837132968";
-const STUDY_SPACES_AD_SLOT_ID = "7093043069";
-const STUDY_SPACES_AD_LAYOUT_KEY = "-h9-x+21-r+v";
 const LIBRARY_SUBPAGE_EXIT_MS = 220;
 const CAMPUS_ORDER = new Map([
   ["St Lucia", 0],
@@ -253,40 +250,6 @@ function useSmoothLibraryBack(onBack) {
     handleBack,
     isLeaving,
   };
-}
-
-function StudySpacesFeedAd() {
-  const adRef = useRef(null);
-  const [isQueued, setIsQueued] = useState(false);
-
-  useEffect(() => {
-    if (isQueued || !adRef.current || typeof window === "undefined") {
-      return;
-    }
-
-    try {
-      window.adsbygoogle = window.adsbygoogle || [];
-      window.adsbygoogle.push({});
-      setIsQueued(true);
-    } catch (error) {
-      console.warn("AdSense slot could not be queued yet.", error);
-    }
-  }, [isQueued]);
-
-  return (
-    <aside className="study-spaces-feed-ad" aria-label="Advertisement">
-      <span>Advertisement</span>
-      <ins
-        ref={adRef}
-        className="adsbygoogle"
-        style={{ display: "block" }}
-        data-ad-format="fluid"
-        data-ad-layout-key={STUDY_SPACES_AD_LAYOUT_KEY}
-        data-ad-client={ADSENSE_CLIENT_ID}
-        data-ad-slot={STUDY_SPACES_AD_SLOT_ID}
-      />
-    </aside>
-  );
 }
 
 function SideToiletIcon(props) {
@@ -552,16 +515,12 @@ export default function LibrarySpacesPage({
           </div>
         ) : filteredLibraries.length ? (
           <div className="library-card-grid">
-            {filteredLibraries.map((library, index) => (
-              <Fragment key={library.id}>
-                {index === Math.min(2, filteredLibraries.length - 1) ? (
-                  <StudySpacesFeedAd key="study-spaces-feed-ad" />
-                ) : null}
-                <LibraryListItem
-                  library={library}
-                  onSelect={() => setSelectedLibraryId(library.id)}
-                />
-              </Fragment>
+            {filteredLibraries.map((library) => (
+              <LibraryListItem
+                key={library.id}
+                library={library}
+                onSelect={() => setSelectedLibraryId(library.id)}
+              />
             ))}
           </div>
         ) : (
