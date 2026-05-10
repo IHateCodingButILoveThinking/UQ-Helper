@@ -23,9 +23,10 @@
     "opening_hours_note": "Add manually from store website/signage, or fetch dynamically with Google Places Details if you use an API key.",
     "uq_source_url": "https://campuses.uq.edu.au/information-and-services/shops/food-retail/on-campus-shops-services",
     "uq_maps_url": null,
-    "google_maps_url": "https://www.google.com/maps/search/?api=1&query=Bagel%20Boys%20Train%20Carriage%20outside%20Building%2063%20University%20of%20Queensland",
-    "apple_maps_url": "https://maps.apple.com/?q=Bagel%20Boys%20Train%20Carriage%20outside%20Building%2063%20University%20of%20Queensland",
-    "map_query": "Bagel Boys Train Carriage outside Building 63 University of Queensland"
+    "google_maps_url": "https://www.google.com/maps/search/?api=1&query=The%20Bagel%20Boys%20UQ%20Train%20Carriage%20St%20Lucia",
+    "apple_maps_url": "https://maps.apple.com/?q=The%20Bagel%20Boys%20UQ%20Train%20Carriage&ll=-27.499305166254054,153.012544746562",
+
+    "map_query": "The Bagel Boys UQ Train Carriage St Lucia"
   },
   {
     "id": "uq-food-and-drink-belltop-cafe-st-lucia-st-lucia",
