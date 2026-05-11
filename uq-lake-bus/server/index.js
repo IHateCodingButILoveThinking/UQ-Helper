@@ -6,6 +6,8 @@ import express from "express";
 
 import { fetchDepartures, fetchStopMatches } from "./departures.js";
 import { fetchFerryDepartures } from "./ferries.js";
+import { fetchFoodServices } from "./food-services.js";
+import { fetchFoodReviews } from "./food-reviews.js";
 import { fetchLibrarySpaces } from "./library-spaces.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -75,6 +77,35 @@ app.get("/api/library-spaces", async (_request, response) => {
     response.status(500).json({
       error: "Could not load study spaces right now.",
       details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+app.get("/api/food-services", async (_request, response) => {
+  try {
+    const foodServices = await fetchFoodServices();
+    response.json(foodServices);
+  } catch (error) {
+    console.error("Could not fetch UQ food services", error);
+    response.status(500).json({
+      error: "Could not load UQ food services right now.",
+      details: error instanceof Error ? error.message : "Unknown error",
+      services: [],
+    });
+  }
+});
+
+app.get("/api/food-reviews", async (_request, response) => {
+  try {
+    const foodReviews = await fetchFoodReviews();
+    response.json(foodReviews);
+  } catch (error) {
+    console.error("Could not fetch food review data", error);
+    response.status(500).json({
+      configured: false,
+      error: "Could not load Google review data right now.",
+      details: error instanceof Error ? error.message : "Unknown error",
+      reviews: {},
     });
   }
 });
