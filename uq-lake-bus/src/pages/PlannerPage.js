@@ -4,6 +4,7 @@ import { toast } from "react-toastify";
 import DepartureCard from "../components/DepartureCard";
 import EmptyState from "../components/EmptyState";
 import { DESTINATION_SEARCH_DEBOUNCE_MS } from "../lib/app-constants";
+import { API_CACHE_TTLS, getCachedData } from "../lib/api-cache";
 import { formatTime } from "../lib/board-utils";
 
 export default function PlannerPage({ activeStop, onSourceUrlChange }) {
@@ -580,15 +581,25 @@ function findDepartureStopMatch(departure, destinationStop, stop) {
 }
 
 async function fetchTranslinkStops(query) {
-  const response = await fetch(
-    `/api/stops/search?q=${encodeURIComponent(String(query ?? "").trim())}`,
+  const normalizedQuery = String(query ?? "").trim();
+  const payload = await getCachedData(
+    `planner-stops-search:${normalizeSearchCandidate(normalizedQuery)}`,
+    async () => {
+      const response = await fetch(
+        `/api/stops/search?q=${encodeURIComponent(normalizedQuery)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Could not search official stop names.");
+      }
+
+      return response.json();
+    },
+    {
+      ttlMs: API_CACHE_TTLS.stopSearch,
+      validate: (nextPayload) => Array.isArray(nextPayload?.stops),
+    },
   );
-
-  if (!response.ok) {
-    throw new Error("Could not search official stop names.");
-  }
-
-  const payload = await response.json();
   const stops = Array.isArray(payload?.stops) ? payload.stops : [];
 
   return Array.from(
@@ -621,11 +632,20 @@ async function fetchStopDepartures({ stopId, stopName }) {
     params.set("stopName", stopName);
   }
 
-  const response = await fetch(`/api/departures?${params.toString()}`);
+  return getCachedData(
+    `planner-departures:${params.toString()}`,
+    async () => {
+      const response = await fetch(`/api/departures?${params.toString()}`);
 
-  if (!response.ok) {
-    throw new Error("Could not load departures for this stop.");
-  }
+      if (!response.ok) {
+        throw new Error("Could not load departures for this stop.");
+      }
 
-  return response.json();
+      return response.json();
+    },
+    {
+      ttlMs: API_CACHE_TTLS.plannerDepartures,
+      validate: (payload) => Boolean(payload) && Array.isArray(payload.departures),
+    },
+  );
 }

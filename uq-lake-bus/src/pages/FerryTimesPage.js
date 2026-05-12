@@ -10,6 +10,7 @@ import {
   FaShip,
   FaSyncAlt,
 } from "react-icons/fa";
+import { API_CACHE_TTLS, getCachedData } from "../lib/api-cache";
 
 const FERRY_REFRESH_MS = 15000;
 const FERRY_REFRESH_FEEDBACK_MS = 800;
@@ -85,6 +86,7 @@ export default function FerryTimesPage({ onBack }) {
     FERRY_DEFAULT_JOURNEY_ID,
   );
   const backTimeoutRef = useRef(null);
+  const isMountedRef = useRef(true);
   const selectedJourney = getFerryJourney(selectedJourneyId);
   const activeJourney = isSimplified
     ? getSimpleFerryJourney(simpleDirection, myStation)
@@ -116,7 +118,7 @@ export default function FerryTimesPage({ onBack }) {
     }, FERRY_PAGE_EXIT_MS);
   };
 
-  const fetchData = async ({ silent = false } = {}) => {
+  const fetchData = async ({ force = false, silent = false } = {}) => {
     const refreshStartedAt = Date.now();
 
     if (silent) {
@@ -126,10 +128,30 @@ export default function FerryTimesPage({ onBack }) {
     }
 
     try {
-      const nextData = await fetchFerryPayload(activeJourney);
+      const nextData = await fetchFerryPayload(activeJourney, {
+        force,
+        onUpdate: (freshData) => {
+          if (!isMountedRef.current) {
+            return;
+          }
+
+          setFerryData(freshData);
+          setError("");
+        },
+        staleWhileRevalidate: !force,
+      });
+
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setFerryData(nextData);
       setError("");
     } catch (fetchError) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       console.error(fetchError);
       setError("Could not load live ferry times right now.");
     } finally {
@@ -140,6 +162,10 @@ export default function FerryTimesPage({ onBack }) {
         if (remainingMs) {
           await waitForFerryRefreshFeedback(remainingMs);
         }
+      }
+
+      if (!isMountedRef.current) {
+        return;
       }
 
       setLoading(false);
@@ -171,6 +197,8 @@ export default function FerryTimesPage({ onBack }) {
 
   useEffect(() => {
     return () => {
+      isMountedRef.current = false;
+
       if (backTimeoutRef.current) {
         window.clearTimeout(backTimeoutRef.current);
       }
@@ -250,7 +278,7 @@ export default function FerryTimesPage({ onBack }) {
             className="ferry-refresh-button"
             aria-label={isRefreshing || loading ? "Refreshing" : "Refresh"}
             disabled={isRefreshing || loading}
-            onClick={() => fetchData({ silent: true })}
+            onClick={() => fetchData({ force: true, silent: true })}
           >
             <FaSyncAlt
               aria-hidden="true"
@@ -399,10 +427,31 @@ export default function FerryTimesPage({ onBack }) {
   );
 }
 
-async function fetchFerryPayload(journey) {
+async function fetchFerryPayload(
+  journey,
+  { force = false, onUpdate, staleWhileRevalidate = false } = {},
+) {
+  return getCachedData(
+    `ferries:presentation:${journey.id}`,
+    async () => fetchFerryPayloadFromNetwork(journey),
+    {
+      force,
+      onUpdate,
+      staleWhileRevalidate,
+      ttlMs: API_CACHE_TTLS.ferries,
+      validate: (payload) => Array.isArray(payload?.departures),
+    },
+  );
+}
+
+async function fetchFerryPayloadFromNetwork(journey) {
   if (journey.usePrimaryFerryEndpoint) {
     try {
-      const ferryPayload = await fetchJsonPayload("/api/ferries");
+      const ferryPayload = await fetchJsonPayload("/api/ferries", {
+        cacheKey: `ferries:${journey.id}:primary`,
+        force: true,
+        ttlMs: API_CACHE_TTLS.ferries,
+      });
 
       if (Array.isArray(ferryPayload?.departures)) {
         if (ferryPayload.departures.length > 0) {
@@ -421,8 +470,14 @@ async function fetchFerryPayload(journey) {
     }
   }
 
+  const fallbackUrl = buildFerryDeparturesUrl(journey.originStopName);
   const fallbackTimetable = await fetchJsonPayload(
-    buildFerryDeparturesUrl(journey.originStopName),
+    fallbackUrl,
+    {
+      cacheKey: `ferries:${journey.id}:fallback:${fallbackUrl}`,
+      force: true,
+      ttlMs: API_CACHE_TTLS.ferries,
+    },
   );
 
   return buildFerryPayloadFromDepartures(fallbackTimetable, journey);
@@ -451,26 +506,39 @@ function addFerryPresentationFields(payload, journey) {
   };
 }
 
-async function fetchJsonPayload(url) {
-  const response = await fetch(url, {
-    headers: {
-      accept: "application/json",
+async function fetchJsonPayload(
+  url,
+  { cacheKey = url, force = false, ttlMs = API_CACHE_TTLS.ferries } = {},
+) {
+  return getCachedData(
+    cacheKey,
+    async () => {
+      const response = await fetch(url, {
+        headers: {
+          accept: "application/json",
+        },
+      });
+      const contentType = response.headers.get("content-type") ?? "";
+      const body = await response.text();
+
+      if (!response.ok) {
+        throw new Error(`Request failed: ${url} (${response.status})`);
+      }
+
+      if (!contentType.includes("application/json")) {
+        throw new Error(
+          `Expected JSON from ${url}, got ${contentType || "unknown"}.`,
+        );
+      }
+
+      return JSON.parse(body);
     },
-  });
-  const contentType = response.headers.get("content-type") ?? "";
-  const body = await response.text();
-
-  if (!response.ok) {
-    throw new Error(`Request failed: ${url} (${response.status})`);
-  }
-
-  if (!contentType.includes("application/json")) {
-    throw new Error(
-      `Expected JSON from ${url}, got ${contentType || "unknown"}.`,
-    );
-  }
-
-  return JSON.parse(body);
+    {
+      force,
+      ttlMs,
+      validate: (payload) => Boolean(payload) && Array.isArray(payload.departures),
+    },
+  );
 }
 
 function buildFerryDeparturesUrl(stopName) {

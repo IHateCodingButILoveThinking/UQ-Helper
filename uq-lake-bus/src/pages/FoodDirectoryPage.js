@@ -11,6 +11,7 @@ import {
   ShoppingBag,
   Utensils,
 } from "lucide-react";
+import { API_CACHE_TTLS, getCachedData } from "../lib/api-cache";
 
 const FOOD_TAB_ID = "food";
 const CAFE_TAB_ID = "cafes";
@@ -710,15 +711,33 @@ export default function FoodDirectoryPage() {
 
     async function loadFoodServices() {
       try {
-        const response = await fetch(FOOD_SERVICES_ENDPOINT);
+        const payload = await getCachedData(
+          "food-services",
+          async () => {
+            const response = await fetch(FOOD_SERVICES_ENDPOINT);
 
-        if (!response.ok) {
-          throw new Error(
-            `Food services endpoint returned ${response.status}.`,
-          );
-        }
+            if (!response.ok) {
+              throw new Error(
+                `Food services endpoint returned ${response.status}.`,
+              );
+            }
 
-        const payload = await response.json();
+            return response.json();
+          },
+          {
+            onUpdate: (freshPayload) => {
+              if (isCancelled) {
+                return;
+              }
+
+              setFoodSource(freshPayload);
+              setFoodError("");
+            },
+            staleWhileRevalidate: true,
+            ttlMs: API_CACHE_TTLS.foodServices,
+            validate: (nextPayload) => Array.isArray(nextPayload?.services),
+          },
+        );
 
         if (!isCancelled) {
           setFoodSource(payload);
@@ -734,13 +753,34 @@ export default function FoodDirectoryPage() {
 
     async function loadFoodReviews() {
       try {
-        const response = await fetch(FOOD_REVIEW_ENDPOINT);
+        const payload = await getCachedData(
+          "food-reviews",
+          async () => {
+            const response = await fetch(FOOD_REVIEW_ENDPOINT);
 
-        if (!response.ok) {
-          throw new Error(`Food review endpoint returned ${response.status}.`);
-        }
+            if (!response.ok) {
+              throw new Error(`Food review endpoint returned ${response.status}.`);
+            }
 
-        const payload = await response.json();
+            return response.json();
+          },
+          {
+            onUpdate: (freshPayload) => {
+              if (isCancelled) {
+                return;
+              }
+
+              setReviewLookup(freshPayload.reviews ?? {});
+              setReviewSourceState(
+                freshPayload.configured ? "ready" : "not-configured",
+              );
+            },
+            staleWhileRevalidate: true,
+            ttlMs: API_CACHE_TTLS.foodReviews,
+            validate: (nextPayload) =>
+              Boolean(nextPayload) && typeof nextPayload === "object",
+          },
+        );
 
         if (isCancelled) {
           return;

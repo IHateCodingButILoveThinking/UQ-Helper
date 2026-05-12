@@ -1,9 +1,13 @@
 {
-  "name": "UQ Bus Time Board",
-  "short_name": "UQ Board",
-  "description": "Live UQ bus times, trip planning, and library study-space status.",
+  "id": "/",
+  "name": "UQ Campus",
+  "short_name": "UQ Campus",
+  "description": "Live transport, ferry times, study spaces, food, and campus tools for UQ.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
+  "orientation": "portrait",
+  "lang": "en-AU",
   "background_color": "#eef3f1",
   "theme_color": "#51247a",
   "icons": [
@@ -19,5 +23,6 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
-  ]
+  ],
+  "categories": ["education", "navigation", "productivity"]
 }

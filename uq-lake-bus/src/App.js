@@ -17,6 +17,7 @@ import { ToastContainer, cssTransition, toast } from "react-toastify";
 import FoodDirectoryPage from "./pages/FoodDirectoryPage";
 import FerryTimesPage from "./pages/FerryTimesPage";
 import LibrarySpacesPage from "./pages/LibrarySpacesPage";
+import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
 
 const REFRESH_MS = 30000;
 const FILTER_PENDING_MS = 450;
@@ -287,12 +288,31 @@ export default function App() {
       }
 
       try {
-        const response = await fetch("/api/departures");
-        if (!response.ok) {
-          throw new Error("Could not load departures.");
-        }
+        const nextData = await getCachedData(
+          "board:default-stop",
+          async () => {
+            const response = await fetch("/api/departures");
+            if (!response.ok) {
+              throw new Error("Could not load departures.");
+            }
 
-        const nextData = await response.json();
+            return response.json();
+          },
+          {
+            onUpdate: (freshData) => {
+              if (!isActive) {
+                return;
+              }
+
+              setData(freshData);
+              setError("");
+            },
+            staleWhileRevalidate: true,
+            ttlMs: API_CACHE_TTLS.board,
+            validate: (payload) =>
+              Boolean(payload) && Array.isArray(payload.departures),
+          },
+        );
         if (!isActive) {
           return;
         }
@@ -607,7 +627,17 @@ export default function App() {
       }
 
       try {
-        const nextLibrarySpaces = await fetchLibrarySpacesData();
+        const nextLibrarySpaces = await fetchLibrarySpacesData({
+          onUpdate: (freshLibrarySpaces) => {
+            if (!isActive) {
+              return;
+            }
+
+            setLibrarySpaces(freshLibrarySpaces);
+            setLibrarySpacesError("");
+          },
+          staleWhileRevalidate: true,
+        });
 
         if (!isActive) {
           return;
@@ -3163,15 +3193,24 @@ async function fetchTranslinkStops(query) {
     return stopSearchCache.get(cacheKey);
   }
 
-  const response = await fetch(
-    `/api/stops/search?q=${encodeURIComponent(trimmedQuery)}`,
+  const payload = await getCachedData(
+    `stops-search:${cacheKey}`,
+    async () => {
+      const response = await fetch(
+        `/api/stops/search?q=${encodeURIComponent(trimmedQuery)}`,
+      );
+
+      if (!response.ok) {
+        throw new Error("Could not search official stop names.");
+      }
+
+      return response.json();
+    },
+    {
+      ttlMs: API_CACHE_TTLS.stopSearch,
+      validate: (nextPayload) => Array.isArray(nextPayload?.stops),
+    },
   );
-
-  if (!response.ok) {
-    throw new Error("Could not search official stop names.");
-  }
-
-  const payload = await response.json();
   const stops = Array.isArray(payload?.stops) ? payload.stops : [];
 
   const uniqueStops = Array.from(
@@ -3225,23 +3264,42 @@ async function fetchStopDepartures({ limit, stopId, stopName }) {
     params.set("limit", String(limit));
   }
 
-  const response = await fetch(`/api/departures?${params.toString()}`);
+  return getCachedData(
+    `departures:${params.toString()}`,
+    async () => {
+      const response = await fetch(`/api/departures?${params.toString()}`);
 
-  if (!response.ok) {
-    throw new Error("Could not load departures for this stop.");
-  }
+      if (!response.ok) {
+        throw new Error("Could not load departures for this stop.");
+      }
 
-  return response.json();
+      return response.json();
+    },
+    {
+      ttlMs: API_CACHE_TTLS.plannerDepartures,
+      validate: (payload) => Boolean(payload) && Array.isArray(payload.departures),
+    },
+  );
 }
 
-async function fetchLibrarySpacesData() {
-  const response = await fetch("/api/library-spaces");
+async function fetchLibrarySpacesData(options = {}) {
+  return getCachedData(
+    "library-spaces",
+    async () => {
+      const response = await fetch("/api/library-spaces");
 
-  if (!response.ok) {
-    throw new Error("Could not load library study spaces.");
-  }
+      if (!response.ok) {
+        throw new Error("Could not load library study spaces.");
+      }
 
-  return response.json();
+      return response.json();
+    },
+    {
+      ...options,
+      ttlMs: API_CACHE_TTLS.librarySpaces,
+      validate: (payload) => Boolean(payload) && Array.isArray(payload.libraries),
+    },
+  );
 }
 
 function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
