@@ -404,14 +404,14 @@ export default function App() {
       currentPage === HOME_PAGE_ID
         ? "UQ Campus"
         : currentPage === LIBRARY_SPACES_PAGE_ID
-        ? "UQ Library Study Spaces"
-        : currentPage === FERRY_PAGE_ID
-          ? "UQ F1 Ferry Times"
-          : currentPage === FOOD_PAGE_ID
-            ? "UQ Food & Drink"
-            : currentPage === PLANNER_PAGE_ID
-              ? "Direct Bus Planner"
-              : `${activeStop.switchLabel} Bus Board`;
+          ? "UQ Library Study Spaces"
+          : currentPage === FERRY_PAGE_ID
+            ? "UQ F1 Ferry Times"
+            : currentPage === FOOD_PAGE_ID
+              ? "UQ Food & Drink"
+              : currentPage === PLANNER_PAGE_ID
+                ? "Direct Bus Planner"
+                : `${activeStop.switchLabel} Bus Board`;
 
     return () => {
       document.documentElement.removeAttribute("data-stop-theme");
@@ -1229,497 +1229,521 @@ export default function App() {
             <CampusHomePage
               onOpenBoard={() => handlePageChange(BOARD_PAGE_ID)}
               onOpenFood={() => handlePageChange(FOOD_PAGE_ID)}
-              onOpenStudySpaces={() =>
-                handlePageChange(LIBRARY_SPACES_PAGE_ID)
-              }
+              onOpenStudySpaces={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
             />
           ) : currentPage === BOARD_PAGE_ID ? (
             <>
-          <div className="side-stack">
-            <section className="surface-panel hero-panel">
-              <div className="hero-glow hero-glow-top" aria-hidden="true" />
-              <div className="hero-glow hero-glow-bottom" aria-hidden="true" />
+              <div className="side-stack">
+                <section className="surface-panel hero-panel">
+                  <div className="hero-glow hero-glow-top" aria-hidden="true" />
+                  <div
+                    className="hero-glow hero-glow-bottom"
+                    aria-hidden="true"
+                  />
 
-              <div className="hero-topbar">
-                <div className="hero-copy">
-                  <div className="brand-copy">
-                    <div className="brand-copy-top">
-                      <p className="eyebrow">{activeStop.displayName}</p>
-                      {activeStop.studentNote ? (
-                        <span className="student-note">
-                          {activeStop.studentNote}
+                  <div className="hero-topbar">
+                    <div className="hero-copy">
+                      <div className="brand-copy">
+                        <div className="brand-copy-top">
+                          <p className="eyebrow">{activeStop.displayName}</p>
+                          {activeStop.studentNote ? (
+                            <span className="student-note">
+                              {activeStop.studentNote}
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="hero-action-group">
+                          <button
+                            type="button"
+                            className="live-planner-shortcut"
+                            aria-label="Open trip planner"
+                            onClick={() => handlePageChange(PLANNER_PAGE_ID)}
+                          >
+                            <FaMapMarkerAlt aria-hidden="true" />
+                            <span className="action-button-text">Plan</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className={`stop-control ${stopSheetOpen ? "open" : ""}`}
+                            aria-expanded={stopSheetOpen}
+                            aria-haspopup="listbox"
+                            aria-label={`Switch UQ bus stop. Current stop ${activeStop.switchLabel}`}
+                            onClick={() => {
+                              setFilterOpen(false);
+                              setStopSheetOpen((currentOpen) => !currentOpen);
+                            }}
+                          >
+                            <span
+                              className={`stop-control-icon ${showLoadingState ? "pending" : ""}`}
+                              aria-hidden="true"
+                            >
+                              {showLoadingState ? (
+                                <SpinnerIcon />
+                              ) : (
+                                <SwitchIcon />
+                              )}
+                            </span>
+                            <span className="stop-control-label">Switch</span>
+                            <span
+                              className="stop-control-arrow"
+                              aria-hidden="true"
+                            >
+                              <ChevronIcon />
+                            </span>
+                          </button>
+
+                          <button
+                            type="button"
+                            className="ferry-control"
+                            aria-label="Open live F1 ferry times"
+                            onClick={() => handlePageChange(FERRY_PAGE_ID)}
+                          >
+                            <motion.span
+                              aria-hidden="true"
+                              className="ferry-control-shimmer"
+                            />
+                            <span
+                              className="ferry-control-icon"
+                              aria-hidden="true"
+                            >
+                              <FaShip />
+                            </span>
+                            <span className="ferry-control-label">Ferry</span>
+                            <span className="ferry-control-route">F1</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {nextDeparture ? (
+                    <article className="next-card">
+                      <div className="board-header">
+                        <p className="eyebrow board-eyebrow">
+                          {closestDepartures.length > 1
+                            ? "Closest departures"
+                            : "Closest departure"}
+                        </p>
+                      </div>
+
+                      <div className="board-primary">
+                        <article
+                          className={`board-primary-item ${
+                            closestHasSaved ? "saved" : ""
+                          }`}
+                        >
+                          <div className="board-primary-topline">
+                            <div className="board-route-group">
+                              {closestDisplayDepartures.map((departure) => (
+                                <RouteToken
+                                  code={departure.routeCode}
+                                  className={`board-route-pill ${
+                                    favoriteRouteCodes.has(departure.routeCode)
+                                      ? "saved"
+                                      : ""
+                                  }`}
+                                  key={`closest-route-${departure.id}`}
+                                  saved={favoriteRouteCodes.has(
+                                    departure.routeCode,
+                                  )}
+                                  showMarkers
+                                />
+                              ))}
+                            </div>
+                            <strong>{nextDeparture.displayTime}</strong>
+                          </div>
+
+                          <div className="board-primary-bottomline">
+                            <div className="board-stop-group">
+                              {closestStopLabels.map((stopLabel) => (
+                                <span
+                                  className="board-stop-chip"
+                                  key={stopLabel}
+                                >
+                                  {stopLabel}
+                                </span>
+                              ))}
+                            </div>
+                            <span className="board-primary-time-note">
+                              {nextDeparture.countdownText}
+                            </span>
+                          </div>
+                        </article>
+                      </div>
+
+                      <div className="mini-board">
+                        <span className="mini-board-label">
+                          Next 4 upcoming
+                        </span>
+
+                        {boardUpcoming.length ? (
+                          <div className="mini-board-list">
+                            {boardUpcoming.map((departure) => {
+                              const isFavorite = favoriteRouteCodes.has(
+                                departure.routeCode,
+                              );
+
+                              return (
+                                <article
+                                  className={`mini-board-item ${
+                                    isFavorite ? "saved" : ""
+                                  }`}
+                                  key={departure.id}
+                                >
+                                  <div className="mini-board-topline">
+                                    <RouteToken
+                                      code={departure.routeCode}
+                                      className={`mini-board-route ${
+                                        isFavorite ? "saved" : ""
+                                      }`}
+                                      saved={isFavorite}
+                                      showMarkers
+                                    />
+                                    <strong>{departure.displayTime}</strong>
+                                  </div>
+                                  <div className="mini-board-bottomline">
+                                    <span className="mini-board-stop">
+                                      {formatPlatform(departure.platform)}
+                                    </span>
+                                    <span className="mini-board-time-note">
+                                      {departure.countdownText}
+                                    </span>
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="mini-board-empty">
+                            No more upcoming buses.
+                          </div>
+                        )}
+                      </div>
+                    </article>
+                  ) : (
+                    <EmptyState
+                      message={
+                        activeStop.sourceMode === "preview"
+                          ? "Preview frame ready for Chancellor's Place."
+                          : "No buses right now."
+                      }
+                    />
+                  )}
+                </section>
+
+                {showError ? (
+                  <section className="surface-panel error-card">
+                    {error}
+                  </section>
+                ) : null}
+
+                <section className="surface-panel controls-panel">
+                  <div className="controls-grid">
+                    <div
+                      className={`filter-control-shell ${filterOpen ? "open" : ""}`}
+                    >
+                      <button
+                        type="button"
+                        className={`filter-control ${
+                          filterPending ? "pending" : ""
+                        } ${filterOpen ? "open" : ""}`}
+                        aria-expanded={filterOpen}
+                        aria-haspopup="listbox"
+                        onClick={() => {
+                          if (filterPending) {
+                            return;
+                          }
+
+                          setStopSheetOpen(false);
+                          setFilterOpen((currentOpen) => !currentOpen);
+                        }}
+                      >
+                        <div className="filter-control-copy">
+                          <span className="filter-control-label">
+                            Choose bus number
+                          </span>
+                          <strong className="filter-control-value">
+                            {selectedRouteIsAll ? (
+                              "All routes"
+                            ) : (
+                              <RouteToken
+                                code={selectedRoute}
+                                className="filter-control-route-token"
+                              />
+                            )}
+                          </strong>
+                        </div>
+                        <span
+                          className={`filter-control-icon ${
+                            filterPending ? "pending" : ""
+                          }`}
+                          aria-hidden="true"
+                        >
+                          {filterPending ? <SpinnerIcon /> : <ChevronIcon />}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              </div>
+
+              <section className="surface-panel feed-panel">
+                <div className="section-head feed-head">
+                  <div>
+                    <p className="eyebrow">Arrivals</p>
+                    <h2 className="section-title">Upcoming buses</h2>
+                  </div>
+                  <div className="section-head-meta">
+                    {filterPending ? (
+                      <p className="section-note">Updating route...</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {showLoadingState ? (
+                  <div className="feed-list">
+                    {[1, 2, 3, 4].map((item) => (
+                      <article
+                        className="departure-card skeleton-card"
+                        key={item}
+                      />
+                    ))}
+                  </div>
+                ) : filterPending ? (
+                  <>
+                    <div className="feed-loading-status">
+                      Loading selected route...
+                    </div>
+                    <div className="feed-list feed-list-pending">
+                      {[1, 2, 3].map((item) => (
+                        <article
+                          className="departure-card skeleton-card"
+                          key={item}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : feedDepartures.length ? (
+                  <div className="feed-list">
+                    {feedDepartures.map((departure) => {
+                      return (
+                        <DepartureCard
+                          key={departure.id}
+                          departure={departure}
+                          isFavorite={favoriteRouteCodes.has(
+                            departure.routeCode,
+                          )}
+                          onToggleFavorite={() =>
+                            toggleFavoriteRoute(departure.routeCode)
+                          }
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <EmptyState
+                    compact
+                    message="No more buses in this selection."
+                  />
+                )}
+              </section>
+            </>
+          ) : currentPage === PLANNER_PAGE_ID ? (
+            <section className="planner-layout">
+              <section className="surface-panel planner-panel">
+                <button
+                  type="button"
+                  className="planner-back-button"
+                  onClick={() => handlePageChange(BOARD_PAGE_ID)}
+                >
+                  <FaArrowLeft aria-hidden="true" />
+                  <span>Back to board</span>
+                </button>
+
+                <div className="planner-copy">
+                  <h1 className="section-title">Find a direct bus</h1>
+                </div>
+
+                <div
+                  className="planner-quick-actions"
+                  aria-label="Quick station stops"
+                >
+                  {PLANNER_QUICK_STOPS.map((stop) => (
+                    <button
+                      key={stop.value}
+                      type="button"
+                      className="planner-quick-action"
+                      onClick={() => handlePlannerQuickStop(stop.value)}
+                    >
+                      {stop.value.startsWith("UQ ") ? (
+                        <FaUniversity aria-hidden="true" />
+                      ) : (
+                        <FaMapMarkerAlt aria-hidden="true" />
+                      )}
+                      <span className="planner-quick-label">{stop.label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <form className="planner-form" onSubmit={handlePlannerSearch}>
+                  <PlannerStopField
+                    fieldId="planner-origin-stop"
+                    icon={<OriginIcon />}
+                    label="From"
+                    options={plannerOriginOptions}
+                    pending={plannerOriginPending}
+                    placeholder="Buranda busway station"
+                    query={plannerOriginQuery}
+                    onQueryChange={handlePlannerOriginChange}
+                    onFieldFocus={() =>
+                      setActivePlannerField(PLANNER_FIELD_ORIGIN)
+                    }
+                  />
+
+                  <div className="planner-swap-row">
+                    <button
+                      type="button"
+                      className="planner-swap-button"
+                      onClick={handlePlannerSwapStations}
+                    >
+                      <span className="planner-swap-icon" aria-hidden="true">
+                        <FaExchangeAlt />
+                      </span>
+                      <span>Switch</span>
+                    </button>
+                  </div>
+
+                  <PlannerStopField
+                    fieldId="planner-destination-stop"
+                    icon={<DestinationIcon />}
+                    label="To"
+                    options={plannerDestinationOptions}
+                    pending={plannerDestinationPending}
+                    placeholder="UQ Lakes station"
+                    query={plannerDestinationQuery}
+                    onQueryChange={handlePlannerDestinationChange}
+                    onFieldFocus={() =>
+                      setActivePlannerField(PLANNER_FIELD_DESTINATION)
+                    }
+                  />
+
+                  <div className="planner-form-actions">
+                    <button
+                      className="destination-search-button"
+                      type="submit"
+                      disabled={plannerBusy}
+                    >
+                      <FaSearch aria-hidden="true" />
+                      {plannerLoading ? "Searching" : "Search"}
+                    </button>
+
+                    <button
+                      className="destination-search-clear"
+                      type="button"
+                      onClick={clearPlannerSearch}
+                      disabled={
+                        !plannerOriginQuery &&
+                        !plannerDestinationQuery &&
+                        !plannerHasSearched
+                      }
+                    >
+                      <FaTimesCircle aria-hidden="true" />
+                      Clear
+                    </button>
+                  </div>
+                </form>
+              </section>
+
+              <section className="surface-panel feed-panel planner-results-panel">
+                <div className="section-head feed-head">
+                  <div>
+                    <p className="eyebrow">Planner results</p>
+                    <h2 className="section-title">Bus times</h2>
+                  </div>
+                </div>
+
+                {plannerHasSearched ? (
+                  <div className="planner-summary">
+                    <div className="planner-summary-meta">
+                      <span className="destination-search-status">
+                        {plannerResultDepartures.length} upcoming{" "}
+                        {plannerResultDepartures.length === 1
+                          ? "departure"
+                          : "departures"}
+                      </span>
+                      {plannerSearchResult.generatedAt ? (
+                        <span className="planner-summary-note">
+                          Updated {formatTime(plannerSearchResult.generatedAt)}
                         </span>
                       ) : null}
                     </div>
-
-                    <div className="hero-action-group">
-                      <button
-                        type="button"
-                        className="live-planner-shortcut"
-                        aria-label="Open trip planner"
-                        onClick={() => handlePageChange(PLANNER_PAGE_ID)}
-                      >
-                        <FaMapMarkerAlt aria-hidden="true" />
-                        <span className="action-button-text">Plan</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className={`stop-control ${stopSheetOpen ? "open" : ""}`}
-                        aria-expanded={stopSheetOpen}
-                        aria-haspopup="listbox"
-                        aria-label={`Switch UQ bus stop. Current stop ${activeStop.switchLabel}`}
-                        onClick={() => {
-                          setFilterOpen(false);
-                          setStopSheetOpen((currentOpen) => !currentOpen);
-                        }}
-                      >
-                        <span
-                          className={`stop-control-icon ${showLoadingState ? "pending" : ""}`}
-                          aria-hidden="true"
-                        >
-                          {showLoadingState ? <SpinnerIcon /> : <SwitchIcon />}
-                        </span>
-                        <span className="stop-control-label">Switch</span>
-                        <span className="stop-control-arrow" aria-hidden="true">
-                          <ChevronIcon />
-                        </span>
-                      </button>
-
-                      <button
-                        type="button"
-                        className="ferry-control"
-                        aria-label="Open live F1 ferry times"
-                        onClick={() => handlePageChange(FERRY_PAGE_ID)}
-                      >
-                        <motion.span
-                          aria-hidden="true"
-                          className="ferry-control-shimmer"
-                        />
-                        <span className="ferry-control-icon" aria-hidden="true">
-                          <FaShip />
-                        </span>
-                        <span className="ferry-control-label">Ferry</span>
-                        <span className="ferry-control-route">F1</span>
-                      </button>
-                    </div>
                   </div>
-                </div>
-
-              </div>
-
-              {nextDeparture ? (
-                <article className="next-card">
-                  <div className="board-header">
-                    <p className="eyebrow board-eyebrow">
-                      {closestDepartures.length > 1
-                        ? "Closest departures"
-                        : "Closest departure"}
-                    </p>
-                  </div>
-
-                  <div className="board-primary">
-                    <article
-                      className={`board-primary-item ${
-                        closestHasSaved ? "saved" : ""
-                      }`}
-                    >
-                      <div className="board-primary-topline">
-                        <div className="board-route-group">
-                          {closestDisplayDepartures.map((departure) => (
-                            <RouteToken
-                              code={departure.routeCode}
-                              className={`board-route-pill ${
-                                favoriteRouteCodes.has(departure.routeCode)
-                                  ? "saved"
-                                  : ""
-                              }`}
-                              key={`closest-route-${departure.id}`}
-                              saved={favoriteRouteCodes.has(
-                                departure.routeCode,
-                              )}
-                              showMarkers
-                            />
-                          ))}
-                        </div>
-                        <strong>{nextDeparture.displayTime}</strong>
-                      </div>
-
-                      <div className="board-primary-bottomline">
-                        <div className="board-stop-group">
-                          {closestStopLabels.map((stopLabel) => (
-                            <span className="board-stop-chip" key={stopLabel}>
-                              {stopLabel}
-                            </span>
-                          ))}
-                        </div>
-                        <span className="board-primary-time-note">
-                          {nextDeparture.countdownText}
-                        </span>
-                      </div>
-                    </article>
-                  </div>
-
-                  <div className="mini-board">
-                    <span className="mini-board-label">Next 4 upcoming</span>
-
-                    {boardUpcoming.length ? (
-                      <div className="mini-board-list">
-                        {boardUpcoming.map((departure) => {
-                          const isFavorite = favoriteRouteCodes.has(
-                            departure.routeCode,
-                          );
-
-                          return (
-                            <article
-                              className={`mini-board-item ${
-                                isFavorite ? "saved" : ""
-                              }`}
-                              key={departure.id}
-                            >
-                              <div className="mini-board-topline">
-                                <RouteToken
-                                  code={departure.routeCode}
-                                  className={`mini-board-route ${
-                                    isFavorite ? "saved" : ""
-                                  }`}
-                                  saved={isFavorite}
-                                  showMarkers
-                                />
-                                <strong>{departure.displayTime}</strong>
-                              </div>
-                              <div className="mini-board-bottomline">
-                                <span className="mini-board-stop">
-                                  {formatPlatform(departure.platform)}
-                                </span>
-                                <span className="mini-board-time-note">
-                                  {departure.countdownText}
-                                </span>
-                              </div>
-                            </article>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="mini-board-empty">
-                        No more upcoming buses.
-                      </div>
-                    )}
-                  </div>
-                </article>
-              ) : (
-                <EmptyState
-                  message={
-                    activeStop.sourceMode === "preview"
-                      ? "Preview frame ready for Chancellor's Place."
-                      : "No buses right now."
-                  }
-                />
-              )}
-            </section>
-
-            {showError ? (
-              <section className="surface-panel error-card">{error}</section>
-            ) : null}
-
-            <section className="surface-panel controls-panel">
-              <div className="controls-grid">
-                <div
-                  className={`filter-control-shell ${filterOpen ? "open" : ""}`}
-                >
-                  <button
-                    type="button"
-                    className={`filter-control ${
-                      filterPending ? "pending" : ""
-                    } ${filterOpen ? "open" : ""}`}
-                    aria-expanded={filterOpen}
-                    aria-haspopup="listbox"
-                    onClick={() => {
-                      if (filterPending) {
-                        return;
-                      }
-
-                      setStopSheetOpen(false);
-                      setFilterOpen((currentOpen) => !currentOpen);
-                    }}
-                  >
-                    <div className="filter-control-copy">
-                      <span className="filter-control-label">
-                        Choose bus number
-                      </span>
-                      <strong className="filter-control-value">
-                        {selectedRouteIsAll ? (
-                          "All routes"
-                        ) : (
-                          <RouteToken
-                            code={selectedRoute}
-                            className="filter-control-route-token"
-                          />
-                        )}
-                      </strong>
-                    </div>
-                    <span
-                      className={`filter-control-icon ${
-                        filterPending ? "pending" : ""
-                      }`}
-                      aria-hidden="true"
-                    >
-                      {filterPending ? <SpinnerIcon /> : <ChevronIcon />}
-                    </span>
-                  </button>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <section className="surface-panel feed-panel">
-            <div className="section-head feed-head">
-              <div>
-                <p className="eyebrow">Arrivals</p>
-                <h2 className="section-title">Upcoming buses</h2>
-              </div>
-              <div className="section-head-meta">
-                {filterPending ? (
-                  <p className="section-note">Updating route...</p>
                 ) : null}
-              </div>
-            </div>
 
-            {showLoadingState ? (
-              <div className="feed-list">
-                {[1, 2, 3, 4].map((item) => (
-                  <article
-                    className="departure-card skeleton-card"
-                    key={item}
-                  />
-                ))}
-              </div>
-            ) : filterPending ? (
-              <>
-                <div className="feed-loading-status">
-                  Loading selected route...
-                </div>
-                <div className="feed-list feed-list-pending">
-                  {[1, 2, 3].map((item) => (
-                    <article
-                      className="departure-card skeleton-card"
-                      key={item}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : feedDepartures.length ? (
-              <div className="feed-list">
-                {feedDepartures.map((departure) => {
-                  return (
-                    <DepartureCard
-                      key={departure.id}
-                      departure={departure}
-                      isFavorite={favoriteRouteCodes.has(departure.routeCode)}
-                      onToggleFavorite={() =>
-                        toggleFavoriteRoute(departure.routeCode)
+                {plannerLoading ? (
+                  <>
+                    <div className="feed-loading-status">
+                      Looking up direct buses...
+                    </div>
+                    <div className="feed-list feed-list-pending">
+                      {[1, 2, 3].map((item) => (
+                        <article
+                          className="departure-card skeleton-card"
+                          key={item}
+                        />
+                      ))}
+                    </div>
+                  </>
+                ) : plannerHasSearched ? (
+                  plannerResultDepartures.length ? (
+                    <div className="feed-list">
+                      {plannerResultDepartures.map((departure) => {
+                        return (
+                          <DepartureCard
+                            key={departure.id}
+                            departure={departure}
+                            plannerJourney={{
+                              destinationLabel:
+                                plannerSearchResult.destinationStop.label,
+                              originLabel: plannerSearchResult.originStop.label,
+                            }}
+                            showFavoriteAction={false}
+                          />
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <EmptyState
+                      compact
+                      message={
+                        plannerEmptyMessage ||
+                        `Cannot find a direct bus from ${plannerSearchResult.originStop.label} to ${plannerSearchResult.destinationStop.label} right now.`
                       }
                     />
-                  );
-                })}
-              </div>
-            ) : (
-              <EmptyState compact message="No more buses in this selection." />
-            )}
-          </section>
-        </>
-          ) : currentPage === PLANNER_PAGE_ID ? (
-        <section className="planner-layout">
-          <section className="surface-panel planner-panel">
-            <button
-              type="button"
-              className="planner-back-button"
-              onClick={() => handlePageChange(BOARD_PAGE_ID)}
-            >
-              <FaArrowLeft aria-hidden="true" />
-              <span>Back to board</span>
-            </button>
-
-            <div className="planner-copy">
-              <h1 className="section-title">Find a direct bus</h1>
-            </div>
-
-            <div
-              className="planner-quick-actions"
-              aria-label="Quick station stops"
-            >
-              {PLANNER_QUICK_STOPS.map((stop) => (
-                <button
-                  key={stop.value}
-                  type="button"
-                  className="planner-quick-action"
-                  onClick={() => handlePlannerQuickStop(stop.value)}
-                >
-                  {stop.value.startsWith("UQ ") ? (
-                    <FaUniversity aria-hidden="true" />
-                  ) : (
-                    <FaMapMarkerAlt aria-hidden="true" />
-                  )}
-                  <span className="planner-quick-label">{stop.label}</span>
-                </button>
-              ))}
-            </div>
-
-            <form className="planner-form" onSubmit={handlePlannerSearch}>
-              <PlannerStopField
-                fieldId="planner-origin-stop"
-                icon={<OriginIcon />}
-                label="From"
-                options={plannerOriginOptions}
-                pending={plannerOriginPending}
-                placeholder="Buranda busway station"
-                query={plannerOriginQuery}
-                onQueryChange={handlePlannerOriginChange}
-                onFieldFocus={() => setActivePlannerField(PLANNER_FIELD_ORIGIN)}
-              />
-
-              <div className="planner-swap-row">
-                <button
-                  type="button"
-                  className="planner-swap-button"
-                  onClick={handlePlannerSwapStations}
-                >
-                  <span className="planner-swap-icon" aria-hidden="true">
-                    <FaExchangeAlt />
-                  </span>
-                  <span>Switch</span>
-                </button>
-              </div>
-
-              <PlannerStopField
-                fieldId="planner-destination-stop"
-                icon={<DestinationIcon />}
-                label="To"
-                options={plannerDestinationOptions}
-                pending={plannerDestinationPending}
-                placeholder="UQ Lakes station"
-                query={plannerDestinationQuery}
-                onQueryChange={handlePlannerDestinationChange}
-                onFieldFocus={() =>
-                  setActivePlannerField(PLANNER_FIELD_DESTINATION)
-                }
-              />
-
-              <div className="planner-form-actions">
-                <button
-                  className="destination-search-button"
-                  type="submit"
-                  disabled={plannerBusy}
-                >
-                  <FaSearch aria-hidden="true" />
-                  {plannerLoading ? "Searching" : "Search"}
-                </button>
-
-                <button
-                  className="destination-search-clear"
-                  type="button"
-                  onClick={clearPlannerSearch}
-                  disabled={
-                    !plannerOriginQuery &&
-                    !plannerDestinationQuery &&
-                    !plannerHasSearched
-                  }
-                >
-                  <FaTimesCircle aria-hidden="true" />
-                  Clear
-                </button>
-              </div>
-            </form>
-          </section>
-
-          <section className="surface-panel feed-panel planner-results-panel">
-            <div className="section-head feed-head">
-              <div>
-                <p className="eyebrow">Planner results</p>
-                <h2 className="section-title">Bus times</h2>
-              </div>
-            </div>
-
-            {plannerHasSearched ? (
-              <div className="planner-summary">
-                <div className="planner-summary-meta">
-                  <span className="destination-search-status">
-                    {plannerResultDepartures.length} upcoming{" "}
-                    {plannerResultDepartures.length === 1
-                      ? "departure"
-                      : "departures"}
-                  </span>
-                  {plannerSearchResult.generatedAt ? (
-                    <span className="planner-summary-note">
-                      Updated {formatTime(plannerSearchResult.generatedAt)}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            ) : null}
-
-            {plannerLoading ? (
-              <>
-                <div className="feed-loading-status">
-                  Looking up direct buses...
-                </div>
-                <div className="feed-list feed-list-pending">
-                  {[1, 2, 3].map((item) => (
-                    <article
-                      className="departure-card skeleton-card"
-                      key={item}
-                    />
-                  ))}
-                </div>
-              </>
-            ) : plannerHasSearched ? (
-              plannerResultDepartures.length ? (
-                <div className="feed-list">
-                  {plannerResultDepartures.map((departure) => {
-                    return (
-                      <DepartureCard
-                        key={departure.id}
-                        departure={departure}
-                        plannerJourney={{
-                          destinationLabel:
-                            plannerSearchResult.destinationStop.label,
-                          originLabel: plannerSearchResult.originStop.label,
-                        }}
-                        showFavoriteAction={false}
-                      />
-                    );
-                  })}
-                </div>
-              ) : (
-                <EmptyState
-                  compact
-                  message={
-                    plannerEmptyMessage ||
-                    `Cannot find a direct bus from ${plannerSearchResult.originStop.label} to ${plannerSearchResult.destinationStop.label} right now.`
-                  }
-                />
-              )
-            ) : (
-              <EmptyState
-                compact
-                message="Choose an origin and destination to see direct buses."
-              />
-            )}
-          </section>
-        </section>
+                  )
+                ) : (
+                  <EmptyState
+                    compact
+                    message="Choose an origin and destination to see direct buses."
+                  />
+                )}
+              </section>
+            </section>
           ) : currentPage === FERRY_PAGE_ID ? (
-        <FerryTimesPage onBack={() => handlePageChange(BOARD_PAGE_ID)} />
+            <FerryTimesPage onBack={() => handlePageChange(BOARD_PAGE_ID)} />
           ) : currentPage === FOOD_PAGE_ID ? (
-        <FoodDirectoryPage />
+            <FoodDirectoryPage />
           ) : (
-        <LibrarySpacesPage
-          libraryError={librarySpacesError}
-          libraryLoading={
-            librarySpacesLoading || (!librarySpaces && !librarySpacesError)
-          }
-          librarySpaces={librarySpaces}
-          onSubPageOpenChange={setLibrarySubPageOpen}
-        />
+            <LibrarySpacesPage
+              libraryError={librarySpacesError}
+              libraryLoading={
+                librarySpacesLoading || (!librarySpaces && !librarySpacesError)
+              }
+              librarySpaces={librarySpaces}
+              onSubPageOpenChange={setLibrarySubPageOpen}
+            />
           )}
         </motion.div>
       </AnimatePresence>
@@ -1921,11 +1945,7 @@ function CampusSplashScreen() {
       aria-label="The University of Queensland Create Change splash screen"
     >
       <div className="uq-splash-curves" aria-hidden="true">
-        <svg
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          focusable="false"
-        >
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
           <path d="M0,100 C30,70 70,70 100,100 Z" fill="#6A3A95" />
           <path d="M0,100 C38,80 78,90 100,60 L100,100 Z" fill="#884CBA" />
           <path d="M0,0 C30,30 70,30 100,0 Z" fill="#401962" />
@@ -1977,7 +1997,7 @@ function CampusHomePage({ onOpenBoard, onOpenFood, onOpenStudySpaces }) {
     },
     {
       accentClass: "study",
-      description: "Book a room in the library",
+      description: "Find a seat & study",
       Icon: LampDesk,
       label: "Study Spaces",
       onClick: onOpenStudySpaces,
@@ -2008,30 +2028,32 @@ function CampusHomePage({ onOpenBoard, onOpenFood, onOpenStudySpaces }) {
       </motion.header>
 
       <div className="campus-home-actions">
-        {homeActions.map(({ accentClass, description, Icon, label, onClick }, index) => (
-          <motion.button
-            key={label}
-            type="button"
-            className="campus-home-card"
-            onClick={onClick}
-            initial={{ opacity: 0, y: 18, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            whileTap={{ scale: 0.965 }}
-            transition={{
-              delay: 0.08 + index * 0.08,
-              duration: 0.42,
-              ease: [0.22, 1, 0.36, 1],
-            }}
-          >
-            <span className={`campus-home-icon ${accentClass}`}>
-              <Icon aria-hidden="true" />
-            </span>
-            <span className="campus-home-card-copy">
-              <strong>{label}</strong>
-              <span>{description}</span>
-            </span>
-          </motion.button>
-        ))}
+        {homeActions.map(
+          ({ accentClass, description, Icon, label, onClick }, index) => (
+            <motion.button
+              key={label}
+              type="button"
+              className="campus-home-card"
+              onClick={onClick}
+              initial={{ opacity: 0, y: 18, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              whileTap={{ scale: 0.965 }}
+              transition={{
+                delay: 0.08 + index * 0.08,
+                duration: 0.42,
+                ease: [0.22, 1, 0.36, 1],
+              }}
+            >
+              <span className={`campus-home-icon ${accentClass}`}>
+                <Icon aria-hidden="true" />
+              </span>
+              <span className="campus-home-card-copy">
+                <strong>{label}</strong>
+                <span>{description}</span>
+              </span>
+            </motion.button>
+          ),
+        )}
       </div>
     </section>
   );
@@ -3177,7 +3199,9 @@ function hasMatchingDownstreamDeparture(
         destinationLabel &&
         originDestination === destinationLabel);
 
-    return sameDirection ? sameTripLabel : sameTripLabel && minutesBetweenStops <= 20;
+    return sameDirection
+      ? sameTripLabel
+      : sameTripLabel && minutesBetweenStops <= 20;
   });
 }
 
@@ -3277,7 +3301,8 @@ async function fetchStopDepartures({ limit, stopId, stopName }) {
     },
     {
       ttlMs: API_CACHE_TTLS.plannerDepartures,
-      validate: (payload) => Boolean(payload) && Array.isArray(payload.departures),
+      validate: (payload) =>
+        Boolean(payload) && Array.isArray(payload.departures),
     },
   );
 }
@@ -3297,7 +3322,8 @@ async function fetchLibrarySpacesData(options = {}) {
     {
       ...options,
       ttlMs: API_CACHE_TTLS.librarySpaces,
-      validate: (payload) => Boolean(payload) && Array.isArray(payload.libraries),
+      validate: (payload) =>
+        Boolean(payload) && Array.isArray(payload.libraries),
     },
   );
 }
