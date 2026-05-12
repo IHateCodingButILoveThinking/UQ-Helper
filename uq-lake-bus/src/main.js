@@ -7,6 +7,7 @@ import "./styles.css";
 import "./styles/navigation.css";
 import "./styles/ferry.css";
 import "./styles/food.css";
+import "./styles/exam-countdown.css";
 import "./styles/live-board-header.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(

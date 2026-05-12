@@ -1,0 +1,528 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap");
+
+.app-shell.page-exams {
+  background: #f8fafc;
+  position: relative;
+}
+
+.app-shell.page-exams .home-return-button {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 35;
+  grid-column: auto;
+}
+
+.exam-countdown-page {
+  width: min(100%, 1024px);
+  margin: 0 auto;
+  padding: 70px 18px 42px;
+  font-family: "Inter", sans-serif;
+  color: #0f172a;
+}
+
+.exam-countdown-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: 18px 0 16px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.exam-countdown-header-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.exam-countdown-header-copy p {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: #475569;
+}
+
+.exam-countdown-header-copy h1 {
+  margin: 0;
+  font-size: 1.7rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #0f172a;
+}
+
+.exam-countdown-header-copy span {
+  font-size: 0.95rem;
+  color: #475569;
+}
+
+.exam-add-button,
+.exam-primary-button,
+.exam-secondary-button,
+.exam-empty-button {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.22s ease,
+    background-color 0.22s ease,
+    color 0.22s ease;
+}
+
+.exam-add-button,
+.exam-primary-button {
+  background: #4f46e5;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(79, 70, 229, 0.2);
+}
+
+.exam-add-button:hover,
+.exam-add-button:focus-visible,
+.exam-primary-button:hover,
+.exam-primary-button:focus-visible {
+  transform: translateY(-1px);
+  background: #4338ca;
+}
+
+.exam-secondary-button,
+.exam-empty-button {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #334155;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+}
+
+.exam-secondary-button:hover,
+.exam-secondary-button:focus-visible,
+.exam-empty-button:hover,
+.exam-empty-button:focus-visible {
+  color: #4f46e5;
+  border-color: #c7d2fe;
+}
+
+.exam-countdown-grid {
+  display: grid;
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.exam-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+}
+
+.exam-card.urgent {
+  background: rgba(254, 242, 242, 0.3);
+  border-color: #fecaca;
+}
+
+.exam-urgent-strip {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: #f87171;
+}
+
+.exam-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.exam-card-title-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.exam-card-title-row h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.exam-card.urgent .exam-card-title-row h2 {
+  color: #b91c1c;
+}
+
+.exam-delete-button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.22s ease, background-color 0.22s ease;
+}
+
+.exam-delete-button:hover,
+.exam-delete-button:focus-visible {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.exam-delete-button svg,
+.exam-card-meta svg,
+.exam-empty-button svg,
+.exam-add-button svg,
+.exam-primary-button svg,
+.exam-secondary-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.exam-card-meta {
+  display: grid;
+  gap: 8px;
+}
+
+.exam-card-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.9rem;
+  color: #475569;
+}
+
+.exam-card-meta strong {
+  font-weight: 500;
+}
+
+.exam-card.urgent .exam-card-meta,
+.exam-card.urgent .exam-card-meta strong {
+  color: #b45309;
+}
+
+.exam-card-divider {
+  border-top: 1px solid #f1f5f9;
+  padding-top: 2px;
+}
+
+.exam-countdown-block {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.exam-countdown-unit {
+  display: grid;
+  gap: 6px;
+  text-align: center;
+}
+
+.exam-countdown-unit strong {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  color: #0f172a;
+}
+
+.exam-countdown-unit span {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.exam-card.urgent .exam-countdown-unit strong {
+  color: #b91c1c;
+}
+
+.exam-card.urgent .exam-countdown-unit span {
+  color: #ef4444;
+}
+
+.exam-urgent-dot-wrap {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+}
+
+.exam-urgent-dot-ping,
+.exam-urgent-dot {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #ef4444;
+}
+
+.exam-urgent-dot-ping {
+  animation: exam-dot-ping 1.4s ease-out infinite;
+  opacity: 0.4;
+}
+
+.exam-empty-state {
+  min-height: 58vh;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.exam-empty-icon {
+  width: 84px;
+  height: 84px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.exam-empty-icon svg {
+  width: 34px;
+  height: 34px;
+}
+
+.exam-empty-state h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.exam-empty-state p {
+  max-width: 28rem;
+  margin: 0;
+  color: #64748b;
+}
+
+.exam-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.exam-modal {
+  width: min(100%, 28rem);
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.exam-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.exam-modal-head p {
+  margin: 0 0 4px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.exam-modal-head h2 {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.exam-modal-close {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  cursor: pointer;
+}
+
+.exam-modal-step {
+  display: grid;
+  gap: 14px;
+}
+
+.exam-field {
+  display: grid;
+  gap: 8px;
+}
+
+.exam-field span {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.exam-field input {
+  min-height: 52px;
+  width: 100%;
+  padding: 0 15px;
+  border: 1px solid #cbd5e1;
+  border-radius: 16px;
+  background: #ffffff;
+  font: inherit;
+  color: #0f172a;
+}
+
+.exam-field input:focus-visible {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+}
+
+.exam-field-time input {
+  padding: 14px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 1.8rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.exam-summary-tile {
+  display: grid;
+  gap: 4px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #f8fafc;
+}
+
+.exam-summary-tile strong {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  color: #0f172a;
+}
+
+.exam-summary-tile span {
+  color: #64748b;
+}
+
+.exam-modal-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(254, 242, 242, 0.95);
+  color: #b91c1c;
+}
+
+.exam-modal-error p {
+  margin: 0;
+  font-size: 0.92rem;
+}
+
+.exam-modal-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@keyframes exam-dot-ping {
+  0% {
+    transform: scale(1);
+    opacity: 0.4;
+  }
+
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+}
+
+@media (min-width: 640px) {
+  .exam-countdown-page {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  .exam-countdown-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .exam-countdown-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  .exam-countdown-page {
+    padding-top: 66px;
+  }
+
+  .exam-countdown-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .exam-countdown-header-copy h1 {
+    font-size: 1.45rem;
+  }
+
+  .exam-countdown-unit strong {
+    font-size: 1.28rem;
+  }
+
+  .exam-modal {
+    padding: 18px;
+  }
+
+  .exam-modal-actions {
+    grid-template-columns: 1fr;
+  }
+}

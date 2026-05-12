@@ -2737,6 +2737,16 @@ body[data-page="home"]::after {
   color: #ffffff;
 }
 
+.campus-home-icon.exam {
+  background: #e0e7ff;
+  color: #4f46e5;
+}
+
+.campus-home-card:hover .campus-home-icon.exam {
+  background: #4f46e5;
+  color: #ffffff;
+}
+
 .campus-home-card-copy {
   min-width: 0;
   display: grid;

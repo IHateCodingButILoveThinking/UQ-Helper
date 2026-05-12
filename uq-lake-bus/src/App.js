@@ -14,6 +14,7 @@ import {
 import { Bus, Coffee, LampDesk } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
+import ExamCountdownPage from "./pages/ExamCountdownPage";
 import FoodDirectoryPage from "./pages/FoodDirectoryPage";
 import FerryTimesPage from "./pages/FerryTimesPage";
 import LibrarySpacesPage from "./pages/LibrarySpacesPage";
@@ -30,6 +31,7 @@ const PLANNER_PAGE_ID = "planner";
 const LIBRARY_SPACES_PAGE_ID = "spaces";
 const FERRY_PAGE_ID = "ferry";
 const FOOD_PAGE_ID = "food";
+const EXAMS_PAGE_ID = "exams";
 const SPLASH_DURATION_MS = 3000;
 const UQ_SPLASH_LOGO_URL =
   "https://static.uq.net.au/v15/logos/corporate/uq-logo-white.svg";
@@ -409,6 +411,8 @@ export default function App() {
             ? "UQ F1 Ferry Times"
             : currentPage === FOOD_PAGE_ID
               ? "UQ Food & Drink"
+              : currentPage === EXAMS_PAGE_ID
+                ? "UQ Exam Countdown"
               : currentPage === PLANNER_PAGE_ID
                 ? "Direct Bus Planner"
                 : `${activeStop.switchLabel} Bus Board`;
@@ -804,6 +808,7 @@ export default function App() {
         LIBRARY_SPACES_PAGE_ID,
         FERRY_PAGE_ID,
         FOOD_PAGE_ID,
+        EXAMS_PAGE_ID,
       ].includes(pageId)
     ) {
       return;
@@ -1174,6 +1179,7 @@ export default function App() {
   const showHomeBackButton =
     currentPage === BOARD_PAGE_ID ||
     currentPage === FOOD_PAGE_ID ||
+    currentPage === EXAMS_PAGE_ID ||
     (currentPage === LIBRARY_SPACES_PAGE_ID && !librarySubPageOpen);
 
   return (
@@ -1228,6 +1234,7 @@ export default function App() {
           {currentPage === HOME_PAGE_ID ? (
             <CampusHomePage
               onOpenBoard={() => handlePageChange(BOARD_PAGE_ID)}
+              onOpenExams={() => handlePageChange(EXAMS_PAGE_ID)}
               onOpenFood={() => handlePageChange(FOOD_PAGE_ID)}
               onOpenStudySpaces={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
             />
@@ -1735,6 +1742,8 @@ export default function App() {
             <FerryTimesPage onBack={() => handlePageChange(BOARD_PAGE_ID)} />
           ) : currentPage === FOOD_PAGE_ID ? (
             <FoodDirectoryPage />
+          ) : currentPage === EXAMS_PAGE_ID ? (
+            <ExamCountdownPage />
           ) : (
             <LibrarySpacesPage
               libraryError={librarySpacesError}
@@ -1750,7 +1759,8 @@ export default function App() {
 
       {currentPage !== HOME_PAGE_ID &&
       currentPage !== FERRY_PAGE_ID &&
-      currentPage !== FOOD_PAGE_ID ? (
+      currentPage !== FOOD_PAGE_ID &&
+      currentPage !== EXAMS_PAGE_ID ? (
         <footer className="app-footer">
           <div className="app-footer-copy">
             <strong>{footerCopy.title}</strong>
@@ -1986,7 +1996,12 @@ function CampusSplashScreen() {
   );
 }
 
-function CampusHomePage({ onOpenBoard, onOpenFood, onOpenStudySpaces }) {
+function CampusHomePage({
+  onOpenBoard,
+  onOpenExams,
+  onOpenFood,
+  onOpenStudySpaces,
+}) {
   const homeActions = [
     {
       accentClass: "bus",
@@ -2008,6 +2023,13 @@ function CampusHomePage({ onOpenBoard, onOpenFood, onOpenStudySpaces }) {
       Icon: Coffee,
       label: "Food & Drink",
       onClick: onOpenFood,
+    },
+    {
+      accentClass: "exam",
+      description: "Track finals & deadlines",
+      Icon: FaClock,
+      label: "Exam Countdown",
+      onClick: onOpenExams,
     },
   ];
 
@@ -3351,7 +3373,8 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
   if (
     pageId === LIBRARY_SPACES_PAGE_ID ||
     pageId === FERRY_PAGE_ID ||
-    pageId === FOOD_PAGE_ID
+    pageId === FOOD_PAGE_ID ||
+    pageId === EXAMS_PAGE_ID
   ) {
     url.searchParams.delete("stop");
     url.searchParams.delete("route");
