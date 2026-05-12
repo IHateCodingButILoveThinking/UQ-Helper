@@ -1992,7 +1992,7 @@ function CampusHomePage({ onOpenBoard, onOpenFood, onOpenStudySpaces }) {
       accentClass: "bus",
       description: "Live campus departures",
       Icon: Bus,
-      label: "Bus Time",
+      label: "Bus & Ferry Time",
       onClick: onOpenBoard,
     },
     {
@@ -2006,7 +2006,7 @@ function CampusHomePage({ onOpenBoard, onOpenFood, onOpenStudySpaces }) {
       accentClass: "food",
       description: "Cafes and restaurants",
       Icon: Coffee,
-      label: "Food & Drink Around Me",
+      label: "Food & Drink",
       onClick: onOpenFood,
     },
   ];
