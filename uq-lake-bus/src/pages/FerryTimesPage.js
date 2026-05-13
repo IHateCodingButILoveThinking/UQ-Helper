@@ -16,6 +16,7 @@ const FERRY_REFRESH_MS = 15000;
 const FERRY_REFRESH_FEEDBACK_MS = 800;
 const FERRY_PAGE_EXIT_MS = 230;
 const FERRY_PENDING_MINUTES = 2;
+const FERRY_REQUEST_TIMEOUT_MS = 8000;
 const FERRY_ROUTE_CODE = "F1";
 const FERRY_ROUTE_NAME = "F1 Northshore Hamilton/UQ St Lucia";
 const FERRY_STOP_NAME = "UQ St Lucia ferry terminal";
@@ -196,6 +197,8 @@ export default function FerryTimesPage({ onBack }) {
   }, [activeJourney.id]);
 
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
       isMountedRef.current = false;
 
@@ -513,7 +516,7 @@ async function fetchJsonPayload(
   return getCachedData(
     cacheKey,
     async () => {
-      const response = await fetch(url, {
+      const response = await fetchWithTimeout(url, {
         headers: {
           accept: "application/json",
         },
@@ -539,6 +542,28 @@ async function fetchJsonPayload(
       validate: (payload) => Boolean(payload) && Array.isArray(payload.departures),
     },
   );
+}
+
+async function fetchWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutId = window.setTimeout(() => {
+    controller.abort();
+  }, FERRY_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error(`Request timed out: ${url}`);
+    }
+
+    throw error;
+  } finally {
+    window.clearTimeout(timeoutId);
+  }
 }
 
 function buildFerryDeparturesUrl(stopName) {
