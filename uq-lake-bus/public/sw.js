@@ -1,4 +1,4 @@
-const CACHE_VERSION = "uq-campus-app-v1";
+const CACHE_VERSION = "uq-campus-app-v2";
 const APP_SHELL_CACHE = `${CACHE_VERSION}-shell`;
 const RUNTIME_CACHE = `${CACHE_VERSION}-runtime`;
 const APP_SHELL_URLS = [
@@ -48,6 +48,11 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (url.origin !== self.location.origin) {
+    return;
+  }
+
+  if (url.pathname.startsWith("/api/")) {
+    event.respondWith(fetch(request));
     return;
   }
 

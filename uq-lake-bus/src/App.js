@@ -293,7 +293,9 @@ export default function App() {
         const nextData = await getCachedData(
           "board:default-stop",
           async () => {
-            const response = await fetch("/api/departures");
+            const response = await fetch("/api/departures", {
+              cache: "no-store",
+            });
             if (!response.ok) {
               throw new Error("Could not load departures.");
             }
@@ -310,6 +312,7 @@ export default function App() {
               setError("");
             },
             staleWhileRevalidate: true,
+            maxStaleMs: REFRESH_MS * 2,
             ttlMs: API_CACHE_TTLS.board,
             validate: (payload) =>
               Boolean(payload) && Array.isArray(payload.departures),

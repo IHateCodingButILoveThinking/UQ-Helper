@@ -2,7 +2,7 @@ const DEFAULT_CACHE_TTL_MS = 60 * 1000;
 const inflightRequests = new Map();
 
 export const API_CACHE_TTLS = {
-  board: 60 * 1000,
+  board: 30 * 1000,
   ferries: 60 * 1000,
   foodReviews: 10 * 60 * 1000,
   foodServices: 6 * 60 * 60 * 1000,
@@ -20,6 +20,7 @@ export async function getCachedData(
     onUpdate,
     staleWhileRevalidate = false,
     ttlMs = DEFAULT_CACHE_TTL_MS,
+    maxStaleMs = Infinity,
     validate,
   } = {},
 ) {
@@ -33,7 +34,11 @@ export async function getCachedData(
     return cachedData;
   }
 
-  if (staleWhileRevalidate && hasValidCachedData) {
+  if (
+    staleWhileRevalidate &&
+    hasValidCachedData &&
+    cachedAgeMs <= maxStaleMs
+  ) {
     void refreshCachedDataInBackground(key, fetchFn, {
       cachedData,
       onBackgroundError,
