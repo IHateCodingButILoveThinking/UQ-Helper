@@ -2,8 +2,8 @@ const DEFAULT_CACHE_TTL_MS = 60 * 1000;
 const inflightRequests = new Map();
 
 export const API_CACHE_TTLS = {
-  board: 30 * 1000,
-  ferries: 60 * 1000,
+  board: 15 * 1000,
+  ferries: 30 * 1000,
   foodReviews: 10 * 60 * 1000,
   foodServices: 6 * 60 * 60 * 1000,
   librarySpaces: 60 * 1000,
@@ -27,18 +27,16 @@ export async function getCachedData(
   const cachedPayload = force ? null : readCachedPayload(key);
   const cachedData = cachedPayload?.data;
   const hasValidCachedData = isValidCachedData(cachedData, validate);
-  const cachedAgeMs = cachedPayload ? Date.now() - cachedPayload.cachedAt : Infinity;
+  const cachedAgeMs = cachedPayload
+    ? Date.now() - cachedPayload.cachedAt
+    : Infinity;
   const cacheIsFresh = hasValidCachedData && cachedAgeMs < ttlMs;
 
   if (cacheIsFresh) {
     return cachedData;
   }
 
-  if (
-    staleWhileRevalidate &&
-    hasValidCachedData &&
-    cachedAgeMs <= maxStaleMs
-  ) {
+  if (staleWhileRevalidate && hasValidCachedData && cachedAgeMs <= maxStaleMs) {
     void refreshCachedDataInBackground(key, fetchFn, {
       cachedData,
       onBackgroundError,
@@ -133,7 +131,10 @@ function readCachedPayload(key) {
 
     return payload;
   } catch (storageError) {
-    console.error(`Could not read cached API payload for ${key}.`, storageError);
+    console.error(
+      `Could not read cached API payload for ${key}.`,
+      storageError,
+    );
     return null;
   }
 }
@@ -152,7 +153,10 @@ function writeCachedPayload(key, data) {
       }),
     );
   } catch (storageError) {
-    console.error(`Could not write cached API payload for ${key}.`, storageError);
+    console.error(
+      `Could not write cached API payload for ${key}.`,
+      storageError,
+    );
   }
 }
 
