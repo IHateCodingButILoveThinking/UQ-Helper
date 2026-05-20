@@ -1,6 +1,8 @@
 import { defineConfig, transformWithOxc } from "vite";
 import react from "@vitejs/plugin-react";
 
+import { cloudflare } from "@cloudflare/vite-plugin";
+
 function jsAsJsx() {
   return {
     name: "js-as-jsx",
@@ -21,7 +23,7 @@ function jsAsJsx() {
 }
 
 export default defineConfig({
-  plugins: [jsAsJsx(), react()],
+  plugins: [jsAsJsx(), react(), cloudflare()],
   oxc: {
     include: /\.[jt]sx?$/,
     exclude: /\/node_modules\//,
