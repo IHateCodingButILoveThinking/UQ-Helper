@@ -13,6 +13,7 @@ import {
 } from "react-icons/fa";
 import { Bus, Coffee, LampDesk } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
+import { Analytics } from "@vercel/analytics/react";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
 import FoodDirectoryPage from "./pages/FoodDirectoryPage";
@@ -1949,6 +1950,7 @@ export default function App() {
         position="top-center"
         transition={toastTransition}
       />
+      <Analytics />
     </main>
   );
 }
