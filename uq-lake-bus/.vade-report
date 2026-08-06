@@ -1,0 +1,49 @@
+## Vercel Web Analytics Implementation
+
+Successfully implemented Vercel Web Analytics for the UQ Lakes Bus Board project.
+
+### Implementation Summary
+
+Following the official Vercel Analytics documentation (https://vercel.com/docs/analytics/quickstart), I've installed and configured Vercel Web Analytics for this React + Vite application.
+
+### Changes Made
+
+**1. Package Installation**
+- Installed `@vercel/analytics` version 2.0.1 using npm
+- Updated `package.json` with the new dependency
+- Updated `package-lock.json` with the resolved dependencies
+
+**2. Code Integration**
+- **File Modified:** `src/App.js`
+  - Added import statement: `import { Analytics } from "@vercel/analytics/react";`
+  - Added the `<Analytics />` component inside the main `<App>` component's return statement
+  - The Analytics component is placed just before the closing `</main>` tag, after the `<ToastContainer />` component
+
+### Framework-Specific Implementation
+
+The implementation follows the React/Vite-specific instructions from the official documentation:
+- Used the React-specific import path: `@vercel/analytics/react`
+- Added the `<Analytics />` component to the root App component as recommended
+- No additional configuration in vercel.json was required
+
+### Testing & Verification
+
+✅ **Build Test:** Successfully ran `npm run build` - the project builds without errors
+✅ **Bundle Size:** Build completed in 697ms with all assets properly optimized
+✅ **No Linter:** The project doesn't have ESLint configured, so no linting errors to check
+✅ **No Tests:** The project doesn't have a test suite configured
+
+### Implementation Notes
+
+- The Analytics component was placed at the root level of the application to ensure tracking across all pages and views
+- The implementation is non-intrusive and preserves all existing functionality
+- The component will automatically collect web vitals and page views once deployed to Vercel
+- Analytics will need to be enabled in the Vercel dashboard under the project's Analytics settings
+
+### Next Steps for Activation
+
+To activate Web Analytics for this project:
+1. Deploy the application to Vercel
+2. Navigate to the project's settings in the Vercel dashboard
+3. Enable Web Analytics under the Analytics section
+4. Analytics data will start appearing after the next deployment and user visits
