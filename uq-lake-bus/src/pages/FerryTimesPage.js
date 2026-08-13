@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  FaArrowLeft,
   FaChevronDown,
   FaExchangeAlt,
   FaExclamationCircle,
@@ -12,7 +11,6 @@ import {
 
 const FERRY_REFRESH_MS = 15000;
 const FERRY_REFRESH_FEEDBACK_MS = 800;
-const FERRY_PAGE_EXIT_MS = 230;
 const FERRY_PENDING_MINUTES = 2;
 const FERRY_REQUEST_TIMEOUT_MS = 8000;
 const FERRY_ROUTE_CODE = "F1";
@@ -69,12 +67,11 @@ const FERRY_JOURNEYS = [
   },
 ];
 
-export default function FerryTimesPage({ modeSelector, onBack }) {
+export default function FerryTimesPage({ modeSelector }) {
   const [ferryData, setFerryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [isLeaving, setIsLeaving] = useState(false);
   const [clockTick, setClockTick] = useState(() => Date.now());
   const [isSimplified, setIsSimplified] = useState(false);
   const [simpleDirection, setSimpleDirection] = useState(
@@ -84,7 +81,6 @@ export default function FerryTimesPage({ modeSelector, onBack }) {
   const [selectedJourneyId, setSelectedJourneyId] = useState(
     FERRY_DEFAULT_JOURNEY_ID,
   );
-  const backTimeoutRef = useRef(null);
   const isMountedRef = useRef(true);
   const selectedJourney = getFerryJourney(selectedJourneyId);
   const activeJourney = isSimplified
@@ -106,17 +102,6 @@ export default function FerryTimesPage({ modeSelector, onBack }) {
     resetFerryPayload();
     setMyStation(nextStation);
   };
-  const handleBack = () => {
-    if (isLeaving) {
-      return;
-    }
-
-    setIsLeaving(true);
-    backTimeoutRef.current = window.setTimeout(() => {
-      onBack();
-    }, FERRY_PAGE_EXIT_MS);
-  };
-
   const fetchData = async ({ force = false, silent = false } = {}) => {
     const refreshStartedAt = Date.now();
 
@@ -199,10 +184,6 @@ export default function FerryTimesPage({ modeSelector, onBack }) {
 
     return () => {
       isMountedRef.current = false;
-
-      if (backTimeoutRef.current) {
-        window.clearTimeout(backTimeoutRef.current);
-      }
     };
   }, []);
 
@@ -230,23 +211,13 @@ export default function FerryTimesPage({ modeSelector, onBack }) {
 
   return (
     <motion.section
-      animate={
-        isLeaving
-          ? {
-              clipPath: "inset(3% 2% 0% 2% round 30px)",
-              filter: "blur(3px)",
-              opacity: 0,
-              scale: 0.985,
-              y: 18,
-            }
-          : {
-              clipPath: "inset(0% 0% 0% 0% round 0px)",
-              filter: "blur(0px)",
-              opacity: 1,
-              scale: 1,
-              y: 0,
-            }
-      }
+      animate={{
+        clipPath: "inset(0% 0% 0% 0% round 0px)",
+        filter: "blur(0px)",
+        opacity: 1,
+        scale: 1,
+        y: 0,
+      }}
       aria-label="Live ferry times"
       className="ferry-page"
       initial={{
@@ -255,10 +226,10 @@ export default function FerryTimesPage({ modeSelector, onBack }) {
         y: 22,
       }}
       transition={{
-        clipPath: { duration: isLeaving ? 0.2 : 0.28, ease: [0.22, 1, 0.36, 1] },
-        filter: { duration: isLeaving ? 0.18 : 0.24 },
-        opacity: { duration: isLeaving ? 0.18 : 0.2 },
-        scale: { duration: isLeaving ? 0.18 : 0.24 },
+        clipPath: { duration: 0.28, ease: [0.22, 1, 0.36, 1] },
+        filter: { duration: 0.24 },
+        opacity: { duration: 0.2 },
+        scale: { duration: 0.24 },
         y: { type: "spring", stiffness: 460, damping: 34 },
       }}
     >
@@ -266,16 +237,6 @@ export default function FerryTimesPage({ modeSelector, onBack }) {
 
       <header className="ferry-header">
         <div className="ferry-header-controls">
-          <button
-            type="button"
-            className="ferry-back-button"
-            aria-label="Back"
-            disabled={isLeaving}
-            onClick={handleBack}
-          >
-            <FaArrowLeft aria-hidden="true" />
-          </button>
-
           <button
             type="button"
             className="ferry-refresh-button"

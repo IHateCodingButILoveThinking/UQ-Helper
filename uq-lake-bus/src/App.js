@@ -1187,8 +1187,6 @@ export default function App() {
     ? { opacity: 0, x: isHomePage ? -22 : 22 }
     : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
   const showHomeBackButton =
-    currentPage === BOARD_PAGE_ID ||
-    currentPage === TRAIN_PAGE_ID ||
     currentPage === FOOD_PAGE_ID ||
     currentPage === EXAMS_PAGE_ID ||
     (currentPage === LIBRARY_SPACES_PAGE_ID && !librarySubPageOpen);
@@ -1252,6 +1250,7 @@ export default function App() {
             <>
               <TransportModeTabs
                 activeMode="bus"
+                onHome={() => handlePageChange(HOME_PAGE_ID)}
                 onSelect={handleTransportModeChange}
               />
               <div className="side-stack">
@@ -1738,16 +1737,17 @@ export default function App() {
               modeSelector={
                 <TransportModeTabs
                   activeMode="ferry"
+                  onHome={() => handlePageChange(HOME_PAGE_ID)}
                   onSelect={handleTransportModeChange}
                 />
               }
-              onBack={() => handlePageChange(BOARD_PAGE_ID)}
             />
           ) : currentPage === TRAIN_PAGE_ID ? (
             <TrainTimesPage
               modeSelector={
                 <TransportModeTabs
                   activeMode="train"
+                  onHome={() => handlePageChange(HOME_PAGE_ID)}
                   onSelect={handleTransportModeChange}
                 />
               }

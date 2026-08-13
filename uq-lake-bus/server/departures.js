@@ -15,7 +15,12 @@ const OFFICIAL_FALLBACK_STOPS = [
   {
     id: "South Bank busway station",
     name: "South Bank busway station",
-    aliases: ["South Bank", "Southbank", "South Bank station", "South Bank busway"],
+    aliases: [
+      "South Bank",
+      "Southbank",
+      "South Bank station",
+      "South Bank busway",
+    ],
   },
   {
     id: "South Bank station",
@@ -243,15 +248,17 @@ export async function fetchStopMatches(query) {
   }
 
   const uniqueStops = Array.from(
-    [...fallbackStops, ...stops].reduce((stopMap, stop) => {
-      const stopKey = normalizeStopSearchValue(stop.name);
+    [...fallbackStops, ...stops]
+      .reduce((stopMap, stop) => {
+        const stopKey = normalizeStopSearchValue(stop.name);
 
-      if (!stopMap.has(stopKey)) {
-        stopMap.set(stopKey, stop);
-      }
+        if (!stopMap.has(stopKey)) {
+          stopMap.set(stopKey, stop);
+        }
 
-      return stopMap;
-    }, new Map()).values(),
+        return stopMap;
+      }, new Map())
+      .values(),
   ).slice(0, 12);
 
   stopSearchCache.set(cacheKey, {
@@ -376,11 +383,14 @@ function extractInitialTimetableData(html) {
 
   for (const pushEntry of pushes) {
     const chunk = Array.isArray(pushEntry) ? pushEntry[1] : null;
-    if (typeof chunk !== "string" || !chunk.includes("\"initialTimetableData\":")) {
+    if (
+      typeof chunk !== "string" ||
+      !chunk.includes('"initialTimetableData":')
+    ) {
       continue;
     }
 
-    const marker = "\"initialTimetableData\":";
+    const marker = '"initialTimetableData":';
     const objectStart = chunk.indexOf(marker) + marker.length;
     const objectEnd = findBalancedJsonEnd(chunk, objectStart);
     const jsonText = chunk.slice(objectStart, objectEnd);
@@ -404,14 +414,14 @@ function findBalancedJsonEnd(text, startIndex) {
         isEscaped = false;
       } else if (character === "\\") {
         isEscaped = true;
-      } else if (character === "\"") {
+      } else if (character === '"') {
         inString = false;
       }
 
       continue;
     }
 
-    if (character === "\"") {
+    if (character === '"') {
       inString = true;
       continue;
     }
@@ -445,7 +455,8 @@ function normalizeStopDepartures(stopTimetable, now) {
           candidate.direction === departure.direction,
       );
       const scheduledUtc =
-        departure.realtime?.expectedDepartureUtc ?? departure.scheduledDepartureUtc;
+        departure.realtime?.expectedDepartureUtc ??
+        departure.scheduledDepartureUtc;
       const minutesAway = Math.ceil(
         (new Date(scheduledUtc).getTime() - now.getTime()) / 60000,
       );
@@ -453,7 +464,9 @@ function normalizeStopDepartures(stopTimetable, now) {
       return {
         id: departure.id,
         routeCode: routeCodeFromId(departure.routeId),
-        destination: extractDestination(departure.headsign ?? route?.name ?? ""),
+        destination: extractDestination(
+          departure.headsign ?? route?.name ?? "",
+        ),
         fullHeadsign: departure.headsign ?? route?.name ?? "",
         direction: departure.direction,
         scheduledTimetableUtc: departure.scheduledDepartureUtc,
@@ -463,12 +476,16 @@ function normalizeStopDepartures(stopTimetable, now) {
         countdownMinutes: Math.max(minutesAway, 0),
         stopId: stopTimetable.stop.id,
         stopName: stopTimetable.stop.name,
-        platform: departure.departurePlatform ?? platformFromName(stopTimetable.stop.name),
+        platform:
+          departure.departurePlatform ??
+          platformFromName(stopTimetable.stop.name),
         live: Boolean(departure.realtime),
       };
     })
     .filter((departure) => {
-      return new Date(departure.scheduledUtc).getTime() >= now.getTime() - 60_000;
+      return (
+        new Date(departure.scheduledUtc).getTime() >= now.getTime() - 60_000
+      );
     });
 }
 

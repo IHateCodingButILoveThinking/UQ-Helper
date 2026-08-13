@@ -1,4 +1,4 @@
-import { BusFront, Ship, TrainFront } from "lucide-react";
+import { BusFront, House, Ship, TrainFront } from "lucide-react";
 
 const MODES = [
   { Icon: BusFront, id: "bus", label: "Bus" },
@@ -6,9 +6,22 @@ const MODES = [
   { Icon: TrainFront, id: "train", label: "Train" },
 ];
 
-export default function TransportModeTabs({ activeMode, onSelect }) {
+export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
   return (
-    <nav className="transport-mode-nav" aria-label="Choose transport mode">
+    <nav
+      className={`transport-mode-nav active-${activeMode}`}
+      aria-label="Transport navigation"
+    >
+      <button
+        type="button"
+        className="transport-home-button"
+        aria-label="Campus home"
+        onClick={onHome}
+      >
+        <House aria-hidden="true" />
+        <span>Home</span>
+      </button>
+
       {MODES.map(({ Icon, id, label }) => (
         <button
           key={id}

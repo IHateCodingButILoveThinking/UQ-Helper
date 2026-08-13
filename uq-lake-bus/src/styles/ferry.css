@@ -115,7 +115,7 @@ body[data-page="ferry"]::after {
   right: 28px;
   left: 28px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   pointer-events: none;
 }
 
@@ -1726,5 +1726,61 @@ body[data-page="ferry"]::after {
 
   .ferry-countdown strong {
     font-size: 2.05rem;
+  }
+}
+
+@media (max-width: 520px) {
+  .ferry-header {
+    padding: 14px 16px 20px;
+  }
+
+  .ferry-header-controls {
+    top: 18px;
+    right: 18px;
+    left: 18px;
+  }
+
+  .ferry-refresh-button {
+    width: 48px;
+    height: 48px;
+  }
+
+  .ferry-refresh-button svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .ferry-hero-copy {
+    min-height: 56px;
+    padding: 0 54px 0 0;
+    justify-content: flex-start;
+    text-align: left;
+  }
+
+  .ferry-hero-copy h1 {
+    font-size: 1.58rem;
+    letter-spacing: -0.045em;
+  }
+
+  .ferry-view-tabs {
+    min-height: 58px;
+    margin-top: 10px;
+    padding: 5px;
+  }
+
+  .ferry-view-tabs-indicator {
+    top: 5px;
+    bottom: 5px;
+    left: 5px;
+    width: calc(50% - 5px);
+  }
+
+  .ferry-view-tabs button {
+    height: 46px;
+    font-size: 0.86rem;
+  }
+
+  .ferry-content {
+    padding-top: 24px;
   }
 }
