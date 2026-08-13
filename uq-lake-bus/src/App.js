@@ -7,17 +7,19 @@ import {
   FaExchangeAlt,
   FaMapMarkerAlt,
   FaSearch,
-  FaShip,
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
-import { Bus, Coffee, LampDesk } from "lucide-react";
+import { Bus, LampDesk } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
 import FoodDirectoryPage from "./pages/FoodDirectoryPage";
 import FerryTimesPage from "./pages/FerryTimesPage";
 import LibrarySpacesPage from "./pages/LibrarySpacesPage";
+import TrainTimesPage from "./pages/TrainTimesPage";
+import { AirQualityPill } from "./components/HomeLiveInfo";
+import TransportModeTabs from "./components/TransportModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
 
 const REFRESH_MS = 30000;
@@ -30,9 +32,14 @@ const BOARD_PAGE_ID = "board";
 const PLANNER_PAGE_ID = "planner";
 const LIBRARY_SPACES_PAGE_ID = "spaces";
 const FERRY_PAGE_ID = "ferry";
+const TRAIN_PAGE_ID = "train";
 const FOOD_PAGE_ID = "food";
 const EXAMS_PAGE_ID = "exams";
-const SPLASH_DURATION_MS = 3000;
+const FEATURE_FLAGS = Object.freeze({
+  exams: false,
+  food: false,
+});
+const SPLASH_DURATION_MS = 1100;
 const UQ_SPLASH_LOGO_URL =
   "https://static.uq.net.au/v15/logos/corporate/uq-logo-white.svg";
 const PLANNER_FIELD_ORIGIN = "origin";
@@ -290,34 +297,15 @@ export default function App() {
       }
 
       try {
-        const nextData = await getCachedData(
-          "board:default-stop",
-          async () => {
-            const response = await fetch("/api/departures", {
-              cache: "no-store",
-            });
-            if (!response.ok) {
-              throw new Error("Could not load departures.");
-            }
+        const response = await fetch("/api/departures", {
+          cache: "no-store",
+        });
 
-            return response.json();
-          },
-          {
-            onUpdate: (freshData) => {
-              if (!isActive) {
-                return;
-              }
+        if (!response.ok) {
+          throw new Error("Could not load departures.");
+        }
 
-              setData(freshData);
-              setError("");
-            },
-            staleWhileRevalidate: true,
-            maxStaleMs: REFRESH_MS * 2,
-            ttlMs: API_CACHE_TTLS.board,
-            validate: (payload) =>
-              Boolean(payload) && Array.isArray(payload.departures),
-          },
-        );
+        const nextData = await response.json();
         if (!isActive) {
           return;
         }
@@ -412,13 +400,15 @@ export default function App() {
           ? "UQ Library Study Spaces"
           : currentPage === FERRY_PAGE_ID
             ? "UQ F1 Ferry Times"
-            : currentPage === FOOD_PAGE_ID
-              ? "UQ Food & Drink"
-              : currentPage === EXAMS_PAGE_ID
-                ? "UQ Exam Countdown"
-              : currentPage === PLANNER_PAGE_ID
-                ? "Direct Bus Planner"
-                : `${activeStop.switchLabel} Bus Board`;
+            : currentPage === TRAIN_PAGE_ID
+              ? "Toowong Train Times"
+              : currentPage === FOOD_PAGE_ID
+                ? "UQ Food & Drink"
+                : currentPage === EXAMS_PAGE_ID
+                  ? "UQ Exam Countdown"
+                  : currentPage === PLANNER_PAGE_ID
+                    ? "Direct Bus Planner"
+                    : `${activeStop.switchLabel} Bus Board`;
 
     return () => {
       document.documentElement.removeAttribute("data-stop-theme");
@@ -816,8 +806,9 @@ export default function App() {
         PLANNER_PAGE_ID,
         LIBRARY_SPACES_PAGE_ID,
         FERRY_PAGE_ID,
-        FOOD_PAGE_ID,
-        EXAMS_PAGE_ID,
+        TRAIN_PAGE_ID,
+        ...(FEATURE_FLAGS.food ? [FOOD_PAGE_ID] : []),
+        ...(FEATURE_FLAGS.exams ? [EXAMS_PAGE_ID] : []),
       ].includes(pageId)
     ) {
       return;
@@ -837,6 +828,16 @@ export default function App() {
     }
 
     setCurrentPage(pageId);
+  };
+
+  const handleTransportModeChange = (mode) => {
+    const pageByMode = {
+      bus: BOARD_PAGE_ID,
+      ferry: FERRY_PAGE_ID,
+      train: TRAIN_PAGE_ID,
+    };
+
+    handlePageChange(pageByMode[mode] ?? BOARD_PAGE_ID);
   };
 
   const handlePlannerOriginChange = (value) => {
@@ -1187,6 +1188,7 @@ export default function App() {
     : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
   const showHomeBackButton =
     currentPage === BOARD_PAGE_ID ||
+    currentPage === TRAIN_PAGE_ID ||
     currentPage === FOOD_PAGE_ID ||
     currentPage === EXAMS_PAGE_ID ||
     (currentPage === LIBRARY_SPACES_PAGE_ID && !librarySubPageOpen);
@@ -1223,6 +1225,7 @@ export default function App() {
             "page-content-motion",
             currentPage === BOARD_PAGE_ID ? "board-content-motion" : "",
             currentPage === FERRY_PAGE_ID ? "ferry-content-motion" : "",
+            currentPage === TRAIN_PAGE_ID ? "train-content-motion" : "",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -1243,12 +1246,14 @@ export default function App() {
           {currentPage === HOME_PAGE_ID ? (
             <CampusHomePage
               onOpenBoard={() => handlePageChange(BOARD_PAGE_ID)}
-              onOpenExams={() => handlePageChange(EXAMS_PAGE_ID)}
-              onOpenFood={() => handlePageChange(FOOD_PAGE_ID)}
               onOpenStudySpaces={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
             />
           ) : currentPage === BOARD_PAGE_ID ? (
             <>
+              <TransportModeTabs
+                activeMode="bus"
+                onSelect={handleTransportModeChange}
+              />
               <div className="side-stack">
                 <section className="surface-panel hero-panel">
                   <div className="hero-glow hero-glow-top" aria-hidden="true" />
@@ -1310,25 +1315,6 @@ export default function App() {
                             </span>
                           </button>
 
-                          <button
-                            type="button"
-                            className="ferry-control"
-                            aria-label="Open live F1 ferry times"
-                            onClick={() => handlePageChange(FERRY_PAGE_ID)}
-                          >
-                            <motion.span
-                              aria-hidden="true"
-                              className="ferry-control-shimmer"
-                            />
-                            <span
-                              className="ferry-control-icon"
-                              aria-hidden="true"
-                            >
-                              <FaShip />
-                            </span>
-                            <span className="ferry-control-label">Ferry</span>
-                            <span className="ferry-control-route">F1</span>
-                          </button>
                         </div>
                       </div>
                     </div>
@@ -1748,7 +1734,24 @@ export default function App() {
               </section>
             </section>
           ) : currentPage === FERRY_PAGE_ID ? (
-            <FerryTimesPage onBack={() => handlePageChange(BOARD_PAGE_ID)} />
+            <FerryTimesPage
+              modeSelector={
+                <TransportModeTabs
+                  activeMode="ferry"
+                  onSelect={handleTransportModeChange}
+                />
+              }
+              onBack={() => handlePageChange(BOARD_PAGE_ID)}
+            />
+          ) : currentPage === TRAIN_PAGE_ID ? (
+            <TrainTimesPage
+              modeSelector={
+                <TransportModeTabs
+                  activeMode="train"
+                  onSelect={handleTransportModeChange}
+                />
+              }
+            />
           ) : currentPage === FOOD_PAGE_ID ? (
             <FoodDirectoryPage />
           ) : currentPage === EXAMS_PAGE_ID ? (
@@ -1960,7 +1963,7 @@ function CampusSplashScreen() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.04 }}
-      transition={{ duration: 0.6, ease: "easeInOut" }}
+      transition={{ duration: 0.24, ease: "easeInOut" }}
       aria-label="The University of Queensland Create Change splash screen"
     >
       <div className="uq-splash-curves" aria-hidden="true">
@@ -1975,7 +1978,7 @@ function CampusSplashScreen() {
         className="uq-splash-content"
         initial={{ opacity: 0, y: 22, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ delay: 0.18, duration: 0.82, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ delay: 0.06, duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
       >
         <img
           src={UQ_SPLASH_LOGO_URL}
@@ -1988,7 +1991,7 @@ function CampusSplashScreen() {
           className="uq-splash-divider"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ delay: 0.95, duration: 0.78, ease: "easeInOut" }}
+          transition={{ delay: 0.34, duration: 0.34, ease: "easeInOut" }}
           aria-hidden="true"
         />
 
@@ -1996,7 +1999,7 @@ function CampusSplashScreen() {
           className="uq-splash-motto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 1.35, duration: 0.6, ease: "easeOut" }}
+          transition={{ delay: 0.5, duration: 0.3, ease: "easeOut" }}
         >
           CREATE CHANGE
         </motion.p>
@@ -2005,18 +2008,13 @@ function CampusSplashScreen() {
   );
 }
 
-function CampusHomePage({
-  onOpenBoard,
-  onOpenExams,
-  onOpenFood,
-  onOpenStudySpaces,
-}) {
+function CampusHomePage({ onOpenBoard, onOpenStudySpaces }) {
   const homeActions = [
     {
       accentClass: "bus",
       description: "Live campus departures",
       Icon: Bus,
-      label: "Bus & Ferry Time",
+      label: "Live Transport",
       onClick: onOpenBoard,
     },
     {
@@ -2025,20 +2023,6 @@ function CampusHomePage({
       Icon: LampDesk,
       label: "Study Spaces",
       onClick: onOpenStudySpaces,
-    },
-    {
-      accentClass: "food",
-      description: "Cafes and restaurants",
-      Icon: Coffee,
-      label: "Food & Drink",
-      onClick: onOpenFood,
-    },
-    {
-      accentClass: "exam",
-      description: "Track finals & deadlines",
-      Icon: FaClock,
-      label: "Exam Countdown",
-      onClick: onOpenExams,
     },
   ];
 
@@ -2050,6 +2034,10 @@ function CampusHomePage({
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
       >
+        <div className="campus-home-meta">
+          <span className="campus-home-location">St Lucia campus</span>
+          <AirQualityPill />
+        </div>
         <h1>
           Welcome to
           <br />
@@ -2058,33 +2046,35 @@ function CampusHomePage({
         <p>What do you need today?</p>
       </motion.header>
 
-      <div className="campus-home-actions">
-        {homeActions.map(
-          ({ accentClass, description, Icon, label, onClick }, index) => (
-            <motion.button
-              key={label}
-              type="button"
-              className="campus-home-card"
-              onClick={onClick}
-              initial={{ opacity: 0, y: 18, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              whileTap={{ scale: 0.965 }}
-              transition={{
-                delay: 0.08 + index * 0.08,
-                duration: 0.42,
-                ease: [0.22, 1, 0.36, 1],
-              }}
-            >
-              <span className={`campus-home-icon ${accentClass}`}>
-                <Icon aria-hidden="true" />
-              </span>
-              <span className="campus-home-card-copy">
-                <strong>{label}</strong>
-                <span>{description}</span>
-              </span>
-            </motion.button>
-          ),
-        )}
+      <div className="campus-home-dashboard">
+        <div className="campus-home-actions compact">
+          {homeActions.map(
+            ({ accentClass, description, Icon, label, onClick }, index) => (
+              <motion.button
+                key={label}
+                type="button"
+                className="campus-home-card"
+                onClick={onClick}
+                initial={{ opacity: 0, y: 18, scale: 0.98 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                whileTap={{ scale: 0.965 }}
+                transition={{
+                  delay: 0.08 + index * 0.08,
+                  duration: 0.42,
+                  ease: [0.22, 1, 0.36, 1],
+                }}
+              >
+                <span className={`campus-home-icon ${accentClass}`}>
+                  <Icon aria-hidden="true" />
+                </span>
+                <span className="campus-home-card-copy">
+                  <strong>{label}</strong>
+                  <span>{description}</span>
+                </span>
+              </motion.button>
+            ),
+          )}
+        </div>
       </div>
     </section>
   );
@@ -3319,23 +3309,15 @@ async function fetchStopDepartures({ limit, stopId, stopName }) {
     params.set("limit", String(limit));
   }
 
-  return getCachedData(
-    `departures:${params.toString()}`,
-    async () => {
-      const response = await fetch(`/api/departures?${params.toString()}`);
+  const response = await fetch(`/api/departures?${params.toString()}`, {
+    cache: "no-store",
+  });
 
-      if (!response.ok) {
-        throw new Error("Could not load departures for this stop.");
-      }
+  if (!response.ok) {
+    throw new Error("Could not load departures for this stop.");
+  }
 
-      return response.json();
-    },
-    {
-      ttlMs: API_CACHE_TTLS.plannerDepartures,
-      validate: (payload) =>
-        Boolean(payload) && Array.isArray(payload.departures),
-    },
-  );
+  return response.json();
 }
 
 async function fetchLibrarySpacesData(options = {}) {
@@ -3382,6 +3364,7 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
   if (
     pageId === LIBRARY_SPACES_PAGE_ID ||
     pageId === FERRY_PAGE_ID ||
+    pageId === TRAIN_PAGE_ID ||
     pageId === FOOD_PAGE_ID ||
     pageId === EXAMS_PAGE_ID
   ) {

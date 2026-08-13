@@ -2,14 +2,14 @@ import vm from "node:vm";
 
 import * as cheerio from "cheerio";
 
+import { applyGtfsRealtime } from "./gtfs-realtime.js";
+
 const BRISBANE_TZ = "Australia/Brisbane";
-const CACHE_TTL_MS = 20_000;
 const STOP_SEARCH_CACHE_TTL_MS = 60_000;
 const DEFAULT_DEPARTURE_LIMIT = 24;
 const MAX_DEPARTURE_LIMIT = 96;
 const SOURCE_NAME = "UQ Lakes station";
 const DEFAULT_STOP_LOOKUP = SOURCE_NAME;
-const departuresCache = new Map();
 const stopSearchCache = new Map();
 const OFFICIAL_FALLBACK_STOPS = [
   {
@@ -124,13 +124,6 @@ export async function fetchDepartures(options = {}) {
   const stopLookup = String(options.stopLookup ?? DEFAULT_STOP_LOOKUP).trim();
   const displayName = String(options.displayName ?? "").trim();
   const departureLimit = getDepartureLimit(options.limit);
-  const cacheKey = `${stopLookup.toLowerCase()}::${departureLimit}`;
-  const cachedEntry = departuresCache.get(cacheKey);
-
-  if (cachedEntry && cachedEntry.expiresAt > Date.now()) {
-    return cachedEntry.value;
-  }
-
   const station = await fetchJson(
     `https://jp.translink.com.au/api/stop/timetable/${encodeURIComponent(stopLookup)}`,
   );
@@ -154,7 +147,7 @@ export async function fetchDepartures(options = {}) {
     throw new Error(`Could not load any timetables for ${stopLookup}.`);
   }
 
-  const departures = stopTimetables
+  const scheduledDepartures = stopTimetables
     .flatMap((timetable) => normalizeStopDepartures(timetable, now))
     .sort((left, right) => {
       return (
@@ -163,20 +156,19 @@ export async function fetchDepartures(options = {}) {
       );
     })
     .slice(0, departureLimit);
+  const realtime = await applyGtfsRealtime(scheduledDepartures);
 
   const payload = {
     stopName: displayName || stationStops[0]?.name || stopLookup,
     generatedAt: new Date().toISOString(),
-    sourceUrl: `https://jp.translink.com.au/plan-your-journey/stops/${encodeURIComponent(
+    feedTimestamp: realtime.feedTimestamp,
+    gtfsRealtime: realtime.gtfsRealtime,
+    sourceUrl: realtime.sourceUrl,
+    timetableSourceUrl: `https://jp.translink.com.au/plan-your-journey/stops/${encodeURIComponent(
       stationStops[0]?.id ?? stopLookup,
     )}`,
-    departures,
+    departures: realtime.departures,
   };
-
-  departuresCache.set(cacheKey, {
-    expiresAt: Date.now() + CACHE_TTL_MS,
-    value: payload,
-  });
 
   return payload;
 }
@@ -464,6 +456,7 @@ function normalizeStopDepartures(stopTimetable, now) {
         destination: extractDestination(departure.headsign ?? route?.name ?? ""),
         fullHeadsign: departure.headsign ?? route?.name ?? "",
         direction: departure.direction,
+        scheduledTimetableUtc: departure.scheduledDepartureUtc,
         scheduledUtc,
         displayTime: formatTime(scheduledUtc),
         countdownText: formatCountdown(minutesAway),

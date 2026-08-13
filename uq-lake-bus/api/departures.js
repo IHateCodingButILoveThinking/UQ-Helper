@@ -20,7 +20,7 @@ export async function GET(request) {
       status: 200,
       headers: {
         ...JSON_HEADERS,
-        "cache-control": "public, s-maxage=20, stale-while-revalidate=40",
+        "cache-control": "no-store",
       },
     });
   } catch (error) {

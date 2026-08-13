@@ -6,11 +6,9 @@ import {
   FaExchangeAlt,
   FaExclamationCircle,
   FaFlag,
-  FaMapMarkerAlt,
   FaShip,
   FaSyncAlt,
 } from "react-icons/fa";
-import { API_CACHE_TTLS, getCachedData } from "../lib/api-cache";
 
 const FERRY_REFRESH_MS = 15000;
 const FERRY_REFRESH_FEEDBACK_MS = 800;
@@ -71,7 +69,7 @@ const FERRY_JOURNEYS = [
   },
 ];
 
-export default function FerryTimesPage({ onBack }) {
+export default function FerryTimesPage({ modeSelector, onBack }) {
   const [ferryData, setFerryData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -264,6 +262,8 @@ export default function FerryTimesPage({ onBack }) {
         y: { type: "spring", stiffness: 460, damping: 34 },
       }}
     >
+      {modeSelector}
+
       <header className="ferry-header">
         <div className="ferry-header-controls">
           <button
@@ -432,29 +432,15 @@ export default function FerryTimesPage({ onBack }) {
 
 async function fetchFerryPayload(
   journey,
-  { force = false, onUpdate, staleWhileRevalidate = false } = {},
+  _options = {},
 ) {
-  return getCachedData(
-    `ferries:presentation:${journey.id}`,
-    async () => fetchFerryPayloadFromNetwork(journey),
-    {
-      force,
-      onUpdate,
-      staleWhileRevalidate,
-      ttlMs: API_CACHE_TTLS.ferries,
-      validate: (payload) => Array.isArray(payload?.departures),
-    },
-  );
+  return fetchFerryPayloadFromNetwork(journey);
 }
 
 async function fetchFerryPayloadFromNetwork(journey) {
   if (journey.usePrimaryFerryEndpoint) {
     try {
-      const ferryPayload = await fetchJsonPayload("/api/ferries", {
-        cacheKey: `ferries:${journey.id}:primary`,
-        force: true,
-        ttlMs: API_CACHE_TTLS.ferries,
-      });
+      const ferryPayload = await fetchJsonPayload("/api/ferries");
 
       if (Array.isArray(ferryPayload?.departures)) {
         if (ferryPayload.departures.length > 0) {
@@ -474,14 +460,7 @@ async function fetchFerryPayloadFromNetwork(journey) {
   }
 
   const fallbackUrl = buildFerryDeparturesUrl(journey.originStopName);
-  const fallbackTimetable = await fetchJsonPayload(
-    fallbackUrl,
-    {
-      cacheKey: `ferries:${journey.id}:fallback:${fallbackUrl}`,
-      force: true,
-      ttlMs: API_CACHE_TTLS.ferries,
-    },
-  );
+  const fallbackTimetable = await fetchJsonPayload(fallbackUrl);
 
   return buildFerryPayloadFromDepartures(fallbackTimetable, journey);
 }
@@ -509,39 +488,27 @@ function addFerryPresentationFields(payload, journey) {
   };
 }
 
-async function fetchJsonPayload(
-  url,
-  { cacheKey = url, force = false, ttlMs = API_CACHE_TTLS.ferries } = {},
-) {
-  return getCachedData(
-    cacheKey,
-    async () => {
-      const response = await fetchWithTimeout(url, {
-        headers: {
-          accept: "application/json",
-        },
-      });
-      const contentType = response.headers.get("content-type") ?? "";
-      const body = await response.text();
-
-      if (!response.ok) {
-        throw new Error(`Request failed: ${url} (${response.status})`);
-      }
-
-      if (!contentType.includes("application/json")) {
-        throw new Error(
-          `Expected JSON from ${url}, got ${contentType || "unknown"}.`,
-        );
-      }
-
-      return JSON.parse(body);
+async function fetchJsonPayload(url) {
+  const response = await fetchWithTimeout(url, {
+    cache: "no-store",
+    headers: {
+      accept: "application/json",
     },
-    {
-      force,
-      ttlMs,
-      validate: (payload) => Boolean(payload) && Array.isArray(payload.departures),
-    },
-  );
+  });
+  const contentType = response.headers.get("content-type") ?? "";
+  const body = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Request failed: ${url} (${response.status})`);
+  }
+
+  if (!contentType.includes("application/json")) {
+    throw new Error(
+      `Expected JSON from ${url}, got ${contentType || "unknown"}.`,
+    );
+  }
+
+  return JSON.parse(body);
 }
 
 async function fetchWithTimeout(url, options = {}) {
@@ -673,9 +640,9 @@ function SimpleFerryPanel({
       <LiveJourneyTimeline summary={summary} />
 
       <div className="ferry-simple-current-card">
-        <span>Currently at</span>
+        <span>Estimated near</span>
         <strong>{summary.ferryLocation}</strong>
-        <small>Next stop: {summary.nextStationLabel}</small>
+        <small>Next stop estimate: {summary.nextStationLabel}</small>
       </div>
     </article>
   );
@@ -758,7 +725,7 @@ function LiveJourneyTimeline({ summary }) {
   return (
     <section className="ferry-live-journey" aria-label="Live journey timeline">
       <div className="ferry-live-journey-head">
-        <span>Live journey</span>
+        <span>Journey estimate</span>
         <strong>{summary.stopsAwayLabel}</strong>
       </div>
 
@@ -970,7 +937,7 @@ function FerryDepartureCard({
 
       {showProgress ? (
         <FerryWaveProgress
-          currentLocation={departure.currentLocation}
+          dataLabel={departure.gtfsRealtime ? "GTFS live" : "Scheduled"}
           progressPercent={progressPercent}
           statusKey={statusKey}
         />
@@ -1462,15 +1429,14 @@ function getCountdownProgressPercent(minutesAway) {
   return Math.max(8, Math.min(100, Math.round(100 - (minutesAway / 60) * 100)));
 }
 
-function FerryWaveProgress({ currentLocation, progressPercent, statusKey }) {
+function FerryWaveProgress({ dataLabel, progressPercent, statusKey }) {
   const wavePath = "M 4 30 Q 44 10 84 30 T 164 30 T 244 30 T 324 30";
-  const locationLabel = currentLocation || "Near the terminal";
   const edgeClass = getFerryBubbleEdgeClass(progressPercent);
 
   return (
     <div
       className="ferry-wave-progress"
-      aria-label={`Ferry currently near ${locationLabel}`}
+      aria-label={`${dataLabel} departure countdown`}
       role="img"
       style={{ "--ferry-progress": `${progressPercent}%` }}
     >
@@ -1523,8 +1489,7 @@ function FerryWaveProgress({ currentLocation, progressPercent, statusKey }) {
           damping: 22,
         }}
       >
-        <FaMapMarkerAlt aria-hidden="true" />
-        <span>{locationLabel}</span>
+        <span>{dataLabel}</span>
       </motion.span>
     </div>
   );

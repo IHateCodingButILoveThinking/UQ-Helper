@@ -40,7 +40,7 @@ function normalizeFerryDeparture(departure) {
   return {
     countdownMinutes,
     countdownText: departure.countdownText ?? formatFerryCountdown(countdownMinutes),
-    currentLocation: getFerryCurrentLocation(countdownMinutes),
+    currentLocation: null,
     destination: cleanFerryDestination(
       departure.destination,
       departure.fullHeadsign,

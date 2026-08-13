@@ -23,6 +23,7 @@ const app = express();
 
 app.get("/api/departures", async (request, response) => {
   try {
+    response.set("cache-control", "no-store");
     const stopId = String(request.query.stopId ?? "").trim();
     const stopName = String(request.query.stopName ?? "").trim();
     const limit = request.query.limit;
@@ -57,6 +58,7 @@ app.get("/api/stops/search", async (request, response) => {
 
 app.get("/api/ferries", async (_request, response) => {
   try {
+    response.set("cache-control", "no-store");
     const ferries = await fetchFerryDepartures();
     response.json(ferries);
   } catch (error) {

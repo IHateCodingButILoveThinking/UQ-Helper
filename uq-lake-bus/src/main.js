@@ -9,6 +9,8 @@ import "./styles/ferry.css";
 import "./styles/food.css";
 import "./styles/exam-countdown.css";
 import "./styles/live-board-header.css";
+import "./styles/home-live-info.css";
+import "./styles/transport-modes.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
