@@ -1,78 +1,6 @@
-/* F1 ferry page and Live Board ferry shortcut. */
-.hero-control-stack {
-  width: max-content;
-  max-width: 100%;
-  display: grid;
-  gap: 7px;
-  justify-items: start;
-}
-
-.ferry-control {
-  width: fit-content;
-  min-height: 34px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 0 12px;
-  border: 1px solid rgba(74, 32, 117, 0.05);
-  border-radius: 999px;
-  background: #f2eef7;
-  color: #4a2075;
-  cursor: pointer;
-  font: inherit;
-  box-shadow: 0 4px 12px rgba(74, 32, 117, 0.06);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.ferry-control:hover,
-.ferry-control:focus-visible {
-  border-color: rgba(74, 32, 117, 0.08);
-  background: #eae4f2;
-  box-shadow: 0 5px 14px rgba(74, 32, 117, 0.08);
-  transform: translateY(-1px);
-}
-
-.ferry-control-icon {
-  width: 20px;
-  height: 20px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background: rgba(74, 32, 117, 0.08);
-  color: #4a2075;
-}
-
-.ferry-control-icon svg {
-  width: 12px;
-  height: 12px;
-}
-
-.ferry-control-label,
-.ferry-control-route {
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.ferry-control-label {
-  font-size: 0.73rem;
-  font-weight: 900;
-}
-
-.ferry-control-route {
-  padding: 4px 7px;
-  border-radius: 999px;
-  background: rgba(74, 32, 117, 0.08);
-  color: #4a2075;
-  font-size: 0.62rem;
-  font-weight: 950;
-  letter-spacing: 0.04em;
-}
-
+/* UQ-first ferry departures. */
 body[data-page="ferry"] {
-  background: #eef4f9;
+  background: #f2f6f8;
 }
 
 body[data-page="ferry"]::before,
@@ -86,1701 +14,771 @@ body[data-page="ferry"]::after {
   min-height: 100vh;
   display: block;
   padding: 0;
-  background: #eef4f9;
+  background: #f2f6f8;
 }
 
 .ferry-page {
-  min-height: 100vh;
   width: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
-  background: #eef4f9;
-  color: #002b49;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(30, 138, 165, 0.08), transparent 28%),
+    #f2f6f8;
+  color: #12222b;
 }
 
-.ferry-header {
-  position: relative;
-  flex: 0 0 auto;
-  overflow: hidden;
-  padding: calc(24px + env(safe-area-inset-top)) 28px 30px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(0, 43, 73, 0.04);
+.ferry-dashboard {
+  width: min(100%, 760px);
+  display: grid;
+  gap: 16px;
+  margin: 0 auto;
+  padding: 16px 20px calc(34px + env(safe-area-inset-bottom));
 }
 
-.ferry-header-controls {
-  position: absolute;
-  z-index: 2;
-  top: calc(28px + env(safe-area-inset-top));
-  right: 28px;
-  left: 28px;
-  display: flex;
-  justify-content: flex-end;
-  pointer-events: none;
-}
-
-.ferry-back-button,
-.ferry-refresh-button {
-  width: 58px;
-  height: 58px;
-  min-height: 0;
-  display: inline-flex;
+.ferry-page-heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: center;
-  padding: 0;
-  border: 0;
-  border-radius: 999px;
-  background: #f7f9fc;
-  color: #001d3d;
-  cursor: pointer;
-  font: inherit;
-  box-shadow: none;
-  pointer-events: auto;
-  transition:
-    background-color 180ms ease,
-    box-shadow 180ms ease,
-    opacity 180ms ease,
-    transform 180ms ease;
+  gap: 14px;
+  min-width: 0;
+  padding: 6px 2px 2px;
 }
 
-.ferry-back-button:hover,
-.ferry-back-button:focus-visible,
+.ferry-page-heading-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 16px;
+  background: #dceff3;
+  color: #08778f;
+}
+
+.ferry-page-heading-icon svg {
+  width: 23px;
+  height: 23px;
+}
+
+.ferry-page-heading > div {
+  min-width: 0;
+}
+
+.ferry-page-kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: #168097;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.ferry-page-heading h1 {
+  margin: 0;
+  color: #102630;
+  font-size: clamp(1.55rem, 6vw, 2.05rem);
+  font-weight: 950;
+  letter-spacing: -0.055em;
+  line-height: 1.05;
+}
+
+.ferry-page-heading p {
+  margin: 5px 0 0;
+  color: #687982;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.ferry-refresh-button {
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(18, 55, 66, 0.08);
+  border-radius: 15px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #196f82;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(20, 57, 68, 0.06);
+}
+
 .ferry-refresh-button:hover,
 .ferry-refresh-button:focus-visible {
-  background: #ffffff;
-  box-shadow: 0 12px 26px rgba(0, 43, 73, 0.08);
   outline: none;
-  transform: translateY(-1px);
+  border-color: rgba(8, 119, 143, 0.2);
+  background: #ffffff;
 }
 
 .ferry-refresh-button:disabled {
   cursor: wait;
-  opacity: 0.5;
-  transform: none;
+  opacity: 0.55;
 }
 
-.ferry-back-button:disabled {
-  cursor: default;
-  opacity: 0.62;
-  transform: none;
-}
-
-.ferry-back-button svg,
 .ferry-refresh-button svg {
-  width: 24px;
-  height: 24px;
+  width: 19px;
+  height: 19px;
 }
 
-.ferry-refresh-button svg.spinning {
-  animation: spin 0.9s linear infinite;
+.ferry-refresh-button .spinning {
+  animation: ferry-spin 0.8s linear infinite;
 }
 
-.ferry-hero-copy {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  min-height: 112px;
-  padding: 0 68px;
-  text-align: center;
+.ferry-route-card,
+.ferry-later-card {
+  border: 1px solid rgba(24, 60, 70, 0.075);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 38px rgba(29, 58, 66, 0.065);
 }
 
-.ferry-header-ship {
-  display: inline-grid;
-  place-items: center;
-  color: #002b49;
+.ferry-route-card {
+  display: grid;
+  gap: 13px;
+  padding: 14px;
+  border-radius: 24px;
 }
 
-.ferry-header-ship svg {
-  width: 36px;
-  height: 36px;
-  color: #667085;
-}
-
-.ferry-hero-copy h1 {
-  margin: 0;
-  color: #172033;
-  font-size: clamp(1.72rem, 6vw, 2.28rem);
-  font-weight: 950;
-  letter-spacing: 0.004em;
-  line-height: 1;
-}
-
-.ferry-view-tabs {
-  position: relative;
-  width: min(100%, 480px);
-  min-height: 72px;
+.ferry-direction-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: center;
-  gap: 0;
-  margin: 18px auto 2px;
-  padding: 7px;
-  border: 1px solid rgba(0, 43, 73, 0.04);
-  border-radius: 999px;
-  background: #edf2f8;
-  box-shadow: inset 0 1px 2px rgba(0, 43, 73, 0.04);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 16px;
+  background: #edf3f5;
 }
 
-.ferry-view-tabs-indicator {
-  position: absolute;
-  top: 7px;
-  bottom: 7px;
-  left: 7px;
-  width: calc(50% - 7px);
-  border-radius: 999px;
-  background: #ffffff;
-  box-shadow:
-    0 6px 14px rgba(0, 43, 73, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95);
-}
-
-.ferry-view-tabs button {
-  position: relative;
-  z-index: 1;
-  min-width: 0;
-  height: 58px;
+.ferry-direction-switch button {
+  min-height: 42px;
+  padding: 0 12px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 12px;
   background: transparent;
-  color: #5f7189;
-  cursor: pointer;
-  font: inherit;
-  font-size: 1.02rem;
-  font-weight: 950;
-  letter-spacing: -0.025em;
-}
-
-.ferry-view-tabs button.active {
-  color: #172033;
-}
-
-.ferry-view-tabs button:focus-visible {
-  outline: 2px solid rgba(0, 122, 255, 0.22);
-  outline-offset: 2px;
-}
-
-.ferry-content {
-  flex: 1 1 auto;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  overflow-y: auto;
-  padding: 48px 16px calc(28px + env(safe-area-inset-bottom));
-  -webkit-overflow-scrolling: touch;
-}
-
-.ferry-detailed-shell,
-.ferry-simple-shell {
-  width: min(100%, 760px);
-  display: grid;
-  gap: 14px;
-  margin: 0 auto;
-}
-
-.ferry-journey-switcher,
-.ferry-departure-list {
-  width: min(100%, 760px);
-  margin: 0 auto;
-}
-
-.ferry-journey-switcher {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-width: none;
-}
-
-.ferry-journey-switcher::-webkit-scrollbar {
-  display: none;
-}
-
-.ferry-journey-chip {
-  min-height: 34px;
-  flex: 0 0 auto;
-  padding: 0 14px;
-  border: 1px solid rgba(0, 43, 73, 0.08);
-  border-radius: 999px;
-  background: #ffffff;
-  color: rgba(0, 43, 73, 0.58);
+  color: #63757e;
   cursor: pointer;
   font: inherit;
   font-size: 0.76rem;
-  font-weight: 950;
-  letter-spacing: -0.02em;
-  box-shadow: 0 8px 18px rgba(0, 43, 73, 0.05);
-  transition:
-    background-color 180ms ease,
-    color 180ms ease,
-    transform 180ms ease;
+  font-weight: 900;
 }
 
-.ferry-journey-chip:hover,
-.ferry-journey-chip:focus-visible {
-  color: #002b49;
-  outline: none;
-  transform: translateY(-1px);
+.ferry-direction-switch button.active {
+  background: #ffffff;
+  color: #0d6578;
+  box-shadow: 0 5px 14px rgba(31, 72, 82, 0.1);
 }
 
-.ferry-journey-chip.active {
-  background: #002b49;
-  color: #ffffff;
+.ferry-direction-switch button:focus-visible {
+  outline: 3px solid rgba(8, 119, 143, 0.16);
+  outline-offset: 1px;
 }
 
-.ferry-departure-list {
+.ferry-route-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 7px;
+}
+
+.ferry-station-field {
+  min-width: 0;
+  min-height: 68px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 12px;
+  border: 1px solid rgba(25, 68, 79, 0.075);
+  border-radius: 17px;
+  background: #f8fafb;
 }
 
-.ferry-simple-card {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  display: grid;
-  gap: 18px;
-  padding: 22px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  border-radius: 34px;
-  background:
-    radial-gradient(
-      circle at 92% 8%,
-      rgba(135, 206, 235, 0.34),
-      transparent 28%
-    ),
-    linear-gradient(180deg, #ffffff 0%, #f8fcff 100%);
-  box-shadow: 0 18px 42px rgba(0, 43, 73, 0.08);
-}
-
-.ferry-simple-card::before,
-.ferry-simple-card::after {
-  position: absolute;
-  z-index: -1;
-  border-radius: 999px;
-  content: "";
-}
-
-.ferry-simple-card::before {
-  right: -42px;
-  bottom: 44px;
-  width: 134px;
-  height: 134px;
-  background: rgba(84, 180, 211, 0.12);
-}
-
-.ferry-simple-card::after {
-  left: -32px;
-  top: 112px;
-  width: 94px;
-  height: 94px;
-  background: rgba(67, 207, 195, 0.12);
-}
-
-.ferry-simple-card.refreshing {
-  opacity: 0.72;
-}
-
-.ferry-simple-topline {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.ferry-simple-kicker {
-  display: block;
-  margin-bottom: 5px;
-  color: #54b4d3;
-  font-size: 0.66rem;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.ferry-simple-topline h2 {
-  margin: 0;
-  color: #002b49;
-  font-size: clamp(1.42rem, 7vw, 2.4rem);
-  font-weight: 950;
-  letter-spacing: -0.025em;
-  line-height: 0.95;
-}
-
-.ferry-simple-route-flow {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: stretch;
-  gap: 9px;
-}
-
-.ferry-simple-route-point {
-  min-width: 0;
-  display: grid;
-  align-content: center;
-  gap: 7px;
-  min-height: 76px;
-  padding: 12px;
-  border: 1px solid rgba(0, 43, 73, 0.07);
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.82);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 12px 24px rgba(0, 43, 73, 0.05);
-}
-
-.ferry-simple-route-point small {
-  color: #8a9aa5;
+.ferry-station-field > span:first-child {
+  color: #7b8a91;
   font-size: 0.58rem;
-  font-weight: 950;
-  letter-spacing: 0.13em;
-  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.ferry-simple-route-point strong {
+.ferry-station-field strong {
   min-width: 0;
-  overflow: hidden;
-  color: #172033;
-  font-size: 0.98rem;
-  font-weight: 950;
-  letter-spacing: -0.025em;
-  line-height: 1.08;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ferry-simple-route-point .ferry-simple-select-shell select {
-  min-height: 34px;
-  padding: 0 28px 0 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  color: #172033;
-  font-size: 0.98rem;
-}
-
-.ferry-simple-route-point .ferry-simple-select-shell svg {
-  right: 0;
-}
-
-.ferry-simple-route-swap {
-  width: 34px;
-  height: 34px;
-  align-self: center;
-  display: inline-grid;
-  place-items: center;
-  border: 0;
-  border-radius: 999px;
-  background: #002b49;
-  color: #ffffff;
-  cursor: pointer;
-  font: inherit;
-  box-shadow: 0 12px 24px rgba(0, 43, 73, 0.16);
-  transition:
-    background-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.ferry-simple-route-swap:hover,
-.ferry-simple-route-swap:focus-visible {
-  background: #172033;
-  box-shadow: 0 14px 26px rgba(0, 43, 73, 0.2);
-  outline: none;
-  transform: translateY(-1px);
-}
-
-.ferry-simple-route-swap svg {
-  width: 13px;
-  height: 13px;
-}
-
-.ferry-simple-departure-time {
-  min-height: 48px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 11px 14px;
-  border: 1px solid rgba(52, 120, 246, 0.1);
-  border-radius: 20px;
-  background:
-    radial-gradient(circle at 100% 0%, rgba(52, 120, 246, 0.13), transparent 34%),
-    linear-gradient(180deg, #ffffff 0%, #f4f9ff 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    0 12px 24px rgba(0, 43, 73, 0.045);
+  gap: 6px;
+  overflow: hidden;
+  color: #17323c;
+  font-size: 0.8rem;
+  font-weight: 900;
+  line-height: 1.2;
 }
 
-.ferry-simple-departure-time span {
-  color: #6f8191;
-  font-size: 0.66rem;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-  line-height: 1.1;
-  text-transform: uppercase;
-}
-
-.ferry-simple-departure-time strong {
-  color: #002b49;
-  font-size: 1.28rem;
-  font-weight: 950;
-  letter-spacing: -0.025em;
-  line-height: 1;
-  white-space: nowrap;
-}
-
-.ferry-live-journey {
-  display: grid;
-  gap: 18px;
-  padding: 16px 14px 18px;
-  border: 1px solid rgba(0, 43, 73, 0.06);
-  border-radius: 26px;
-  background:
-    radial-gradient(circle at 82% 12%, rgba(84, 180, 211, 0.12), transparent 34%),
-    linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.92),
-    0 12px 24px rgba(0, 43, 73, 0.045);
-}
-
-.ferry-live-journey-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.ferry-live-journey-head span {
-  color: #8a9aa5;
-  font-size: 0.66rem;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.ferry-live-journey-head strong {
-  color: #172033;
-  font-size: 0.86rem;
-  font-weight: 950;
-  letter-spacing: -0.02em;
-  text-align: right;
-}
-
-.ferry-live-journey-track {
-  position: relative;
-  padding: 0 2px 34px;
-}
-
-.ferry-live-journey-line {
-  position: absolute;
-  top: 7px;
-  left: 8px;
-  right: 8px;
-  height: 6px;
-}
-
-.ferry-live-journey-base,
-.ferry-live-journey-fill {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: 999px;
-}
-
-.ferry-live-journey-base {
-  width: 100%;
-  background: #e8eef5;
-}
-
-.ferry-live-journey-fill {
-  max-width: 100%;
-  background: #3478f6;
-  box-shadow: 0 8px 14px rgba(52, 120, 246, 0.16);
-}
-
-.ferry-live-journey-dots {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ferry-live-journey-dot {
-  position: relative;
-  min-width: 0;
-  display: grid;
-  justify-items: center;
-  gap: 10px;
-  flex: 1 1 0;
-}
-
-.ferry-live-journey-dot > span {
+.ferry-station-field strong svg {
   width: 14px;
   height: 14px;
-  border: 3px solid #ffffff;
-  border-radius: 999px;
-  background: #c6d2df;
-  box-shadow: 0 0 0 1px rgba(0, 43, 73, 0.08);
+  flex: 0 0 auto;
+  color: #138099;
 }
 
-.ferry-live-journey-dot.current > span {
-  width: 18px;
-  height: 18px;
-  background: #3478f6;
-  box-shadow:
-    0 0 0 1px rgba(52, 120, 246, 0.18),
-    0 0 0 7px rgba(52, 120, 246, 0.1);
+.ferry-station-select {
+  position: relative;
+  min-width: 0;
+  display: block;
 }
 
-.ferry-live-journey-dot.destination > span {
-  width: 18px;
-  height: 18px;
-  background: #172033;
-}
-
-.ferry-live-journey-dot.past > span {
-  background: #3478f6;
-}
-
-.ferry-live-journey-dot.middle > span {
-  width: 10px;
-  height: 10px;
-  align-self: center;
-  background: #9fb1c5;
-  box-shadow: 0 0 0 1px rgba(0, 43, 73, 0.06);
-}
-
-.ferry-live-journey-dot strong {
-  position: absolute;
-  top: 28px;
-  max-width: 82px;
-  overflow: hidden;
-  color: #6f8191;
-  font-size: 0.62rem;
+.ferry-station-select select {
+  width: 100%;
+  min-height: 24px;
+  padding: 0 22px 0 0;
+  border: 0;
+  appearance: none;
+  background: transparent;
+  color: #17323c;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.8rem;
   font-weight: 900;
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-  text-align: center;
+  line-height: 1.2;
   text-overflow: ellipsis;
 }
 
-.ferry-live-journey-dot.current strong,
-.ferry-live-journey-dot.destination strong {
-  color: #172033;
-  font-weight: 950;
-}
-
-.ferry-simple-direction {
-  min-height: 46px;
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  padding: 6px 11px 6px 7px;
-  border: 1px solid rgba(0, 43, 73, 0.06);
-  border-radius: 18px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(244, 250, 253, 0.9));
-  color: #002b49;
-  cursor: pointer;
-  font: inherit;
-  text-align: left;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    0 10px 22px rgba(0, 43, 73, 0.06);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    transform 180ms ease;
-}
-
-.ferry-simple-direction:hover,
-.ferry-simple-direction:focus-visible {
-  border-color: rgba(84, 180, 211, 0.22);
+.ferry-station-select select:focus {
   outline: none;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.96),
-    0 12px 24px rgba(0, 43, 73, 0.09);
-  transform: translateY(-1px);
 }
 
-.ferry-simple-direction-icon {
-  width: 30px;
-  height: 30px;
-  flex: 0 0 auto;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background: #e8f8f5;
-  color: #168571;
+.ferry-station-field.selectable:focus-within {
+  border-color: rgba(8, 119, 143, 0.26);
+  box-shadow: 0 0 0 3px rgba(8, 119, 143, 0.08);
 }
 
-.ferry-simple-direction small,
-.ferry-simple-direction strong {
-  display: block;
-  line-height: 1;
-}
-
-.ferry-simple-direction small {
-  margin-bottom: 4px;
-  color: #8a9aa5;
-  font-size: 0.52rem;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.ferry-simple-direction strong {
-  color: #002b49;
-  font-size: 0.76rem;
-  font-weight: 950;
-  letter-spacing: -0.035em;
-}
-
-.ferry-simple-direction-icon svg {
-  width: 13px;
-  height: 13px;
-}
-
-.ferry-simple-select-label {
-  display: grid;
-  gap: 9px;
-  color: #82929e;
-  font-size: 0.7rem;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.ferry-simple-field-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-}
-
-.ferry-simple-field-title svg {
-  width: 11px;
-  height: 11px;
-  color: #54b4d3;
-}
-
-.ferry-simple-select-shell {
-  position: relative;
-  display: block;
-}
-
-.ferry-simple-select-shell select {
-  width: 100%;
-  min-height: 58px;
-  padding: 0 46px 0 17px;
-  border: 1px solid rgba(0, 43, 73, 0.08);
-  border-radius: 20px;
-  appearance: none;
-  background:
-    linear-gradient(180deg, #ffffff 0%, #f7fbfd 100%);
-  color: #172033;
-  font: inherit;
-  font-size: 1.05rem;
-  font-weight: 950;
-  letter-spacing: -0.04em;
-  outline: none;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.94),
-    0 12px 24px rgba(0, 43, 73, 0.05);
-}
-
-.ferry-simple-select-shell select:focus {
-  border-color: rgba(0, 122, 255, 0.16);
-  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.1);
-}
-
-.ferry-simple-select-shell svg {
+.ferry-station-select svg {
   position: absolute;
   top: 50%;
-  right: 16px;
-  width: 14px;
-  height: 14px;
-  color: #7a8a97;
+  right: 0;
+  width: 15px;
+  height: 15px;
+  color: #168097;
   pointer-events: none;
   transform: translateY(-50%);
 }
 
-.ferry-simple-destination {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 42px;
-  padding: 0 13px;
-  border-radius: 999px;
-  background: rgba(232, 248, 245, 0.92);
-  color: #1f6f46;
-  font-size: 0.82rem;
-  font-weight: 850;
-}
-
-.ferry-simple-live-dot {
-  width: 10px;
-  height: 10px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #27ae60;
-  box-shadow: 0 0 0 6px rgba(39, 174, 96, 0.14);
-}
-
-.ferry-flip-clock {
-  display: grid;
-  justify-items: center;
-  gap: 12px;
-  padding: 16px 14px 18px;
-  border-radius: 30px;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(84, 180, 211, 0.14), transparent 42%),
-    linear-gradient(180deg, #ffffff 0%, #f6fbff 100%);
-}
-
-.ferry-flip-clock.departing {
-  background:
-    radial-gradient(circle at 50% 0%, rgba(39, 174, 96, 0.2), transparent 48%),
-    linear-gradient(180deg, #ffffff 0%, #eefbf7 100%);
-}
-
-.ferry-flip-clock.pending {
-  background:
-    radial-gradient(circle at 50% 0%, rgba(243, 156, 18, 0.2), transparent 48%),
-    linear-gradient(180deg, #ffffff 0%, #fff8e8 100%);
-}
-
-.ferry-departing-now {
-  width: min(100%, 360px);
-  display: grid;
-  gap: 8px;
-  justify-items: center;
-  padding: 26px 18px;
-  border: 1px solid rgba(39, 174, 96, 0.14);
-  border-radius: 26px;
-  background: #172033;
-  color: #ffffff;
-  box-shadow: 0 18px 38px rgba(0, 43, 73, 0.18);
-}
-
-.ferry-departing-now.pending {
-  border-color: rgba(243, 156, 18, 0.16);
-  background: #241a0b;
-}
-
-.ferry-departing-now span {
-  color: #43cfc3;
-  font-size: 0.68rem;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.ferry-departing-now.pending span {
-  color: #f8b84e;
-}
-
-.ferry-departing-now strong {
-  font-size: clamp(1.72rem, 7vw, 2.72rem);
-  font-weight: 950;
-  letter-spacing: -0.035em;
-  line-height: 1;
-  text-align: center;
-}
-
-.ferry-flip-clock-label {
-  color: #8a9aa5;
-  font-size: 0.68rem;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.ferry-flip-clock-row {
-  display: flex;
-  align-items: end;
-  justify-content: center;
-  gap: 8px;
-  perspective: 700px;
-}
-
-.ferry-flip-unit {
-  display: grid;
-  justify-items: center;
-  gap: 8px;
-}
-
-.ferry-flip-card {
-  position: relative;
-  min-width: clamp(92px, 28vw, 132px);
-  min-height: clamp(84px, 24vw, 112px);
+.ferry-route-arrow {
   display: grid;
   place-items: center;
-  overflow: hidden;
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 24px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), transparent 48%),
-    #172033;
-  color: #ffffff;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    inset 0 -18px 32px rgba(0, 0, 0, 0.18),
-    0 18px 38px rgba(0, 43, 73, 0.18);
-  transform-style: preserve-3d;
+  color: #8aa0a8;
 }
 
-.ferry-flip-card::before {
-  position: absolute;
-  inset: 50% 0 auto;
-  height: 1px;
-  background: rgba(255, 255, 255, 0.1);
-  content: "";
-}
-
-.ferry-flip-card strong {
-  display: block;
-  font-size: clamp(3.6rem, 16vw, 5.4rem);
-  font-weight: 950;
-  letter-spacing: -0.035em;
-  line-height: 1;
-  transform-origin: 50% 50%;
-  will-change: transform, opacity;
-}
-
-.ferry-flip-unit small {
-  color: #5f7189;
-  font-size: 0.72rem;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.ferry-flip-clock-colon {
-  margin-bottom: 38px;
-  color: #172033;
-  font-size: clamp(2.5rem, 10vw, 4rem);
-  font-weight: 950;
-  line-height: 1;
-}
-
-.ferry-simple-current-card {
-  display: grid;
-  gap: 5px;
-  padding: 15px 16px;
-  border: 1px solid rgba(0, 43, 73, 0.06);
-  border-radius: 22px;
-  background: rgba(232, 248, 245, 0.72);
-  color: #1f6f46;
-}
-
-.ferry-simple-current-card span {
-  color: rgba(31, 111, 70, 0.66);
-  font-size: 0.62rem;
-  font-weight: 950;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-.ferry-simple-current-card strong {
-  color: #1f6f46;
-  font-size: 1.24rem;
-  font-weight: 950;
-  letter-spacing: -0.025em;
-}
-
-.ferry-simple-current-card small {
-  color: rgba(31, 111, 70, 0.74);
-  font-size: 0.8rem;
-  font-weight: 850;
-}
-
-.ferry-simple-timer {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.ferry-simple-timer > svg {
-  width: 34px;
-  height: 34px;
-  flex: 0 0 auto;
-  color: #54b4d3;
-}
-
-.ferry-simple-timer span {
-  display: block;
-  color: #9aa7a8;
-  font-size: 0.68rem;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.ferry-simple-timer strong {
-  display: block;
-  margin-top: 2px;
-  color: #002b49;
-  font-size: clamp(3.2rem, 15vw, 5.8rem);
-  font-weight: 950;
-  letter-spacing: 0em;
-  line-height: 0.86;
-}
-
-.ferry-simple-wave {
-  position: relative;
-  display: grid;
-  gap: 12px;
-  margin-top: 8px;
-  padding: 14px 14px 12px;
-  border: 1px solid rgba(0, 43, 73, 0.06);
-  border-radius: 24px;
-  background:
-    radial-gradient(
-      circle at 90% 15%,
-      rgba(84, 180, 211, 0.11),
-      transparent 34%
-    ),
-    linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.84),
-      rgba(244, 250, 253, 0.84)
-    );
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86);
-}
-
-.ferry-simple-timeline-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.ferry-simple-timeline-head span {
-  color: #8a9aa5;
-  font-size: 0.68rem;
-  font-weight: 950;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.ferry-simple-timeline-head strong {
-  min-width: 0;
-  color: #002b49;
-  font-size: 0.96rem;
-  font-weight: 950;
-  letter-spacing: -0.04em;
-  text-align: right;
-}
-
-.ferry-simple-timeline-head small {
-  color: #8a9aa5;
-  font-size: 0.64rem;
-  font-weight: 850;
-  letter-spacing: -0.01em;
-  text-align: right;
-}
-
-.ferry-simple-next-stop {
-  min-height: 34px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 0 11px;
-  border-radius: 16px;
-  background: rgba(232, 248, 245, 0.72);
-  color: #1f6f46;
-}
-
-.ferry-simple-next-stop span {
-  color: rgba(31, 111, 70, 0.68);
-  font-size: 0.62rem;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.ferry-simple-next-stop strong {
-  min-width: 0;
-  overflow: hidden;
-  color: #1f6f46;
-  font-size: 0.86rem;
-  font-weight: 950;
-  letter-spacing: -0.035em;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ferry-simple-ship {
-  position: absolute;
-  top: 96px;
-  width: 34px;
-  height: 34px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background:
-    radial-gradient(
-      circle at 35% 28%,
-      rgba(255, 255, 255, 0.46),
-      transparent 32%
-    ),
-    linear-gradient(135deg, #43cfc3 0%, #27ae60 100%);
-  color: #ffffff;
-  box-shadow:
-    0 10px 22px rgba(39, 174, 96, 0.2),
-    0 0 0 7px rgba(39, 174, 96, 0.1);
-  transition: left 620ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.ferry-simple-ship::after {
-  position: absolute;
-  left: 50%;
-  top: calc(100% + 5px);
-  width: 2px;
+.ferry-route-arrow svg {
+  width: 18px;
   height: 18px;
-  border-radius: 999px;
-  background: linear-gradient(180deg, rgba(39, 174, 96, 0.56), transparent);
-  content: "";
-  transform: translateX(-50%);
 }
 
-.ferry-simple-ship svg {
-  width: 15px;
-  height: 15px;
-}
-
-.ferry-simple-timeline-rail {
-  position: relative;
-  height: 8px;
-  margin-top: 42px;
-  overflow: hidden;
-  border-radius: 999px;
-  background: #e6eef5;
-}
-
-.ferry-simple-timeline-progress {
-  position: absolute;
-  inset: 0 auto 0 0;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #43cfc3 0%, #27ae60 100%);
-  box-shadow: 0 8px 14px rgba(39, 174, 96, 0.18);
-}
-
-.ferry-simple-timeline-stops {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(54px, 1fr));
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.ferry-simple-timeline-stop {
-  min-width: 0;
-  display: grid;
-  justify-items: center;
-  gap: 7px;
-}
-
-.ferry-simple-timeline-stop > span {
-  width: 11px;
-  height: 11px;
-  border-radius: 999px;
-  background: #b9c7d4;
-  box-shadow: 0 0 0 5px rgba(185, 199, 212, 0.14);
-}
-
-.ferry-simple-timeline-stop.current > span {
-  background: #27ae60;
-  box-shadow: 0 0 0 7px rgba(39, 174, 96, 0.14);
-}
-
-.ferry-simple-timeline-stop.pickup > span {
-  background: #54b4d3;
-  box-shadow: 0 0 0 6px rgba(84, 180, 211, 0.15);
-}
-
-.ferry-simple-timeline-stop.next > span {
-  background: #43cfc3;
-  box-shadow: 0 0 0 6px rgba(67, 207, 195, 0.14);
-}
-
-.ferry-simple-timeline-stop strong {
-  max-width: 100%;
-  color: #6f8191;
-  font-size: 0.66rem;
-  font-weight: 950;
-  letter-spacing: -0.03em;
-  line-height: 1.1;
-  text-align: center;
-}
-
-.ferry-simple-timeline-stop.current strong {
-  color: #002b49;
-}
-
-.ferry-simple-timeline-stop.pickup strong {
-  color: #0e6389;
-}
-
-.ferry-simple-timeline-stop.next strong {
-  color: #168571;
-}
-
-.ferry-departure-card {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  padding: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.82);
-  border-radius: 26px;
-  background: #ffffff;
-  box-shadow: 0 12px 30px rgba(0, 43, 73, 0.06);
-  transition:
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    opacity 300ms ease,
-    transform 180ms ease;
-}
-
-.ferry-departure-card.closest {
-  min-height: 360px;
-  padding: 30px 28px 24px;
-  border-radius: 34px;
-}
-
-.ferry-departure-card:not(.closest) {
-  min-height: 112px;
-}
-
-.ferry-departure-card.refreshing {
-  opacity: 0.55;
-}
-
-.ferry-departure-card:hover {
-  border-color: rgba(134, 209, 236, 0.72);
-  box-shadow: 0 16px 36px rgba(0, 43, 73, 0.08);
-  transform: translateY(-1px);
-}
-
-.ferry-card-glow {
-  display: none;
-}
-
-.ferry-departure-tags,
-.ferry-departure-main {
-  display: flex;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.ferry-departure-tags {
-  align-items: flex-start;
-  margin-bottom: 28px;
-}
-
-.ferry-departure-card:not(.closest) .ferry-departure-tags {
-  margin-bottom: 14px;
-}
-
-.ferry-service-tags {
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
+.ferry-route-note {
+  display: inline-flex;
   align-items: center;
   gap: 7px;
+  color: #697b83;
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
-.ferry-route-tag,
-.ferry-status-tag,
-.ferry-vessel-tag {
-  min-height: 34px;
+.ferry-route-note svg {
+  width: 14px;
+  height: 14px;
+  color: #168097;
+}
+
+.ferry-next-card {
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  gap: 13px;
+  padding: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 90% 8%, rgba(52, 191, 203, 0.22), transparent 34%),
+    linear-gradient(145deg, #073b4d 0%, #07556a 100%);
+  color: #ffffff;
+  box-shadow: 0 20px 44px rgba(4, 52, 67, 0.2);
+}
+
+.ferry-next-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ferry-service-badge,
+.ferry-data-badge {
+  min-height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 14px;
+  gap: 5px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 0.9rem;
-  font-weight: 950;
-  line-height: 1;
-}
-
-.ferry-route-tag {
-  background: #43cfc3;
-  color: #ffffff;
-  box-shadow: 0 8px 16px rgba(67, 207, 195, 0.24);
-}
-
-.ferry-route-tag.express {
-  background: #334155;
-}
-
-.ferry-route-tag.kittycat {
-  background: #0e7490;
-  box-shadow: 0 8px 16px rgba(14, 116, 144, 0.18);
-}
-
-.ferry-vessel-tag {
-  min-height: 30px;
-  padding: 0 11px;
-  border: 1px solid rgba(0, 43, 73, 0.08);
-  background: #f4fbff;
-  color: rgba(0, 43, 73, 0.7);
-  font-size: 0.72rem;
-  box-shadow: none;
-}
-
-.ferry-vessel-tag.express {
-  background: #f4f7fb;
-}
-
-.ferry-vessel-tag.kittycat {
-  background: #ecfeff;
-  color: #0e7490;
-}
-
-.ferry-status-tag {
-  gap: 8px;
-  background: #e8f8f5;
-  color: #27ae60;
-  box-shadow: 0 8px 16px rgba(16, 32, 51, 0.08);
-}
-
-.ferry-status-tag.delayed {
-  background: #fef5e7;
-  color: #f39c12;
-}
-
-.ferry-status-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: currentColor;
-}
-
-.ferry-departure-main {
-  align-items: flex-end;
-}
-
-.ferry-departure-card:not(.closest) .ferry-departure-main {
-  align-items: center;
-}
-
-.ferry-micro-label,
-.ferry-countdown span {
-  color: #9aa7a8;
-  font-size: 0.68rem;
-  font-weight: 950;
-  letter-spacing: 0.12em;
-  line-height: 1;
-  text-transform: uppercase;
-}
-
-.ferry-departure-card:not(.closest) .ferry-micro-label {
-  display: none;
-}
-
-.ferry-departure-main h2 {
-  margin-top: 10px;
-  color: #25364d;
-  font-size: clamp(1.58rem, 6.6vw, 2.42rem);
-  font-weight: 950;
-  letter-spacing: -0.065em;
-  line-height: 1;
-}
-
-.ferry-departure-card:not(.closest) h2 {
-  margin-top: 0;
-  font-size: 1.04rem;
-  letter-spacing: -0.035em;
-}
-
-.ferry-departure-main p {
-  margin-top: 10px;
-  color: #798485;
-  font-size: 1rem;
+  font-size: 0.62rem;
   font-weight: 900;
 }
 
-.ferry-departure-card:not(.closest) p {
+.ferry-service-badge {
+  background: rgba(255, 255, 255, 0.13);
+  color: #ffffff;
+}
+
+.ferry-data-badge {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(2, 31, 40, 0.28);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.ferry-data-badge.live {
+  color: #8ff0d0;
+}
+
+.ferry-data-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.ferry-next-label {
   margin-top: 5px;
-  font-size: 0.78rem;
-}
-
-.ferry-countdown {
-  flex: 0 0 auto;
-  display: grid;
-  justify-items: end;
-  text-align: right;
-}
-
-.ferry-countdown.normal {
-  color: #27ae60;
-}
-
-.ferry-countdown.delayed {
-  color: #f39c12;
-}
-
-.ferry-countdown.departing {
-  color: #002b49;
-}
-
-.ferry-countdown.pending {
-  color: #9a5f00;
-}
-
-.ferry-countdown strong {
-  margin-top: 8px;
-  display: inline-flex;
-  align-items: baseline;
-  gap: 7px;
-  color: currentColor;
-  font-size: clamp(2.1rem, 9vw, 3.15rem);
-  font-weight: 950;
-  letter-spacing: -0.035em;
-  line-height: 0.86;
-  white-space: nowrap;
-}
-
-.ferry-countdown.departing strong {
-  padding: 8px 12px;
-  border-radius: 16px;
-  background: #e8f8f5;
-  color: #168571;
-  font-size: clamp(1.28rem, 5.6vw, 1.78rem);
-  letter-spacing: -0.02em;
-}
-
-.ferry-countdown.pending strong {
-  padding: 8px 12px;
-  border-radius: 16px;
-  background: #fff3d6;
-  color: #b36b00;
-  font-size: clamp(1.28rem, 5.6vw, 1.78rem);
-  letter-spacing: -0.02em;
-}
-
-.ferry-countdown strong small {
-  font-size: 0.46em;
-  font-weight: 950;
-  letter-spacing: -0.02em;
-}
-
-.ferry-departure-card:not(.closest) .ferry-countdown strong {
-  margin-top: 0;
-  font-size: 1.4rem;
-}
-
-.ferry-departure-card:not(.closest) .ferry-countdown span {
-  display: none;
-}
-
-.ferry-wave-progress {
-  position: relative;
-  height: 112px;
-  margin-top: auto;
-  padding: 20px 26px 32px;
-}
-
-.ferry-wave-svg {
-  width: 100%;
-  height: 100%;
-  display: block;
-  overflow: visible;
-}
-
-.ferry-wave-base,
-.ferry-wave-fill {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 7;
-}
-
-.ferry-wave-base {
-  stroke: #e7eef5;
-}
-
-.ferry-wave-fill.normal {
-  stroke: #27ae60;
-  filter: drop-shadow(0 9px 12px rgba(39, 174, 96, 0.18));
-}
-
-.ferry-wave-fill.delayed {
-  stroke: #f39c12;
-  filter: drop-shadow(0 9px 12px rgba(243, 156, 18, 0.18));
-}
-
-.ferry-wave-vehicle {
-  position: absolute;
-  top: 18px;
-  width: 38px;
-  height: 38px;
-  display: inline-grid;
-  place-items: center;
-  border-radius: 999px;
-  background: transparent;
-  color: #27ae60;
-  filter: drop-shadow(0 8px 10px rgba(39, 174, 96, 0.26));
-  pointer-events: none;
-  transition: left 620ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.ferry-wave-vehicle > svg {
-  width: 30px;
-  height: 30px;
-}
-
-.ferry-location-bubble {
-  position: absolute;
-  right: 4px;
-  bottom: 0;
-  max-width: min(210px, calc(100% - 8px));
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 8px 11px;
-  border: 1px solid rgba(255, 255, 255, 0.74);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.95);
-  color: #002b49;
-  box-shadow: 0 10px 22px rgba(0, 43, 73, 0.14);
-  font-size: 0.56rem;
-  font-weight: 950;
-  letter-spacing: 0.08em;
-  line-height: 1;
+  color: rgba(222, 244, 248, 0.76);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  white-space: nowrap;
-  backdrop-filter: blur(12px);
 }
 
-.ferry-location-bubble::after {
-  position: absolute;
-  right: 24px;
-  top: -5px;
-  width: 10px;
-  height: 10px;
-  border-top: 1px solid rgba(255, 255, 255, 0.74);
-  border-left: 1px solid rgba(255, 255, 255, 0.74);
-  background: rgba(255, 255, 255, 0.95);
-  content: "";
-  transform: rotate(45deg);
-}
-
-.ferry-location-bubble svg {
-  flex: 0 0 auto;
-  width: 9px;
-  height: 9px;
-  color: currentColor;
-}
-
-.ferry-location-bubble span {
+.ferry-wait-time {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
   min-width: 0;
+}
+
+.ferry-wait-time strong {
+  color: #ffffff;
+  font-size: clamp(3.6rem, 16vw, 6.2rem);
+  font-weight: 950;
+  letter-spacing: -0.085em;
+  line-height: 0.82;
+}
+
+.ferry-wait-time span {
+  color: #a9e4e9;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.ferry-wait-time.soon strong,
+.ferry-wait-time.now strong {
+  color: #9ff0d3;
+}
+
+.ferry-wait-time.now strong {
+  font-size: clamp(2.7rem, 12vw, 4.8rem);
+  letter-spacing: -0.065em;
+}
+
+.ferry-departure-time {
+  margin: 0;
+  color: rgba(228, 246, 249, 0.78);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.ferry-departure-time strong {
+  color: #ffffff;
+  font-weight: 950;
+}
+
+.ferry-next-route {
+  display: grid;
+  grid-template-columns: minmax(0, auto) 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 13px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(2, 30, 39, 0.2);
+  color: rgba(229, 247, 250, 0.76);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.ferry-next-route span,
+.ferry-next-route strong {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.ferry-wave-vehicle.delayed {
-  color: #f39c12;
-  filter: drop-shadow(0 8px 10px rgba(243, 156, 18, 0.26));
+.ferry-next-route strong {
+  color: #ffffff;
+  font-weight: 950;
 }
 
-.ferry-wave-vehicle svg {
-  width: 32px;
-  height: 32px;
+.ferry-next-route svg {
+  width: 16px;
+  height: 16px;
+  color: #78d1dc;
 }
 
-.ferry-error-card,
-.ferry-empty-card {
-  min-height: 156px;
+.ferry-next-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: rgba(222, 242, 246, 0.7);
+  font-size: 0.65rem;
+  font-weight: 800;
+}
+
+.ferry-next-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ferry-next-meta svg {
+  width: 13px;
+  height: 13px;
+}
+
+.ferry-later-card {
+  padding: 18px;
+  border-radius: 25px;
+}
+
+.ferry-section-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.ferry-section-heading span {
+  display: block;
+  margin-bottom: 2px;
+  color: #198198;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.ferry-section-heading h2 {
+  margin: 0;
+  color: #17303a;
+  font-size: 1.08rem;
+  font-weight: 950;
+  letter-spacing: -0.045em;
+}
+
+.ferry-section-heading small {
+  color: #84939a;
+  font-size: 0.58rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.ferry-later-list {
+  display: grid;
+}
+
+.ferry-later-row {
+  min-width: 0;
+  min-height: 72px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  border-top: 1px solid rgba(28, 66, 76, 0.07);
+}
+
+.ferry-later-icon {
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  padding: 20px;
-  border: 1px dashed rgba(135, 206, 235, 0.72);
-  border-radius: 28px;
-  background: rgba(255, 255, 255, 0.82);
-  color: #6b7c93;
-  font-size: 0.9rem;
+  border-radius: 13px;
+  background: #e8f4f6;
+  color: #168097;
+}
+
+.ferry-later-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.ferry-later-copy,
+.ferry-later-wait {
+  min-width: 0;
+  display: grid;
+}
+
+.ferry-later-copy {
+  gap: 3px;
+}
+
+.ferry-later-copy strong {
+  color: #17303a;
+  font-size: 0.83rem;
+  font-weight: 950;
+}
+
+.ferry-later-copy span {
+  overflow: hidden;
+  color: #74858c;
+  font-size: 0.62rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ferry-later-wait {
+  justify-items: end;
+  gap: 3px;
+}
+
+.ferry-later-wait > strong {
+  color: #0d6679;
+  font-size: 0.95rem;
+  font-weight: 950;
+}
+
+.ferry-later-wait strong small {
+  margin-left: 3px;
+  font-size: 0.58rem;
+}
+
+.ferry-later-wait > span {
+  color: #8b979c;
+  font-size: 0.53rem;
   font-weight: 850;
-  text-align: center;
 }
 
-.ferry-error-card {
-  color: #b42318;
+.ferry-later-wait > span.live {
+  color: #14856b;
 }
 
-.ferry-error-card svg {
-  margin-bottom: 8px;
+.ferry-no-later {
+  margin: 18px 0 4px;
+  color: #75858c;
+  font-size: 0.72rem;
+  font-weight: 750;
 }
 
-.ferry-departure-card.skeleton-card {
-  min-height: 150px;
-  border-color: transparent;
-  background: linear-gradient(90deg, #ffffff 25%, #e8f6ff 37%, #ffffff 63%);
-  background-size: 400% 100%;
-  animation: shimmer 1.15s ease-in-out infinite;
+.ferry-message {
+  min-height: 74px;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 14px 16px;
+  border-radius: 19px;
+  background: #ffffff;
+  color: #62747c;
+  box-shadow: 0 12px 30px rgba(29, 58, 66, 0.06);
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
-@media (min-width: 640px) {
-  .ferry-header {
-    padding-right: 32px;
-    padding-left: 32px;
-  }
-
-  .ferry-content {
-    padding-right: 22px;
-    padding-left: 22px;
-  }
+.ferry-message > svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
 }
 
-@media (max-width: 390px) {
-  .ferry-header {
-    padding-right: 16px;
-    padding-left: 16px;
-  }
+.ferry-message.error {
+  border: 1px solid rgba(176, 66, 66, 0.12);
+  color: #a64545;
+}
 
-  .ferry-back-button,
-  .ferry-refresh-button {
-    width: 50px;
-    height: 50px;
-  }
+.ferry-message.error span {
+  flex: 1 1 auto;
+}
 
-  .ferry-hero-copy h1 {
-    font-size: 1.72rem;
-  }
+.ferry-message.error button {
+  min-height: 34px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 11px;
+  background: #fff0f0;
+  color: #a64545;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 900;
+}
 
-  .ferry-hero-copy {
-    min-height: 104px;
-    padding: 0 56px;
-    gap: 10px;
-  }
+.ferry-message.empty div {
+  display: grid;
+  gap: 3px;
+}
 
-  .ferry-header-ship svg {
-    width: 30px;
-    height: 30px;
-  }
+.ferry-message.empty strong {
+  color: #253b44;
+}
 
-  .ferry-view-tabs {
-    min-height: 60px;
-    margin-top: 12px;
-  }
+.ferry-message.empty span {
+  font-size: 0.66rem;
+}
 
-  .ferry-view-tabs button {
-    height: 46px;
-    font-size: 0.92rem;
-  }
+.ferry-loading-state {
+  display: grid;
+  gap: 16px;
+}
 
-  .ferry-content {
-    padding: 38px 12px calc(22px + env(safe-area-inset-bottom));
-  }
+.ferry-next-card.skeleton-card {
+  min-height: 330px;
+  background: rgba(255, 255, 255, 0.76);
+}
 
-  .ferry-simple-card {
-    gap: 15px;
-    padding: 18px;
-    border-radius: 28px;
-  }
+.ferry-later-card.skeleton-card {
+  min-height: 250px;
+}
 
-  .ferry-simple-topline {
-    align-items: stretch;
-    flex-direction: column;
-  }
+.ferry-data-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 4px 0;
+  color: #819096;
+  font-size: 0.6rem;
+  font-weight: 750;
+}
 
-  .ferry-simple-direction {
-    width: fit-content;
-    min-height: 44px;
-  }
+.ferry-data-note a {
+  color: #176f82;
+  font-weight: 900;
+  text-decoration: none;
+}
 
-  .ferry-simple-select-shell select {
-    min-height: 50px;
-    font-size: 0.94rem;
-  }
-
-  .ferry-departure-card.closest {
-    min-height: 374px;
-    padding: 24px 22px 20px;
-  }
-
-  .ferry-route-tag,
-  .ferry-status-tag {
-    min-height: 30px;
-    padding: 0 12px;
-    font-size: 0.8rem;
-  }
-
-  .ferry-countdown strong {
-    font-size: 2.05rem;
+@keyframes ferry-spin {
+  to {
+    transform: rotate(360deg);
   }
 }
 
 @media (max-width: 520px) {
-  .ferry-header {
-    padding: 14px 16px 20px;
+  .ferry-dashboard {
+    gap: 13px;
+    padding: 12px 14px calc(28px + env(safe-area-inset-bottom));
   }
 
-  .ferry-header-controls {
-    top: 18px;
-    right: 18px;
-    left: 18px;
+  .ferry-page-heading {
+    gap: 11px;
+    padding-top: 3px;
+  }
+
+  .ferry-page-heading-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 15px;
+  }
+
+  .ferry-page-heading p {
+    display: none;
   }
 
   .ferry-refresh-button {
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
   }
 
-  .ferry-refresh-button svg {
-    width: 20px;
-    height: 20px;
+  .ferry-route-card {
+    gap: 11px;
+    padding: 11px;
+    border-radius: 21px;
   }
 
-  .ferry-hero-copy {
-    min-height: 56px;
-    padding: 0 54px 0 0;
-    justify-content: flex-start;
-    text-align: left;
+  .ferry-direction-switch button {
+    min-height: 40px;
   }
 
-  .ferry-hero-copy h1 {
-    font-size: 1.58rem;
-    letter-spacing: -0.045em;
+  .ferry-route-fields {
+    grid-template-columns: minmax(0, 1fr) 26px minmax(0, 1fr);
+    gap: 4px;
   }
 
-  .ferry-view-tabs {
-    min-height: 58px;
-    margin-top: 10px;
-    padding: 5px;
+  .ferry-station-field {
+    min-height: 65px;
+    padding: 9px 10px;
+    border-radius: 15px;
   }
 
-  .ferry-view-tabs-indicator {
-    top: 5px;
-    bottom: 5px;
-    left: 5px;
-    width: calc(50% - 5px);
+  .ferry-station-field strong,
+  .ferry-station-select select {
+    font-size: 0.73rem;
   }
 
-  .ferry-view-tabs button {
-    height: 46px;
-    font-size: 0.86rem;
+  .ferry-route-arrow svg {
+    width: 15px;
+    height: 15px;
   }
 
-  .ferry-content {
-    padding-top: 24px;
+  .ferry-next-card {
+    gap: 12px;
+    padding: 19px;
+    border-radius: 25px;
+  }
+
+  .ferry-wait-time strong {
+    font-size: clamp(3.55rem, 19vw, 5rem);
+  }
+
+  .ferry-wait-time.now strong {
+    font-size: clamp(2.5rem, 13vw, 3.6rem);
+  }
+
+  .ferry-next-route {
+    padding: 12px;
+  }
+
+  .ferry-next-meta {
+    font-size: 0.6rem;
+  }
+
+  .ferry-later-card {
+    padding: 16px 14px;
+    border-radius: 22px;
+  }
+
+  .ferry-later-row {
+    min-height: 69px;
+    grid-template-columns: 36px minmax(0, 1fr) auto;
+    gap: 9px;
+  }
+
+  .ferry-later-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 360px) {
+  .ferry-page-heading-icon {
+    display: none;
+  }
+
+  .ferry-page-heading {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .ferry-next-meta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ferry-refresh-button .spinning {
+    animation: none;
   }
 }
