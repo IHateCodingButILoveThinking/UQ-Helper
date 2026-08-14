@@ -1,67 +1,203 @@
-import { useEffect, useState } from "react";
-import { CloudSun, Wind } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Cloud,
+  CloudDrizzle,
+  CloudFog,
+  CloudLightning,
+  CloudRain,
+  CloudSun,
+  ExternalLink,
+  Gauge,
+  Sun,
+  Wind,
+} from "lucide-react";
 
+const WEATHER_URL =
+  "https://api.open-meteo.com/v1/forecast?latitude=-27.4975&longitude=153.0137&current=temperature_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=Australia%2FBrisbane";
 const AIR_QUALITY_URL =
   "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-27.4975&longitude=153.0137&current=us_aqi,pm2_5&timezone=Australia%2FBrisbane";
-const AIR_QUALITY_SOURCE_URL = "https://open-meteo.com/en/docs/air-quality-api";
+const OPEN_METEO_SOURCE_URL = "https://open-meteo.com/";
 
-export function AirQualityPill() {
+export function HomeConditionsCard() {
+  const [weather, setWeather] = useState(null);
   const [airQuality, setAirQuality] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const controller = new AbortController();
+    let isActive = true;
 
-    fetch(AIR_QUALITY_URL, {
-      cache: "no-store",
-      signal: controller.signal,
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Could not load air quality.");
-        }
+    Promise.allSettled([
+      fetchJson(WEATHER_URL, controller.signal),
+      fetchJson(AIR_QUALITY_URL, controller.signal),
+    ]).then(([weatherResult, airResult]) => {
+      if (!isActive) {
+        return;
+      }
 
-        return response.json();
-      })
-      .then(setAirQuality)
-      .catch((error) => {
-        if (error.name !== "AbortError") {
-          console.error("Could not load home air quality.", error);
-        }
-      })
-      .finally(() => setLoading(false));
+      if (weatherResult.status === "fulfilled") {
+        setWeather(weatherResult.value);
+      } else if (weatherResult.reason?.name !== "AbortError") {
+        console.error("Could not load home weather.", weatherResult.reason);
+      }
 
-    return () => controller.abort();
+      if (airResult.status === "fulfilled") {
+        setAirQuality(airResult.value);
+      } else if (airResult.reason?.name !== "AbortError") {
+        console.error("Could not load home air quality.", airResult.reason);
+      }
+
+      setLoading(false);
+    });
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
   }, []);
 
+  const current = weather?.current;
+  const temperature = current?.temperature_2m;
+  const feelsLike = current?.apparent_temperature;
+  const windSpeed = current?.wind_speed_10m;
+  const weatherCode = current?.weather_code;
+  const high = weather?.daily?.temperature_2m_max?.[0];
+  const low = weather?.daily?.temperature_2m_min?.[0];
   const aqi = airQuality?.current?.us_aqi;
-  const category = getAirQualityCategory(aqi);
+  const weatherState = useMemo(
+    () => getWeatherState(weatherCode, current?.is_day, windSpeed),
+    [current?.is_day, weatherCode, windSpeed],
+  );
+  const airState = getAirQualityCategory(aqi);
+  const WeatherIcon = weatherState.Icon;
+  const hasWeather = Number.isFinite(temperature);
 
   return (
-    <a
-      className={`home-air-pill tone-${category.tone}`}
-      href={AIR_QUALITY_SOURCE_URL}
-      target="_blank"
-      rel="noreferrer"
-      aria-label={
-        Number.isFinite(aqi)
-          ? `Air quality is ${category.label}, AQI ${Math.round(aqi)}. View Open-Meteo source.`
-          : "Air quality is unavailable. View Open-Meteo source."
-      }
+    <section
+      className={`home-conditions-card weather-${weatherState.tone}`}
+      aria-label="Today's weather and air quality at UQ St Lucia"
+      aria-busy={loading}
     >
-      <span className="home-air-icon" aria-hidden="true">
-        {loading ? <CloudSun /> : <Wind />}
-      </span>
-      <span className="home-air-copy">
-        <small>Air now</small>
-        <strong>{loading ? "Checking" : category.label}</strong>
-      </span>
-      <span className="home-air-value">
-        {Number.isFinite(aqi) ? Math.round(aqi) : "—"}
-        <small>AQI</small>
-      </span>
-    </a>
+      <div className="home-weather-orb" aria-hidden="true">
+        <span className="home-weather-ring" />
+        <WeatherIcon />
+      </div>
+
+      <div className="home-weather-primary" aria-live="polite">
+        <div className="home-weather-label">
+          <span className="home-live-dot" aria-hidden="true" />
+          Today at UQ
+        </div>
+        <div className="home-weather-reading">
+          <strong>{loading ? "—" : hasWeather ? Math.round(temperature) : "—"}</strong>
+          <sup>°</sup>
+          <span>{loading ? "Checking weather" : weatherState.label}</span>
+        </div>
+        <p>
+          {hasWeather
+            ? `${formatTemperature(high)} high · ${formatTemperature(low)} low · feels ${formatTemperature(feelsLike)}`
+            : loading
+              ? "Loading live campus conditions…"
+              : "Weather is temporarily unavailable."}
+        </p>
+      </div>
+
+      <div className="home-conditions-metrics">
+        <div className="home-condition-metric">
+          <span className="home-condition-metric-icon" aria-hidden="true">
+            <Wind />
+          </span>
+          <span>
+            <small>Wind</small>
+            <strong>{Number.isFinite(windSpeed) ? `${Math.round(windSpeed)} km/h` : "—"}</strong>
+          </span>
+        </div>
+
+        <div className={`home-condition-metric air-tone-${airState.tone}`}>
+          <span className="home-condition-metric-icon" aria-hidden="true">
+            <Gauge />
+          </span>
+          <span>
+            <small>Air quality</small>
+            <strong>
+              {Number.isFinite(aqi) ? `${Math.round(aqi)} · ${airState.label}` : "—"}
+            </strong>
+          </span>
+        </div>
+      </div>
+
+      <a
+        className="home-weather-source"
+        href={OPEN_METEO_SOURCE_URL}
+        target="_blank"
+        rel="noreferrer"
+      >
+        Live data by Open-Meteo
+        <ExternalLink aria-hidden="true" />
+      </a>
+    </section>
   );
+}
+
+async function fetchJson(url, signal) {
+  const response = await fetch(url, {
+    cache: "no-store",
+    signal,
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}.`);
+  }
+
+  return response.json();
+}
+
+function formatTemperature(value) {
+  return Number.isFinite(value) ? `${Math.round(value)}°` : "—";
+}
+
+function getWeatherState(code, isDay, windSpeed) {
+  if (!Number.isFinite(code)) {
+    return { label: "Weather unavailable", tone: "unknown", Icon: CloudSun };
+  }
+
+  if (Number.isFinite(windSpeed) && windSpeed >= 30 && code < 51) {
+    return { label: "Windy", tone: "cloudy", Icon: Wind };
+  }
+
+  if (code === 0) {
+    return {
+      label: isDay === 0 ? "Clear night" : "Sunny",
+      tone: "sunny",
+      Icon: Sun,
+    };
+  }
+
+  if (code <= 2) {
+    return { label: "Partly cloudy", tone: "cloudy", Icon: CloudSun };
+  }
+
+  if (code === 3) {
+    return { label: "Cloudy", tone: "cloudy", Icon: Cloud };
+  }
+
+  if (code === 45 || code === 48) {
+    return { label: "Foggy", tone: "foggy", Icon: CloudFog };
+  }
+
+  if (code >= 51 && code <= 57) {
+    return { label: "Light drizzle", tone: "rainy", Icon: CloudDrizzle };
+  }
+
+  if ((code >= 61 && code <= 67) || (code >= 80 && code <= 86)) {
+    return { label: code >= 80 ? "Showers" : "Rainy", tone: "rainy", Icon: CloudRain };
+  }
+
+  if (code >= 95) {
+    return { label: "Thunderstorms", tone: "stormy", Icon: CloudLightning };
+  }
+
+  return { label: "Overcast", tone: "cloudy", Icon: Cloud };
 }
 
 function getAirQualityCategory(aqi) {

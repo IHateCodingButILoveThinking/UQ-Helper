@@ -10,7 +10,7 @@ import {
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
-import { Bus, LampDesk } from "lucide-react";
+import { ArrowUpRight, Bus, LampDesk } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
@@ -18,7 +18,7 @@ import FoodDirectoryPage from "./pages/FoodDirectoryPage";
 import FerryTimesPage from "./pages/FerryTimesPage";
 import LibrarySpacesPage from "./pages/LibrarySpacesPage";
 import TrainTimesPage from "./pages/TrainTimesPage";
-import { AirQualityPill } from "./components/HomeLiveInfo";
+import { HomeConditionsCard } from "./components/HomeLiveInfo";
 import TransportModeTabs from "./components/TransportModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
 
@@ -1273,47 +1273,37 @@ export default function App() {
                           ) : null}
                         </div>
 
-                        <div className="hero-action-group">
-                          <button
-                            type="button"
-                            className="live-planner-shortcut"
-                            aria-label="Open trip planner"
-                            onClick={() => handlePageChange(PLANNER_PAGE_ID)}
-                          >
-                            <FaMapMarkerAlt aria-hidden="true" />
-                            <span className="action-button-text">Plan</span>
-                          </button>
+                        <div
+                          className="uq-stop-quick-selector"
+                          role="group"
+                          aria-label="Choose UQ bus station"
+                        >
+                          {STOP_OPTIONS.map((option) => {
+                            const isSelected = selectedStopId === option.id;
+                            const shortLabel =
+                              option.id === DEFAULT_STOP_ID
+                                ? "UQ Lakes"
+                                : "Chancellor’s";
 
-                          <button
-                            type="button"
-                            className={`stop-control ${stopSheetOpen ? "open" : ""}`}
-                            aria-expanded={stopSheetOpen}
-                            aria-haspopup="listbox"
-                            aria-label={`Switch UQ bus stop. Current stop ${activeStop.switchLabel}`}
-                            onClick={() => {
-                              setFilterOpen(false);
-                              setStopSheetOpen((currentOpen) => !currentOpen);
-                            }}
-                          >
-                            <span
-                              className={`stop-control-icon ${showLoadingState ? "pending" : ""}`}
-                              aria-hidden="true"
-                            >
-                              {showLoadingState ? (
-                                <SpinnerIcon />
-                              ) : (
-                                <SwitchIcon />
-                              )}
-                            </span>
-                            <span className="stop-control-label">Switch</span>
-                            <span
-                              className="stop-control-arrow"
-                              aria-hidden="true"
-                            >
-                              <ChevronIcon />
-                            </span>
-                          </button>
-
+                            return (
+                              <button
+                                key={option.id}
+                                type="button"
+                                className={isSelected ? "selected" : ""}
+                                aria-pressed={isSelected}
+                                aria-label={`Show departures for ${option.switchLabel}`}
+                                onClick={() => handleStopSelection(option.id)}
+                              >
+                                <span className="uq-stop-choice-dot" aria-hidden="true" />
+                                <span>
+                                  <strong>{shortLabel}</strong>
+                                  <small>
+                                    {isSelected ? "Showing now" : "View stop"}
+                                  </small>
+                                </span>
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
@@ -1322,11 +1312,10 @@ export default function App() {
                   {nextDeparture ? (
                     <article className="next-card">
                       <div className="board-header">
-                        <p className="eyebrow board-eyebrow">
-                          {closestDepartures.length > 1
-                            ? "Closest departures"
-                            : "Closest departure"}
-                        </p>
+                        <div className="board-heading-copy">
+                          <p className="eyebrow board-eyebrow">Leaving next</p>
+                          <span>The soonest bus from this station</span>
+                        </div>
                       </div>
 
                       <div className="board-primary">
@@ -1375,9 +1364,12 @@ export default function App() {
                       </div>
 
                       <div className="mini-board">
-                        <span className="mini-board-label">
-                          Next 4 upcoming
-                        </span>
+                        <div className="mini-board-heading">
+                          <span className="mini-board-label">
+                            Following departures
+                          </span>
+                          <small>The next four buses in time order</small>
+                        </div>
 
                         {boardUpcoming.length ? (
                           <div className="mini-board-list">
@@ -1418,7 +1410,7 @@ export default function App() {
                           </div>
                         ) : (
                           <div className="mini-board-empty">
-                            No more upcoming buses.
+                            No later buses are listed yet.
                           </div>
                         )}
                       </div>
@@ -2012,19 +2004,28 @@ function CampusHomePage({ onOpenBoard, onOpenStudySpaces }) {
   const homeActions = [
     {
       accentClass: "bus",
-      description: "Live campus departures",
+      description: "Buses, ferries and trains",
       Icon: Bus,
       label: "Live Transport",
       onClick: onOpenBoard,
+      status: "Live now",
     },
     {
       accentClass: "study",
-      description: "Find a seat & study",
+      description: "Find a seat on campus",
       Icon: LampDesk,
       label: "Study Spaces",
       onClick: onOpenStudySpaces,
+      status: "Check spaces",
     },
   ];
+
+  const todayLabel = new Intl.DateTimeFormat("en-AU", {
+    weekday: "long",
+    day: "numeric",
+    month: "short",
+    timeZone: BRISBANE_TZ,
+  }).format(new Date());
 
   return (
     <section className="campus-home-page" aria-label="UQ Campus home">
@@ -2036,27 +2037,40 @@ function CampusHomePage({ onOpenBoard, onOpenStudySpaces }) {
       >
         <div className="campus-home-meta">
           <span className="campus-home-location">St Lucia campus</span>
-          <AirQualityPill />
+          <span className="campus-home-date">{todayLabel}</span>
         </div>
-        <h1>
-          Welcome to
-          <br />
-          UQ Campus
-        </h1>
-        <p>What do you need today?</p>
+        <p className="campus-home-kicker">Your campus, at a glance</p>
+        <h1>Make your next move.</h1>
+        <p className="campus-home-intro">
+          Weather, travel and study spots—without the clutter.
+        </p>
       </motion.header>
 
       <div className="campus-home-dashboard">
-        <div className="campus-home-actions compact">
+        <HomeConditionsCard />
+
+        <div className="campus-home-section-heading">
+          <div>
+            <span>Explore campus</span>
+            <strong>What do you need?</strong>
+          </div>
+          <span className="campus-home-section-count">2 shortcuts</span>
+        </div>
+
+        <div className="campus-home-actions compact" aria-label="Campus shortcuts">
           {homeActions.map(
-            ({ accentClass, description, Icon, label, onClick }, index) => (
+            (
+              { accentClass, description, Icon, label, onClick, status },
+              index,
+            ) => (
               <motion.button
                 key={label}
                 type="button"
-                className="campus-home-card"
+                className={`campus-home-card ${accentClass}`}
                 onClick={onClick}
                 initial={{ opacity: 0, y: 18, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                whileHover={{ y: -4 }}
                 whileTap={{ scale: 0.965 }}
                 transition={{
                   delay: 0.08 + index * 0.08,
@@ -2064,12 +2078,21 @@ function CampusHomePage({ onOpenBoard, onOpenStudySpaces }) {
                   ease: [0.22, 1, 0.36, 1],
                 }}
               >
-                <span className={`campus-home-icon ${accentClass}`}>
-                  <Icon aria-hidden="true" />
+                <span className="campus-home-card-top">
+                  <span className={`campus-home-icon ${accentClass}`}>
+                    <Icon aria-hidden="true" />
+                  </span>
+                  <span className="campus-home-card-status">
+                    <i aria-hidden="true" />
+                    {status}
+                  </span>
                 </span>
                 <span className="campus-home-card-copy">
                   <strong>{label}</strong>
                   <span>{description}</span>
+                </span>
+                <span className="campus-home-card-arrow" aria-hidden="true">
+                  <ArrowUpRight />
                 </span>
               </motion.button>
             ),

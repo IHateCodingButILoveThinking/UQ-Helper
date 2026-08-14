@@ -15,11 +15,12 @@ export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
       <button
         type="button"
         className="transport-home-button"
-        aria-label="Campus home"
+        aria-label="Back to campus home"
+        title="Back to home"
         onClick={onHome}
       >
         <House aria-hidden="true" />
-        <span>Home</span>
+        <span className="transport-home-label">Home</span>
       </button>
 
       {MODES.map(({ Icon, id, label }) => (

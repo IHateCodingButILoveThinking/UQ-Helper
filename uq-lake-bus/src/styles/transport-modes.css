@@ -2,15 +2,15 @@
   position: sticky;
   top: max(8px, env(safe-area-inset-top));
   z-index: 35;
-  width: min(100%, 540px);
-  min-height: 60px;
+  width: min(100%, 480px);
+  min-height: 52px;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 5px;
+  grid-template-columns: 46px repeat(3, minmax(0, 1fr));
+  gap: 4px;
   margin: 0 auto;
-  padding: 5px;
+  padding: 4px;
   border: 1px solid rgba(64, 44, 84, 0.09);
-  border-radius: 23px;
+  border-radius: 19px;
   background: rgba(255, 255, 255, 0.93);
   box-shadow:
     0 14px 34px rgba(53, 34, 76, 0.1),
@@ -21,14 +21,14 @@
 
 .transport-mode-nav button {
   min-width: 0;
-  min-height: 48px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  padding: 0 12px;
+  padding: 0 10px;
   border: 0;
-  border-radius: 18px;
+  border-radius: 15px;
   background: transparent;
   color: #6f6579;
   cursor: pointer;
@@ -66,7 +66,19 @@
 }
 
 .transport-mode-nav .transport-home-button {
+  width: 44px;
+  padding: 0;
   color: #4e4658;
+}
+
+.transport-home-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .transport-mode-nav .transport-home-button:hover,
@@ -101,19 +113,35 @@ body[data-page="train"] {
   gap: 14px;
 }
 
-.train-station-picker {
-  width: min(100%, 340px);
+.train-station-carousel {
+  width: min(100%, 480px);
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  align-items: center;
   gap: 5px;
   margin: -2px auto 0;
+}
+
+.train-station-picker {
+  min-width: 0;
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
   padding: 5px;
   border: 1px solid rgba(49, 95, 196, 0.1);
   border-radius: 18px;
   background: rgba(232, 239, 255, 0.78);
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.train-station-picker::-webkit-scrollbar {
+  display: none;
 }
 
 .train-station-picker button {
+  flex: 0 0 132px;
   min-height: 39px;
   padding: 0 12px;
   border: 0;
@@ -124,6 +152,8 @@ body[data-page="train"] {
   font: inherit;
   font-size: 0.72rem;
   font-weight: 900;
+  scroll-snap-align: center;
+  white-space: nowrap;
 }
 
 .train-station-picker button:hover,
@@ -136,6 +166,32 @@ body[data-page="train"] {
   background: #ffffff;
   box-shadow: 0 7px 16px rgba(50, 72, 112, 0.11);
   color: #244d9f;
+}
+
+.train-station-scroll {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(49, 95, 196, 0.1);
+  border-radius: 13px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 7px 16px rgba(50, 72, 112, 0.08);
+  color: #315fc4;
+  cursor: pointer;
+}
+
+.train-station-scroll:hover,
+.train-station-scroll:focus-visible {
+  border-color: rgba(49, 95, 196, 0.22);
+  background: #eef3ff;
+  outline: none;
+}
+
+.train-station-scroll svg {
+  width: 17px;
+  height: 17px;
 }
 
 .train-hero,
@@ -453,26 +509,31 @@ body[data-page="train"] {
   .transport-mode-nav {
     top: max(6px, env(safe-area-inset-top));
     width: 100%;
-    min-height: 62px;
+    min-height: 50px;
+    grid-template-columns: 44px repeat(3, minmax(0, 1fr));
     gap: 3px;
     padding: 4px;
-    border-radius: 21px;
+    border-radius: 18px;
   }
 
   .transport-mode-nav button {
-    min-height: 52px;
-    flex-direction: column;
-    gap: 3px;
-    padding: 5px 3px 4px;
-    border-radius: 17px;
+    min-height: 42px;
+    flex-direction: row;
+    gap: 5px;
+    padding: 0 5px;
+    border-radius: 14px;
     font-size: 0.65rem;
     letter-spacing: -0.02em;
     line-height: 1;
   }
 
   .transport-mode-nav svg {
-    width: 19px;
-    height: 19px;
+    width: 17px;
+    height: 17px;
+  }
+
+  .transport-mode-nav .transport-home-button {
+    width: 42px;
   }
 
   .ferry-page > .transport-mode-nav {
@@ -486,6 +547,23 @@ body[data-page="train"] {
     grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 11px;
     padding: 18px;
+  }
+
+  .train-station-carousel {
+    grid-template-columns: 34px minmax(0, 1fr) 34px;
+    gap: 4px;
+  }
+
+  .train-station-scroll {
+    width: 34px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .train-station-picker button {
+    flex-basis: 118px;
+    padding-inline: 9px;
+    font-size: 0.67rem;
   }
 
   .train-hero-icon {

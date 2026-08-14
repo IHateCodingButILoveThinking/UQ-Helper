@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowUpRight,
+  ChevronLeft,
+  ChevronRight,
   Clock3,
   Radio,
   RefreshCw,
@@ -27,9 +29,17 @@ const TRAIN_STATIONS = [
     platformLabel: "Both platforms",
     stopName: "Toowong station",
   },
+  {
+    id: "roma-street",
+    kicker: "Central city rail interchange",
+    label: "Roma Street",
+    platformLabel: "All platforms",
+    stopName: "Roma Street station",
+  },
 ];
 
 export default function TrainTimesPage({ modeSelector }) {
+  const stationPickerRef = useRef(null);
   const [selectedStationId, setSelectedStationId] = useState("boggo-road");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -89,29 +99,65 @@ export default function TrainTimesPage({ modeSelector }) {
   }, [activeStation.stopName]);
 
   const departures = data?.departures ?? [];
+  const scrollStations = (direction) => {
+    stationPickerRef.current?.scrollBy({
+      behavior: "smooth",
+      left: direction * 160,
+    });
+  };
 
   return (
     <section className="train-page" aria-label="Live train times">
       {modeSelector}
 
-      <div className="train-station-picker" aria-label="Choose train station">
-        {TRAIN_STATIONS.map((station) => (
-          <button
-            key={station.id}
-            type="button"
-            className={selectedStationId === station.id ? "active" : ""}
-            aria-pressed={selectedStationId === station.id}
-            onClick={() => {
-              if (station.id !== selectedStationId) {
-                setData(null);
-                setError("");
-                setSelectedStationId(station.id);
-              }
-            }}
-          >
-            {station.label}
-          </button>
-        ))}
+      <div className="train-station-carousel">
+        <button
+          type="button"
+          className="train-station-scroll"
+          aria-label="Scroll train stations left"
+          onClick={() => scrollStations(-1)}
+        >
+          <ChevronLeft aria-hidden="true" />
+        </button>
+
+        <div
+          ref={stationPickerRef}
+          className="train-station-picker"
+          aria-label="Choose train station"
+        >
+          {TRAIN_STATIONS.map((station) => (
+            <button
+              key={station.id}
+              type="button"
+              className={selectedStationId === station.id ? "active" : ""}
+              aria-pressed={selectedStationId === station.id}
+              onClick={(event) => {
+                event.currentTarget.scrollIntoView({
+                  behavior: "smooth",
+                  block: "nearest",
+                  inline: "center",
+                });
+
+                if (station.id !== selectedStationId) {
+                  setData(null);
+                  setError("");
+                  setSelectedStationId(station.id);
+                }
+              }}
+            >
+              {station.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className="train-station-scroll"
+          aria-label="Scroll train stations right"
+          onClick={() => scrollStations(1)}
+        >
+          <ChevronRight aria-hidden="true" />
+        </button>
       </div>
 
       <header className="train-hero">
