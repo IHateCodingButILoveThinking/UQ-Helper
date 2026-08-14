@@ -231,6 +231,186 @@
   }
 }
 
+/* Direct route filtering replaces the oversized expandable category card. */
+.app-shell.page-board .controls-panel {
+  padding: 12px;
+  border-color: rgba(74, 32, 117, 0.08);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 14px 32px rgba(54, 38, 67, 0.07);
+}
+
+.bus-route-filter {
+  min-width: 0;
+  display: grid;
+  gap: 11px;
+}
+
+.bus-route-filter-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 3px;
+}
+
+.bus-route-filter-head > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.bus-route-filter-head > div > span {
+  color: #88788f;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bus-route-filter-head strong {
+  overflow: hidden;
+  color: #302737;
+  font-size: 0.82rem;
+  font-weight: 950;
+  letter-spacing: -0.025em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bus-route-filter-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #725b80;
+  font-size: 0.58rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.bus-route-filter-loading svg {
+  width: 12px;
+  height: 12px;
+  animation: spin 0.9s linear infinite;
+}
+
+.bus-route-chip-list {
+  min-width: 0;
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 1px 3px 5px;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.bus-route-chip-list::-webkit-scrollbar {
+  display: none;
+}
+
+.bus-route-chip {
+  min-width: 0;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  padding: 0 12px;
+  border: 1px solid rgba(75, 57, 88, 0.09);
+  border-radius: 14px;
+  background: #f7f5f8;
+  color: #67596f;
+  cursor: pointer;
+  font: inherit;
+  scroll-snap-align: start;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease;
+}
+
+.bus-route-chip:hover,
+.bus-route-chip:focus-visible {
+  border-color: rgba(81, 36, 122, 0.18);
+  background: #f0ebf4;
+  color: #51247a;
+  outline: none;
+}
+
+.bus-route-chip:focus-visible {
+  box-shadow: 0 0 0 3px rgba(81, 36, 122, 0.1);
+}
+
+.bus-route-chip.selected {
+  border-color: #51247a;
+  background: #51247a;
+  box-shadow: 0 8px 16px rgba(81, 36, 122, 0.18);
+  color: #ffffff;
+}
+
+.bus-route-chip:disabled {
+  cursor: wait;
+  opacity: 0.56;
+}
+
+.bus-route-chip-label {
+  min-width: 22px;
+  display: inline-flex;
+  justify-content: center;
+  font-size: 0.74rem;
+  font-weight: 950;
+}
+
+.bus-route-chip .route-token-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.bus-route-chip small {
+  min-width: 19px;
+  min-height: 19px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: rgba(81, 36, 122, 0.08);
+  color: #82718b;
+  font-size: 0.52rem;
+  font-weight: 900;
+}
+
+.bus-route-chip.selected small {
+  background: rgba(255, 255, 255, 0.16);
+  color: rgba(255, 255, 255, 0.86);
+}
+
+@media (max-width: 520px) {
+  .app-shell.page-board .controls-panel {
+    padding: 11px 9px 8px;
+  }
+
+  .bus-route-filter-head {
+    padding-inline: 5px;
+  }
+
+  .bus-route-chip {
+    min-height: 40px;
+    padding-inline: 11px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bus-route-filter-loading svg {
+    animation: none;
+  }
+
+  .bus-route-chip-list {
+    scroll-behavior: auto;
+  }
+}
+
 /* Always-visible UQ station selector: no expansion sheet required. */
 .app-shell.page-board .uq-stop-quick-selector {
   width: 100%;

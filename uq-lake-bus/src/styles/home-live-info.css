@@ -62,13 +62,13 @@
 }
 
 .home-conditions-card {
-  --weather-a: #58247a;
-  --weather-b: #8550a1;
+  --weather-a: #2e7db8;
+  --weather-b: #72b8d8;
   position: relative;
   isolation: isolate;
   min-height: 104px;
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
   align-items: center;
   gap: 9px;
   overflow: hidden;
@@ -79,7 +79,7 @@
     radial-gradient(circle at 92% 4%, rgba(255, 255, 255, 0.18), transparent 34%),
     linear-gradient(140deg, var(--weather-a), var(--weather-b));
   box-shadow:
-    0 15px 30px rgba(66, 35, 92, 0.16),
+    0 15px 30px rgba(35, 105, 149, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #ffffff;
 }
@@ -98,18 +98,28 @@
 
 .home-conditions-card.weather-cloudy,
 .home-conditions-card.weather-foggy {
-  --weather-a: #3e496c;
-  --weather-b: #687aa4;
+  --weather-a: #547186;
+  --weather-b: #8eabb9;
 }
 
 .home-conditions-card.weather-rainy {
-  --weather-a: #265078;
-  --weather-b: #4e7fa5;
+  --weather-a: #285b83;
+  --weather-b: #588fb2;
 }
 
 .home-conditions-card.weather-stormy {
-  --weather-a: #292746;
-  --weather-b: #514971;
+  --weather-a: #344554;
+  --weather-b: #617485;
+}
+
+.home-conditions-card.weather-sunny .home-weather-orb {
+  border-color: rgba(255, 230, 141, 0.34);
+  background: rgba(255, 221, 111, 0.2);
+  color: #ffe28a;
+}
+
+.home-conditions-card.weather-rainy .home-weather-orb {
+  color: #d7f0ff;
 }
 
 .home-weather-primary {
@@ -242,26 +252,14 @@
   color: #ffaaa3;
 }
 
-.home-weather-source {
-  width: 30px;
-  height: 30px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  color: rgba(255, 255, 255, 0.52);
-  text-decoration: none;
-}
-
-.home-weather-source:hover,
-.home-weather-source:focus-visible {
-  background: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-  outline: none;
-}
-
-.home-weather-source svg {
-  width: 12px;
-  height: 12px;
+.home-weather-attribution {
+  position: absolute;
+  right: 13px;
+  bottom: 6px;
+  color: rgba(255, 255, 255, 0.44);
+  font-size: 0.43rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .campus-home-actions.compact {
@@ -275,7 +273,7 @@
 .campus-home-actions.compact .campus-home-card {
   --card-color: #2469cc;
   position: relative;
-  min-height: 154px;
+  min-height: 142px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -380,33 +378,6 @@
   line-height: 1.3;
 }
 
-.campus-home-card-arrow {
-  position: absolute;
-  right: 12px;
-  bottom: 12px;
-  z-index: 1;
-  width: 29px;
-  height: 29px;
-  display: grid;
-  place-items: center;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--card-color) 10%, white);
-  color: var(--card-color);
-  transition: background 180ms ease, color 180ms ease, transform 180ms ease;
-}
-
-.campus-home-card-arrow svg {
-  width: 14px;
-  height: 14px;
-}
-
-.campus-home-card:hover .campus-home-card-arrow,
-.campus-home-card:focus-visible .campus-home-card-arrow {
-  background: var(--card-color);
-  color: #ffffff;
-  transform: translate(2px, -2px);
-}
-
 .campus-home-card:hover .campus-home-icon.bus svg,
 .campus-home-card:focus-visible .campus-home-icon.bus svg {
   animation: home-bus-move 600ms ease-in-out;
@@ -443,7 +414,7 @@
   .campus-home-actions.compact .campus-home-card {
     min-height: 92px;
     display: grid;
-    grid-template-columns: 48px minmax(0, 1fr) 34px;
+    grid-template-columns: 48px minmax(0, 1fr);
     grid-template-rows: 1fr;
     align-items: center;
     gap: 12px;
@@ -504,13 +475,6 @@
     font-size: 0.69rem;
   }
 
-  .campus-home-card-arrow {
-    position: static;
-    grid-column: 3;
-    grid-row: 1;
-    width: 34px;
-    height: 34px;
-  }
 }
 
 @media (max-width: 350px) {
@@ -535,9 +499,6 @@
     display: none;
   }
 
-  .home-weather-source {
-    display: none;
-  }
 }
 
 @media (min-width: 540px) {

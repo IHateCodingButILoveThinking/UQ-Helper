@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   FaArrowLeft,
   FaBroadcastTower,
@@ -10,7 +10,7 @@ import {
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
-import { ArrowUpRight, Bus, LampDesk } from "lucide-react";
+import { Bus, LampDesk } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
@@ -220,8 +220,8 @@ const OFFICIAL_STATION_CHOICES = [
 ];
 
 export default function App() {
+  const reduceMotion = useReducedMotion();
   const [currentPage, setCurrentPage] = useState(getInitialPageId);
-  const [previousPage, setPreviousPage] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
   const [librarySubPageOpen, setLibrarySubPageOpen] = useState(false);
   const [selectedStopId, setSelectedStopId] = useState(getInitialStopId);
@@ -817,10 +817,6 @@ export default function App() {
     setFilterOpen(false);
     setStopSheetOpen(false);
 
-    if (pageId !== currentPage) {
-      setPreviousPage(currentPage);
-    }
-
     if (pageId === PLANNER_PAGE_ID) {
       setPlannerOriginQuery(
         (currentQuery) => currentQuery || activeStop.displayName,
@@ -1177,15 +1173,38 @@ export default function App() {
     });
   };
 
-  const usePageMotion =
-    currentPage !== FERRY_PAGE_ID && previousPage !== FERRY_PAGE_ID;
   const isHomePage = currentPage === HOME_PAGE_ID;
-  const pageInitialState = usePageMotion
-    ? { opacity: 0, x: isHomePage ? -22 : 22 }
-    : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
-  const pageExitState = usePageMotion
-    ? { opacity: 0, x: isHomePage ? -22 : 22 }
-    : { opacity: 1, y: 0, scale: 1, filter: "blur(0px)" };
+  const pageInitialState = reduceMotion
+    ? { opacity: 1 }
+    : {
+        opacity: 0,
+        y: isHomePage ? -8 : 12,
+        scale: 0.992,
+        filter: "blur(4px)",
+      };
+  const pageAnimateState = {
+    opacity: 1,
+    x: 0,
+    y: 0,
+    scale: 1,
+    filter: "blur(0px)",
+    transition: {
+      duration: reduceMotion ? 0 : 0.32,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  };
+  const pageExitState = reduceMotion
+    ? { opacity: 1 }
+    : {
+        opacity: 0,
+        y: isHomePage ? 6 : -6,
+        scale: 0.996,
+        filter: "blur(2px)",
+        transition: {
+          duration: 0.16,
+          ease: [0.4, 0, 1, 1],
+        },
+      };
   const showHomeBackButton =
     currentPage === FOOD_PAGE_ID ||
     currentPage === EXAMS_PAGE_ID ||
@@ -1228,18 +1247,8 @@ export default function App() {
             .filter(Boolean)
             .join(" ")}
           initial={pageInitialState}
-          animate={{
-            opacity: 1,
-            x: 0,
-            y: 0,
-            scale: 1,
-            filter: "blur(0px)",
-          }}
+          animate={pageAnimateState}
           exit={pageExitState}
-          transition={{
-            duration: usePageMotion ? 0.28 : 0,
-            ease: "easeOut",
-          }}
         >
           {currentPage === HOME_PAGE_ID ? (
             <CampusHomePage
@@ -1438,50 +1447,59 @@ export default function App() {
                 ) : null}
 
                 <section className="surface-panel controls-panel">
-                  <div className="controls-grid">
-                    <div
-                      className={`filter-control-shell ${filterOpen ? "open" : ""}`}
-                    >
-                      <button
-                        type="button"
-                        className={`filter-control ${
-                          filterPending ? "pending" : ""
-                        } ${filterOpen ? "open" : ""}`}
-                        aria-expanded={filterOpen}
-                        aria-haspopup="listbox"
-                        onClick={() => {
-                          if (filterPending) {
-                            return;
-                          }
-
-                          setStopSheetOpen(false);
-                          setFilterOpen((currentOpen) => !currentOpen);
-                        }}
-                      >
-                        <div className="filter-control-copy">
-                          <span className="filter-control-label">
-                            Choose bus number
-                          </span>
-                          <strong className="filter-control-value">
-                            {selectedRouteIsAll ? (
-                              "All routes"
-                            ) : (
-                              <RouteToken
-                                code={selectedRoute}
-                                className="filter-control-route-token"
-                              />
-                            )}
-                          </strong>
-                        </div>
-                        <span
-                          className={`filter-control-icon ${
-                            filterPending ? "pending" : ""
-                          }`}
-                          aria-hidden="true"
-                        >
-                          {filterPending ? <SpinnerIcon /> : <ChevronIcon />}
+                  <div
+                    className="bus-route-filter"
+                    aria-busy={filterPending}
+                  >
+                    <div className="bus-route-filter-head">
+                      <div>
+                        <span>Bus routes</span>
+                        <strong>
+                          {selectedRouteIsAll
+                            ? "Showing all buses"
+                            : `Showing route ${selectedRoute}`}
+                        </strong>
+                      </div>
+                      {filterPending ? (
+                        <span className="bus-route-filter-loading">
+                          <SpinnerIcon />
+                          Updating
                         </span>
-                      </button>
+                      ) : null}
+                    </div>
+
+                    <div
+                      className="bus-route-chip-list"
+                      role="listbox"
+                      aria-label="Filter arrivals by bus route"
+                    >
+                      {routeOptions.map((option) => {
+                        const isSelected = selectedRoute === option.id;
+
+                        return (
+                          <motion.button
+                            key={option.id}
+                            type="button"
+                            role="option"
+                            aria-selected={isSelected}
+                            className={`bus-route-chip ${
+                              isSelected ? "selected" : ""
+                            }`}
+                            disabled={filterPending && !isSelected}
+                            onClick={() => setSelectedRoute(option.id)}
+                            whileTap={{ scale: 0.95 }}
+                          >
+                            <span className="bus-route-chip-label">
+                              {option.id === ALL_ROUTES_ID ? (
+                                "All"
+                              ) : (
+                                <RouteToken code={option.short} />
+                              )}
+                            </span>
+                            <small>{option.count}</small>
+                          </motion.button>
+                        );
+                      })}
                     </div>
                   </div>
                 </section>
@@ -2079,9 +2097,6 @@ function CampusHomePage({
                 <span className="campus-home-card-copy">
                   <strong>{label}</strong>
                   <span>{description}</span>
-                </span>
-                <span className="campus-home-card-arrow" aria-hidden="true">
-                  <ArrowUpRight />
                 </span>
               </motion.button>
             ),

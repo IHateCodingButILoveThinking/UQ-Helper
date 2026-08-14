@@ -6,7 +6,6 @@ import {
   CloudLightning,
   CloudRain,
   CloudSun,
-  ExternalLink,
   Gauge,
   Sun,
   Wind,
@@ -16,7 +15,6 @@ const WEATHER_URL =
   "https://api.open-meteo.com/v1/forecast?latitude=-27.4975&longitude=153.0137&current=temperature_2m,is_day,weather_code,wind_speed_10m&forecast_days=1&timezone=Australia%2FBrisbane";
 const AIR_QUALITY_URL =
   "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-27.4975&longitude=153.0137&current=us_aqi,pm2_5&timezone=Australia%2FBrisbane";
-const OPEN_METEO_SOURCE_URL = "https://open-meteo.com/";
 
 export function HomeConditionsCard() {
   const [weather, setWeather] = useState(null);
@@ -118,16 +116,7 @@ export function HomeConditionsCard() {
         </div>
       </div>
 
-      <a
-        className="home-weather-source"
-        href={OPEN_METEO_SOURCE_URL}
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Open the Open-Meteo weather data source"
-        title="Open-Meteo source"
-      >
-        <ExternalLink aria-hidden="true" />
-      </a>
+      <small className="home-weather-attribution">Open-Meteo</small>
     </section>
   );
 }

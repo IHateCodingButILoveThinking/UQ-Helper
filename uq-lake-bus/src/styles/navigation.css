@@ -112,7 +112,14 @@
 .page-content-motion {
   grid-column: 1 / -1;
   min-width: 0;
+  will-change: opacity, transform, filter;
   transform-origin: top center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-content-motion {
+    will-change: auto;
+  }
 }
 
 .board-content-motion {
