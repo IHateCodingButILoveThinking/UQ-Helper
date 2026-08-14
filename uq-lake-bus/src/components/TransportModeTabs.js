@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { BusFront, House, Ship, TrainFront } from "lucide-react";
 
@@ -9,12 +8,6 @@ const MODES = [
 ];
 
 export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
-  const [visualMode, setVisualMode] = useState(activeMode);
-
-  useEffect(() => {
-    setVisualMode(activeMode);
-  }, [activeMode]);
-
   return (
     <div className="transport-navigation-shell">
       <motion.button
@@ -38,23 +31,20 @@ export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
           <motion.button
             key={id}
             type="button"
-            className={visualMode === id ? "active" : ""}
+            className={activeMode === id ? "active" : ""}
             aria-current={activeMode === id ? "page" : undefined}
-            onClick={() => {
-              setVisualMode(id);
-              onSelect(id);
-            }}
+            aria-pressed={activeMode === id}
+            onClick={() => activeMode !== id && onSelect(id)}
             whileTap={{ scale: 0.96 }}
           >
-            {visualMode === id ? (
+            {activeMode === id ? (
               <motion.span
                 className="transport-mode-active-pill"
-                layoutId="transport-mode-active-pill"
+                initial={{ opacity: 0, scale: 0.94 }}
+                animate={{ opacity: 1, scale: 1 }}
                 transition={{
-                  type: "spring",
-                  stiffness: 500,
-                  damping: 40,
-                  mass: 0.52,
+                  duration: 0.16,
+                  ease: [0.16, 1, 0.3, 1],
                 }}
               />
             ) : null}

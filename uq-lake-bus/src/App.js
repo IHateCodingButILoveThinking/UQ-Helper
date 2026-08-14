@@ -1185,6 +1185,7 @@ export default function App() {
       };
   const pageAnimateState = {
     opacity: 1,
+    pointerEvents: "auto",
     x: 0,
     y: 0,
     transition: {
@@ -1193,9 +1194,10 @@ export default function App() {
     },
   };
   const pageExitState = reduceMotion
-    ? { opacity: 1 }
+    ? { opacity: 1, pointerEvents: "none", transition: { duration: 0 } }
     : {
         opacity: 0,
+        pointerEvents: "none",
         y: isHomePage ? 3 : -4,
         transition: {
           duration: 0.1,
