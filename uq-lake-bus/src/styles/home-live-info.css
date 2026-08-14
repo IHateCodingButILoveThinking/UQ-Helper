@@ -66,13 +66,13 @@
   --weather-b: #72b8d8;
   position: relative;
   isolation: isolate;
-  min-height: 104px;
+  min-height: 112px;
   display: grid;
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.15fr);
   align-items: center;
-  gap: 9px;
+  gap: 11px;
   overflow: hidden;
-  padding: 13px;
+  padding: 14px;
   border: 1px solid rgba(255, 255, 255, 0.34);
   border-radius: 24px;
   background:
@@ -170,7 +170,7 @@
 }
 
 .home-weather-reading strong {
-  font-size: 1.65rem;
+  font-size: 1.74rem;
   font-weight: 900;
   letter-spacing: -0.07em;
   line-height: 1;
@@ -184,7 +184,7 @@
 .home-weather-reading span {
   overflow: hidden;
   color: rgba(255, 255, 255, 0.9);
-  font-size: 0.61rem;
+  font-size: 0.68rem;
   font-weight: 850;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -193,24 +193,24 @@
 .home-conditions-metrics {
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 5px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 7px;
 }
 
 .home-condition-metric {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 7px;
+  gap: 7px;
+  padding: 10px 8px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.1);
 }
 
 .home-condition-metric-icon {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
@@ -219,8 +219,8 @@
 }
 
 .home-condition-metric-icon svg {
-  width: 12px;
-  height: 12px;
+  width: 14px;
+  height: 14px;
 }
 
 .home-condition-metric > span:last-child {
@@ -229,10 +229,15 @@
   gap: 1px;
 }
 
+.home-condition-metric small {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.56rem;
+}
+
 .home-condition-metric strong {
   overflow: hidden;
   color: #ffffff;
-  font-size: 0.57rem;
+  font-size: 0.68rem;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -479,7 +484,9 @@
 
 @media (max-width: 350px) {
   .home-conditions-card {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 10px;
+    padding-bottom: 17px;
   }
 
   .home-weather-orb {
@@ -492,11 +499,7 @@
   }
 
   .home-conditions-metrics {
-    grid-template-columns: 1fr;
-  }
-
-  .home-condition-metric:first-child {
-    display: none;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
 }

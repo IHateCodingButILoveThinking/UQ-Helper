@@ -1,4 +1,8 @@
 /* Animated top navigation and page transition wrappers. */
+.app-shell {
+  position: relative;
+}
+
 .physical-page-toggle {
   grid-column: 1 / -1;
   width: 100%;
@@ -112,7 +116,8 @@
 .page-content-motion {
   grid-column: 1 / -1;
   min-width: 0;
-  will-change: opacity, transform, filter;
+  position: relative;
+  will-change: opacity, transform;
   transform-origin: top center;
 }
 

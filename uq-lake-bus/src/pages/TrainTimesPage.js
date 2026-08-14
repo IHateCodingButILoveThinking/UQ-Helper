@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 
 const TRAIN_REFRESH_MS = 30_000;
+const TRAIN_CACHE_TTL_MS = 30_000;
 const SAVED_TRAIN_STATIONS_KEY = "uq-train-saved-stations-v1";
 const GTFS_RT_SOURCE_URL =
   "https://translink.com.au/about-translink/open-data/gtfs-rt";
@@ -79,6 +80,7 @@ const TRAIN_STATIONS = [
   ]),
 ];
 const DEFAULT_SAVED_STATION_IDS = [];
+const trainDepartureCache = new Map();
 
 export default function TrainTimesPage({ modeSelector }) {
   const [savedStationIds, setSavedStationIds] = useState(getSavedStationIds);
@@ -95,6 +97,7 @@ export default function TrainTimesPage({ modeSelector }) {
   const [error, setError] = useState("");
   const stationSearchRef = useRef(null);
   const savedStationStripRef = useRef(null);
+  const requestIdRef = useRef(0);
   const activeStation = TRAIN_STATIONS.find(
     (station) => station.id === selectedStationId,
   );
@@ -139,8 +142,12 @@ export default function TrainTimesPage({ modeSelector }) {
     if (!activeStation) {
       setData(null);
       setLoading(false);
+      setRefreshing(false);
       return;
     }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
     if (silent) {
       setRefreshing(true);
@@ -158,14 +165,30 @@ export default function TrainTimesPage({ modeSelector }) {
         throw new Error("Could not load train departures.");
       }
 
-      setData(await response.json());
+      const nextData = await response.json();
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      trainDepartureCache.set(activeStation.stopName, {
+        data: nextData,
+        timestamp: Date.now(),
+      });
+      setData(nextData);
       setError("");
     } catch (fetchError) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       console.error(fetchError);
       setError("Train times are unavailable right now.");
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestId === requestIdRef.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
     }
   };
 
@@ -177,22 +200,23 @@ export default function TrainTimesPage({ modeSelector }) {
       return undefined;
     }
 
-    let isActive = true;
+    const cachedData = getCachedTrainData(activeStation.stopName);
 
-    const load = async (options) => {
-      if (isActive) {
-        await loadTrains(options);
-      }
-    };
+    if (cachedData) {
+      setData(cachedData);
+      setLoading(false);
+      loadTrains({ silent: true });
+    } else {
+      loadTrains();
+    }
 
-    load();
     const intervalId = window.setInterval(
-      () => load({ silent: true }),
+      () => loadTrains({ silent: true }),
       TRAIN_REFRESH_MS,
     );
 
     return () => {
-      isActive = false;
+      requestIdRef.current += 1;
       window.clearInterval(intervalId);
     };
   }, [activeStation?.stopName]);
@@ -202,7 +226,17 @@ export default function TrainTimesPage({ modeSelector }) {
       return;
     }
 
-    setData(null);
+    requestIdRef.current += 1;
+    const nextStation = TRAIN_STATIONS.find(
+      (station) => station.id === stationId,
+    );
+    const cachedData = nextStation
+      ? getCachedTrainData(nextStation.stopName)
+      : null;
+
+    setData(cachedData);
+    setLoading(Boolean(nextStation) && !cachedData);
+    setRefreshing(false);
     setError("");
     setSelectedStationId(stationId);
   };
@@ -436,7 +470,11 @@ export default function TrainTimesPage({ modeSelector }) {
                 key={departure.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: Math.min(index * 0.035, 0.25) }}
+                transition={{
+                  delay: Math.min(index * 0.018, 0.11),
+                  duration: 0.2,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
               >
                 <span className="train-node" aria-hidden="true">
                   <TrainFront />
@@ -538,6 +576,17 @@ function createStation(id, label, aliases = []) {
     platformLabel: "Check platform on service",
     stopName: `${label} station`,
   };
+}
+
+function getCachedTrainData(stopName) {
+  const cached = trainDepartureCache.get(stopName);
+
+  if (!cached || Date.now() - cached.timestamp > TRAIN_CACHE_TTL_MS) {
+    trainDepartureCache.delete(stopName);
+    return null;
+  }
+
+  return cached.data;
 }
 
 function getSavedStationIds() {

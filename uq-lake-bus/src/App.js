@@ -23,7 +23,6 @@ import TransportModeTabs from "./components/TransportModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
 
 const REFRESH_MS = 30000;
-const FILTER_PENDING_MS = 450;
 const DESTINATION_SEARCH_DEBOUNCE_MS = 220;
 const PLANNER_DEPARTURE_LIMIT = 96;
 const ALL_ROUTES_ID = "all-routes";
@@ -39,7 +38,8 @@ const FEATURE_FLAGS = Object.freeze({
   exams: false,
   food: false,
 });
-const SPLASH_DURATION_MS = 1100;
+const SPLASH_DURATION_MS = 420;
+const SPLASH_SESSION_KEY = "uq-campus-splash-seen-v1";
 const UQ_SPLASH_LOGO_URL =
   "https://static.uq.net.au/v15/logos/corporate/uq-logo-white.svg";
 const PLANNER_FIELD_ORIGIN = "origin";
@@ -222,7 +222,7 @@ const OFFICIAL_STATION_CHOICES = [
 export default function App() {
   const reduceMotion = useReducedMotion();
   const [currentPage, setCurrentPage] = useState(getInitialPageId);
-  const [showSplash, setShowSplash] = useState(true);
+  const [showSplash, setShowSplash] = useState(shouldShowCampusSplash);
   const [librarySubPageOpen, setLibrarySubPageOpen] = useState(false);
   const [selectedStopId, setSelectedStopId] = useState(getInitialStopId);
   const [data, setData] = useState(null);
@@ -278,14 +278,23 @@ export default function App() {
     currentPage === BOARD_PAGE_ID && (filterOpen || stopSheetOpen);
 
   useEffect(() => {
+    if (!showSplash) {
+      return undefined;
+    }
+
     const splashTimer = window.setTimeout(() => {
+      try {
+        window.sessionStorage.setItem(SPLASH_SESSION_KEY, "true");
+      } catch {
+        // The shorter splash still exits normally when storage is unavailable.
+      }
       setShowSplash(false);
     }, SPLASH_DURATION_MS);
 
     return () => {
       window.clearTimeout(splashTimer);
     };
-  }, []);
+  }, [showSplash]);
 
   useEffect(() => {
     let timerId;
@@ -737,15 +746,9 @@ export default function App() {
       return undefined;
     }
 
-    setFilterPending(true);
-    const timeoutId = window.setTimeout(() => {
-      setAppliedRoute(selectedRoute);
-      setFilterPending(false);
-    }, FILTER_PENDING_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
+    setAppliedRoute(selectedRoute);
+    setFilterPending(false);
+    return undefined;
   }, [appliedRoute, selectedRoute]);
 
   const boardDepartures = departures;
@@ -1178,30 +1181,24 @@ export default function App() {
     ? { opacity: 1 }
     : {
         opacity: 0,
-        y: isHomePage ? -8 : 12,
-        scale: 0.992,
-        filter: "blur(4px)",
+        y: isHomePage ? -4 : 7,
       };
   const pageAnimateState = {
     opacity: 1,
     x: 0,
     y: 0,
-    scale: 1,
-    filter: "blur(0px)",
     transition: {
-      duration: reduceMotion ? 0 : 0.32,
-      ease: [0.22, 1, 0.36, 1],
+      duration: reduceMotion ? 0 : 0.2,
+      ease: [0.16, 1, 0.3, 1],
     },
   };
   const pageExitState = reduceMotion
     ? { opacity: 1 }
     : {
         opacity: 0,
-        y: isHomePage ? 6 : -6,
-        scale: 0.996,
-        filter: "blur(2px)",
+        y: isHomePage ? 3 : -4,
         transition: {
-          duration: 0.16,
+          duration: 0.1,
           ease: [0.4, 0, 1, 1],
         },
       };
@@ -1235,7 +1232,7 @@ export default function App() {
         </motion.button>
       ) : null}
 
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="popLayout" initial={false}>
         <motion.div
           key={currentPage}
           className={[
@@ -1978,7 +1975,7 @@ function CampusSplashScreen() {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.04 }}
-      transition={{ duration: 0.24, ease: "easeInOut" }}
+      transition={{ duration: 0.16, ease: "easeOut" }}
       aria-label="The University of Queensland Create Change splash screen"
     >
       <div className="uq-splash-curves" aria-hidden="true">
@@ -1993,7 +1990,7 @@ function CampusSplashScreen() {
         className="uq-splash-content"
         initial={{ opacity: 0, y: 22, scale: 0.92 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ delay: 0.06, duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+        transition={{ delay: 0.02, duration: 0.27, ease: [0.16, 1, 0.3, 1] }}
       >
         <img
           src={UQ_SPLASH_LOGO_URL}
@@ -2006,7 +2003,7 @@ function CampusSplashScreen() {
           className="uq-splash-divider"
           initial={{ scaleX: 0 }}
           animate={{ scaleX: 1 }}
-          transition={{ delay: 0.34, duration: 0.34, ease: "easeInOut" }}
+          transition={{ delay: 0.12, duration: 0.18, ease: "easeOut" }}
           aria-hidden="true"
         />
 
@@ -2014,7 +2011,7 @@ function CampusSplashScreen() {
           className="uq-splash-motto"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 0.3, ease: "easeOut" }}
+          transition={{ delay: 0.19, duration: 0.16, ease: "easeOut" }}
         >
           CREATE CHANGE
         </motion.p>
@@ -2579,6 +2576,18 @@ function getInitialStopId() {
 
 function getInitialPageId() {
   return HOME_PAGE_ID;
+}
+
+function shouldShowCampusSplash() {
+  if (typeof window === "undefined") {
+    return false;
+  }
+
+  try {
+    return window.sessionStorage.getItem(SPLASH_SESSION_KEY) !== "true";
+  } catch {
+    return true;
+  }
 }
 
 function getInitialRouteId() {

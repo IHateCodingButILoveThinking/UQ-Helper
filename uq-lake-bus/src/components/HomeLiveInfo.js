@@ -15,11 +15,18 @@ const WEATHER_URL =
   "https://api.open-meteo.com/v1/forecast?latitude=-27.4975&longitude=153.0137&current=temperature_2m,is_day,weather_code,wind_speed_10m&forecast_days=1&timezone=Australia%2FBrisbane";
 const AIR_QUALITY_URL =
   "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-27.4975&longitude=153.0137&current=us_aqi,pm2_5&timezone=Australia%2FBrisbane";
+const CONDITIONS_CACHE_TTL_MS = 5 * 60 * 1000;
+let homeConditionsCache = null;
 
 export function HomeConditionsCard() {
-  const [weather, setWeather] = useState(null);
-  const [airQuality, setAirQuality] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const cachedConditions = getCachedConditions();
+  const [weather, setWeather] = useState(
+    () => cachedConditions?.weather ?? null,
+  );
+  const [airQuality, setAirQuality] = useState(
+    () => cachedConditions?.airQuality ?? null,
+  );
+  const [loading, setLoading] = useState(() => !cachedConditions);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -33,16 +40,36 @@ export function HomeConditionsCard() {
         return;
       }
 
+      const nextWeather =
+        weatherResult.status === "fulfilled"
+          ? weatherResult.value
+          : homeConditionsCache?.weather ?? null;
+      const nextAirQuality =
+        airResult.status === "fulfilled"
+          ? airResult.value
+          : homeConditionsCache?.airQuality ?? null;
+
       if (weatherResult.status === "fulfilled") {
-        setWeather(weatherResult.value);
+        setWeather(nextWeather);
       } else if (weatherResult.reason?.name !== "AbortError") {
         console.error("Could not load home weather.", weatherResult.reason);
       }
 
       if (airResult.status === "fulfilled") {
-        setAirQuality(airResult.value);
+        setAirQuality(nextAirQuality);
       } else if (airResult.reason?.name !== "AbortError") {
         console.error("Could not load home air quality.", airResult.reason);
+      }
+
+      if (
+        weatherResult.status === "fulfilled" ||
+        airResult.status === "fulfilled"
+      ) {
+        homeConditionsCache = {
+          airQuality: nextAirQuality,
+          timestamp: Date.now(),
+          weather: nextWeather,
+        };
       }
 
       setLoading(false);
@@ -119,6 +146,17 @@ export function HomeConditionsCard() {
       <small className="home-weather-attribution">Open-Meteo</small>
     </section>
   );
+}
+
+function getCachedConditions() {
+  if (
+    !homeConditionsCache ||
+    Date.now() - homeConditionsCache.timestamp > CONDITIONS_CACHE_TTL_MS
+  ) {
+    return null;
+  }
+
+  return homeConditionsCache;
 }
 
 async function fetchJson(url, signal) {

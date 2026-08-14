@@ -52,9 +52,9 @@ export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
                 layoutId="transport-mode-active-pill"
                 transition={{
                   type: "spring",
-                  stiffness: 430,
-                  damping: 34,
-                  mass: 0.72,
+                  stiffness: 500,
+                  damping: 40,
+                  mass: 0.52,
                 }}
               />
             ) : null}
