@@ -1245,6 +1245,11 @@ export default function App() {
             <CampusHomePage
               onOpenBoard={() => handlePageChange(BOARD_PAGE_ID)}
               onOpenStudySpaces={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
+              transportDescription={
+                data?.departures?.[0]
+                  ? `Next ${data.departures[0].routeCode} · ${data.departures[0].countdownText}`
+                  : "Live campus departures"
+              }
             />
           ) : currentPage === BOARD_PAGE_ID ? (
             <>
@@ -2000,32 +2005,29 @@ function CampusSplashScreen() {
   );
 }
 
-function CampusHomePage({ onOpenBoard, onOpenStudySpaces }) {
+function CampusHomePage({
+  onOpenBoard,
+  onOpenStudySpaces,
+  transportDescription,
+}) {
   const homeActions = [
     {
       accentClass: "bus",
-      description: "Buses, ferries and trains",
+      description: transportDescription,
       Icon: Bus,
       label: "Live Transport",
       onClick: onOpenBoard,
-      status: "Live now",
+      status: "Live",
     },
     {
       accentClass: "study",
-      description: "Find a seat on campus",
+      description: "Live seat availability",
       Icon: LampDesk,
       label: "Study Spaces",
       onClick: onOpenStudySpaces,
-      status: "Check spaces",
+      status: "Live",
     },
   ];
-
-  const todayLabel = new Intl.DateTimeFormat("en-AU", {
-    weekday: "long",
-    day: "numeric",
-    month: "short",
-    timeZone: BRISBANE_TZ,
-  }).format(new Date());
 
   return (
     <section className="campus-home-page" aria-label="UQ Campus home">
@@ -2036,26 +2038,13 @@ function CampusHomePage({ onOpenBoard, onOpenStudySpaces }) {
         transition={{ duration: 0.46, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="campus-home-meta">
-          <span className="campus-home-location">St Lucia campus</span>
-          <span className="campus-home-date">{todayLabel}</span>
+          <span className="campus-home-location">St Lucia</span>
         </div>
-        <p className="campus-home-kicker">Your campus, at a glance</p>
-        <h1>Make your next move.</h1>
-        <p className="campus-home-intro">
-          Weather, travel and study spots—without the clutter.
-        </p>
+        <h1>UQ Campus</h1>
       </motion.header>
 
       <div className="campus-home-dashboard">
         <HomeConditionsCard />
-
-        <div className="campus-home-section-heading">
-          <div>
-            <span>Explore campus</span>
-            <strong>What do you need?</strong>
-          </div>
-          <span className="campus-home-section-count">2 shortcuts</span>
-        </div>
 
         <div className="campus-home-actions compact" aria-label="Campus shortcuts">
           {homeActions.map(

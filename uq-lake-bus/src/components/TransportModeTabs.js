@@ -8,10 +8,7 @@ const MODES = [
 
 export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
   return (
-    <nav
-      className={`transport-mode-nav active-${activeMode}`}
-      aria-label="Transport navigation"
-    >
+    <div className="transport-navigation-shell">
       <button
         type="button"
         className="transport-home-button"
@@ -23,18 +20,23 @@ export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
         <span className="transport-home-label">Home</span>
       </button>
 
-      {MODES.map(({ Icon, id, label }) => (
-        <button
-          key={id}
-          type="button"
-          className={activeMode === id ? "active" : ""}
-          aria-current={activeMode === id ? "page" : undefined}
-          onClick={() => onSelect(id)}
-        >
-          <Icon aria-hidden="true" />
-          <span>{label}</span>
-        </button>
-      ))}
-    </nav>
+      <nav
+        className={`transport-mode-nav active-${activeMode}`}
+        aria-label="Choose transport type"
+      >
+        {MODES.map(({ Icon, id, label }) => (
+          <button
+            key={id}
+            type="button"
+            className={activeMode === id ? "active" : ""}
+            aria-current={activeMode === id ? "page" : undefined}
+            onClick={() => onSelect(id)}
+          >
+            <Icon aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
   );
 }

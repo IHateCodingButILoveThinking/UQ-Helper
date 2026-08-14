@@ -1,164 +1,110 @@
-/* Compact, mobile-first home dashboard. Loaded after the shared app styles. */
+/* Compact campus home: three decisions, one screen. */
 .app-shell.page-home {
   max-width: 480px;
-  background: #f6f5f8;
+  background: #f5f4f7;
 }
 
 .campus-home-page {
   min-height: 100dvh;
   overflow: auto;
   background:
-    radial-gradient(circle at 92% 6%, rgba(81, 36, 122, 0.08), transparent 27%),
-    #f6f5f8;
+    radial-gradient(circle at 88% 0%, rgba(81, 36, 122, 0.1), transparent 24%),
+    #f5f4f7;
 }
 
 .campus-home-hero {
-  padding: calc(30px + env(safe-area-inset-top)) 22px 70px;
+  padding: calc(24px + env(safe-area-inset-top)) 20px 17px;
   border: 0;
-  border-radius: 0 0 36px 36px;
-  background:
-    radial-gradient(circle at 88% 18%, rgba(167, 124, 213, 0.22), transparent 29%),
-    linear-gradient(150deg, #ffffff 0%, #fbf8ff 100%);
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 
 .campus-home-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-bottom: 28px;
-}
-
-.campus-home-location,
-.campus-home-date {
-  color: #735b82;
-  font-size: 0.66rem;
-  font-weight: 900;
-  letter-spacing: 0.105em;
-  text-transform: uppercase;
+  margin: 0 0 7px;
 }
 
 .campus-home-location {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-}
-
-.campus-home-location::before {
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: #6f2c91;
-  box-shadow: 0 0 0 5px rgba(111, 44, 145, 0.1);
-  content: "";
-}
-
-.campus-home-date {
-  color: #9a8da2;
-  letter-spacing: 0.045em;
-}
-
-.campus-home-kicker,
-.campus-home-intro {
-  margin: 0;
-}
-
-.campus-home-hero .campus-home-kicker {
-  margin: 0 0 7px;
-  color: #7d5f8d;
-  font-size: 0.72rem;
+  color: #786581;
+  font-size: 0.61rem;
   font-weight: 900;
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-.campus-home-hero h1 {
-  max-width: 350px;
-  color: #2d1739;
-  font-size: clamp(2rem, 9vw, 2.65rem);
-  font-weight: 950;
-  letter-spacing: -0.062em;
-  line-height: 1.02;
+.campus-home-location::before {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #6f2c91;
+  box-shadow: 0 0 0 4px rgba(111, 44, 145, 0.1);
+  content: "";
 }
 
-.campus-home-hero .campus-home-intro {
-  max-width: 330px;
-  margin-top: 12px;
-  color: #786b80;
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.45;
+.campus-home-hero h1 {
+  max-width: none;
+  margin: 0;
+  color: #2d1739;
+  font-size: clamp(1.72rem, 7.7vw, 2.16rem);
+  font-weight: 950;
+  letter-spacing: -0.06em;
+  line-height: 1;
 }
 
 .campus-home-dashboard {
   display: grid;
   align-content: start;
-  gap: 20px;
-  margin-top: -50px;
-  padding: 0 18px calc(28px + env(safe-area-inset-bottom));
+  gap: 12px;
+  padding: 0 14px calc(22px + env(safe-area-inset-bottom));
 }
 
 .home-conditions-card {
   --weather-a: #58247a;
-  --weather-b: #7653b6;
+  --weather-b: #8550a1;
   position: relative;
   isolation: isolate;
-  min-height: 224px;
+  min-height: 104px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 17px 14px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
   overflow: hidden;
-  padding: 21px;
-  border: 1px solid rgba(255, 255, 255, 0.38);
-  border-radius: 28px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 24px;
   background:
-    radial-gradient(circle at 92% 9%, rgba(255, 255, 255, 0.2), transparent 28%),
-    linear-gradient(145deg, var(--weather-a), var(--weather-b));
+    radial-gradient(circle at 92% 4%, rgba(255, 255, 255, 0.18), transparent 34%),
+    linear-gradient(140deg, var(--weather-a), var(--weather-b));
   box-shadow:
-    0 20px 40px rgba(66, 35, 92, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    0 15px 30px rgba(66, 35, 92, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
   color: #ffffff;
 }
 
-.home-conditions-card::before,
 .home-conditions-card::after {
   position: absolute;
+  right: -42px;
+  bottom: -73px;
   z-index: -1;
+  width: 142px;
+  height: 142px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.08);
   content: "";
-}
-
-.home-conditions-card::before {
-  top: -70px;
-  right: -34px;
-  width: 170px;
-  height: 170px;
-}
-
-.home-conditions-card::after {
-  right: 72px;
-  bottom: -82px;
-  width: 145px;
-  height: 145px;
-}
-
-.home-conditions-card.weather-sunny {
-  --weather-a: #5b287d;
-  --weather-b: #9a5d9f;
 }
 
 .home-conditions-card.weather-cloudy,
 .home-conditions-card.weather-foggy {
-  --weather-a: #3c486d;
-  --weather-b: #6879a5;
+  --weather-a: #3e496c;
+  --weather-b: #687aa4;
 }
 
 .home-conditions-card.weather-rainy {
-  --weather-a: #254d78;
-  --weather-b: #4b7fa6;
+  --weather-a: #265078;
+  --weather-b: #4e7fa5;
 }
 
 .home-conditions-card.weather-stormy {
@@ -168,146 +114,115 @@
 
 .home-weather-primary {
   min-width: 0;
-}
-
-.home-weather-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 0.64rem;
-  font-weight: 900;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.home-live-dot,
-.campus-home-card-status i {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: 999px;
-  background: #8ef0c1;
-  box-shadow: 0 0 0 4px rgba(142, 240, 193, 0.13);
-  animation: home-live-pulse 2.1s ease-in-out infinite;
-}
-
-.home-weather-reading {
   display: flex;
-  align-items: baseline;
-  margin-top: 8px;
-}
-
-.home-weather-reading strong {
-  font-size: clamp(3.35rem, 16vw, 4.3rem);
-  font-weight: 850;
-  letter-spacing: -0.085em;
-  line-height: 0.95;
-}
-
-.home-weather-reading sup {
-  align-self: flex-start;
-  margin-top: 5px;
-  font-size: 1.42rem;
-  font-weight: 800;
-}
-
-.home-weather-reading span {
-  max-width: 84px;
-  margin-left: 9px;
-  color: rgba(255, 255, 255, 0.88);
-  font-size: 0.74rem;
-  font-weight: 850;
-  line-height: 1.18;
-}
-
-.home-weather-primary p {
-  margin: 8px 0 0;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 0.64rem;
-  font-weight: 700;
-  line-height: 1.35;
+  align-items: center;
+  gap: 10px;
 }
 
 .home-weather-orb {
-  position: relative;
-  width: 72px;
-  height: 72px;
+  width: 48px;
+  height: 48px;
   display: grid;
   place-items: center;
-  align-self: center;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 24px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
   animation: home-weather-float 4.5s ease-in-out infinite;
 }
 
 .home-weather-orb svg {
-  width: 34px;
-  height: 34px;
-  filter: drop-shadow(0 5px 7px rgba(30, 12, 47, 0.22));
+  width: 25px;
+  height: 25px;
+  filter: drop-shadow(0 4px 6px rgba(30, 12, 47, 0.2));
 }
 
-.home-weather-ring {
-  position: absolute;
-  inset: -7px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 29px;
+.home-weather-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.home-weather-copy > small,
+.home-condition-metric small {
+  color: rgba(255, 255, 255, 0.57);
+  font-size: 0.5rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.home-weather-reading {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+}
+
+.home-weather-reading strong {
+  font-size: 1.65rem;
+  font-weight: 900;
+  letter-spacing: -0.07em;
+  line-height: 1;
+}
+
+.home-weather-reading sup {
+  font-size: 0.72rem;
+  vertical-align: top;
+}
+
+.home-weather-reading span {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.61rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .home-conditions-metrics {
-  grid-column: 1 / -1;
+  min-width: 0;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 5px;
 }
 
 .home-condition-metric {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 9px;
-  padding: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.11);
-  border-radius: 16px;
+  gap: 6px;
+  padding: 8px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 13px;
   background: rgba(255, 255, 255, 0.1);
 }
 
 .home-condition-metric-icon {
-  width: 29px;
-  height: 29px;
+  width: 22px;
+  height: 22px;
   display: grid;
   place-items: center;
   flex: 0 0 auto;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .home-condition-metric-icon svg {
-  width: 15px;
-  height: 15px;
+  width: 12px;
+  height: 12px;
 }
 
 .home-condition-metric > span:last-child {
   min-width: 0;
   display: grid;
-  gap: 2px;
-}
-
-.home-condition-metric small {
-  color: rgba(255, 255, 255, 0.56);
-  font-size: 0.54rem;
-  font-weight: 850;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  gap: 1px;
 }
 
 .home-condition-metric strong {
   overflow: hidden;
   color: #ffffff;
-  font-size: 0.68rem;
+  font-size: 0.57rem;
   font-weight: 900;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -328,71 +243,31 @@
 }
 
 .home-weather-source {
-  grid-column: 1 / -1;
-  width: fit-content;
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: -7px;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
   color: rgba(255, 255, 255, 0.52);
-  font-size: 0.53rem;
-  font-weight: 750;
   text-decoration: none;
 }
 
 .home-weather-source:hover,
 .home-weather-source:focus-visible {
+  background: rgba(255, 255, 255, 0.1);
   color: #ffffff;
   outline: none;
 }
 
 .home-weather-source svg {
-  width: 10px;
-  height: 10px;
-}
-
-.campus-home-section-heading {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 0 2px;
-}
-
-.campus-home-section-heading > div {
-  display: grid;
-  gap: 3px;
-}
-
-.campus-home-section-heading span {
-  color: #95889c;
-  font-size: 0.58rem;
-  font-weight: 900;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-}
-
-.campus-home-section-heading strong {
-  color: #2d2631;
-  font-size: 1.07rem;
-  font-weight: 950;
-  letter-spacing: -0.035em;
-}
-
-.campus-home-section-heading .campus-home-section-count {
-  padding: 6px 9px;
-  border-radius: 999px;
-  background: #ebe7ef;
-  color: #7d6c84;
-  font-size: 0.52rem;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
+  width: 12px;
+  height: 12px;
 }
 
 .campus-home-actions.compact {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 11px;
+  gap: 10px;
   padding: 0;
   overflow: visible;
 }
@@ -400,34 +275,34 @@
 .campus-home-actions.compact .campus-home-card {
   --card-color: #2469cc;
   position: relative;
-  min-height: 174px;
+  min-height: 154px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: space-between;
-  gap: 15px;
+  gap: 12px;
   overflow: hidden;
-  padding: 15px;
+  padding: 14px;
   border: 1px solid rgba(50, 43, 56, 0.06);
-  border-radius: 24px;
+  border-radius: 23px;
   background: #ffffff;
-  box-shadow: 0 10px 24px rgba(48, 40, 55, 0.07);
+  box-shadow: 0 10px 23px rgba(48, 40, 55, 0.07);
+}
+
+.campus-home-actions.compact .campus-home-card.study {
+  --card-color: #7c3db4;
 }
 
 .campus-home-actions.compact .campus-home-card::after {
   position: absolute;
-  right: -32px;
-  bottom: -44px;
+  right: -34px;
+  bottom: -46px;
   width: 102px;
   height: 102px;
   border-radius: 999px;
   background: color-mix(in srgb, var(--card-color) 8%, transparent);
   content: "";
   transition: transform 260ms ease;
-}
-
-.campus-home-actions.compact .campus-home-card.study {
-  --card-color: #7c3db4;
 }
 
 .campus-home-actions.compact .campus-home-card:hover,
@@ -450,28 +325,18 @@
 }
 
 .campus-home-actions.compact .campus-home-icon {
-  width: 45px;
-  height: 45px;
+  width: 43px;
+  height: 43px;
   display: grid;
   place-items: center;
-  border-radius: 15px;
+  border-radius: 14px;
   background: color-mix(in srgb, var(--card-color) 11%, white);
   color: var(--card-color);
 }
 
 .campus-home-actions.compact .campus-home-icon svg {
-  width: 21px;
-  height: 21px;
-}
-
-.campus-home-card:hover .campus-home-icon.bus svg,
-.campus-home-card:focus-visible .campus-home-icon.bus svg {
-  animation: home-bus-move 600ms ease-in-out;
-}
-
-.campus-home-card:hover .campus-home-icon.study svg,
-.campus-home-card:focus-visible .campus-home-icon.study svg {
-  transform: rotate(-6deg) scale(1.08);
+  width: 20px;
+  height: 20px;
 }
 
 .campus-home-card-status {
@@ -482,24 +347,25 @@
   color: #95899c;
   font-size: 0.5rem;
   font-weight: 850;
-  white-space: nowrap;
 }
 
 .campus-home-card-status i {
   width: 5px;
   height: 5px;
+  border-radius: 999px;
   background: var(--card-color);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--card-color) 10%, transparent);
+  animation: home-live-pulse 2.1s ease-in-out infinite;
 }
 
 .campus-home-actions.compact .campus-home-card-copy {
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 
 .campus-home-actions.compact .campus-home-card-copy strong {
   color: #29222e;
-  font-size: clamp(1rem, 4vw, 1.15rem);
+  font-size: 1.08rem;
   font-weight: 950;
   letter-spacing: -0.045em;
   line-height: 1.02;
@@ -507,17 +373,17 @@
 }
 
 .campus-home-actions.compact .campus-home-card-copy span {
-  max-width: 110px;
+  max-width: 120px;
   color: #817587;
-  font-size: 0.66rem;
+  font-size: 0.64rem;
   font-weight: 720;
   line-height: 1.3;
 }
 
 .campus-home-card-arrow {
   position: absolute;
-  right: 13px;
-  bottom: 13px;
+  right: 12px;
+  bottom: 12px;
   z-index: 1;
   width: 29px;
   height: 29px;
@@ -541,14 +407,19 @@
   transform: translate(2px, -2px);
 }
 
+.campus-home-card:hover .campus-home-icon.bus svg,
+.campus-home-card:focus-visible .campus-home-icon.bus svg {
+  animation: home-bus-move 600ms ease-in-out;
+}
+
 @keyframes home-live-pulse {
-  0%, 100% { opacity: 0.75; transform: scale(0.9); }
-  50% { opacity: 1; transform: scale(1.08); }
+  0%, 100% { opacity: 0.7; transform: scale(0.88); }
+  50% { opacity: 1; transform: scale(1.1); }
 }
 
 @keyframes home-weather-float {
   0%, 100% { transform: translateY(0) rotate(-2deg); }
-  50% { transform: translateY(-5px) rotate(2deg); }
+  50% { transform: translateY(-3px) rotate(2deg); }
 }
 
 @keyframes home-bus-move {
@@ -558,37 +429,11 @@
   60% { opacity: 1; }
 }
 
-@media (max-width: 350px) {
-  .campus-home-hero {
-    padding-right: 17px;
-    padding-left: 17px;
-  }
-
-  .campus-home-dashboard {
-    padding-right: 13px;
-    padding-left: 13px;
-  }
-
-  .home-conditions-card {
-    padding: 18px;
-  }
-
-  .home-weather-orb {
-    width: 62px;
-    height: 62px;
-    border-radius: 21px;
-  }
-
-  .home-weather-reading strong {
-    font-size: 3.15rem;
-  }
-
-  .home-condition-metric {
-    padding: 8px;
-  }
-
-  .home-condition-metric-icon {
-    display: none;
+/* Mobile is a live activity list, not a compressed desktop grid. */
+@media (max-width: 430px) {
+  .app-shell.page-home {
+    max-width: none;
+    box-shadow: none;
   }
 
   .campus-home-actions.compact {
@@ -596,13 +441,33 @@
   }
 
   .campus-home-actions.compact .campus-home-card {
-    min-height: 112px;
+    min-height: 92px;
     display: grid;
-    grid-template-columns: 45px minmax(0, 1fr) 29px;
+    grid-template-columns: 48px minmax(0, 1fr) 34px;
     grid-template-rows: 1fr;
     align-items: center;
     gap: 12px;
-    padding: 14px;
+    padding: 12px 13px;
+    border-radius: 22px;
+  }
+
+  .campus-home-actions.compact .campus-home-card::before {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 4px;
+    border-radius: 22px 0 0 22px;
+    background: var(--card-color);
+    content: "";
+    transform: scaleY(0.56);
+  }
+
+  .campus-home-actions.compact .campus-home-card::after {
+    right: -38px;
+    bottom: -64px;
+    width: 125px;
+    height: 125px;
   }
 
   .campus-home-card-top {
@@ -612,32 +477,66 @@
   .campus-home-actions.compact .campus-home-icon {
     grid-column: 1;
     grid-row: 1;
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
   }
 
   .campus-home-card-status {
     position: absolute;
     top: 11px;
-    right: 13px;
-    font-size: 0.48rem;
+    right: 14px;
+    padding: 0;
   }
 
   .campus-home-actions.compact .campus-home-card-copy {
     grid-column: 2;
     grid-row: 1;
+    padding-top: 4px;
   }
 
   .campus-home-actions.compact .campus-home-card-copy strong {
-    font-size: 1.04rem;
+    font-size: 1.05rem;
   }
 
   .campus-home-actions.compact .campus-home-card-copy span {
     max-width: none;
+    font-size: 0.69rem;
   }
 
   .campus-home-card-arrow {
     position: static;
     grid-column: 3;
     grid-row: 1;
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-width: 350px) {
+  .home-conditions-card {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .home-weather-orb {
+    width: 42px;
+    height: 42px;
+  }
+
+  .home-weather-reading span {
+    max-width: 55px;
+  }
+
+  .home-conditions-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .home-condition-metric:first-child {
+    display: none;
+  }
+
+  .home-weather-source {
+    display: none;
   }
 }
 
@@ -648,15 +547,14 @@
   }
 
   .campus-home-page {
-    min-height: min(100dvh - 48px, 900px);
+    min-height: min(100dvh - 48px, 680px);
     border-radius: inherit;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-live-dot,
-  .campus-home-card-status i,
   .home-weather-orb,
+  .campus-home-card-status i,
   .campus-home-card:hover .campus-home-icon.bus svg,
   .campus-home-card:focus-visible .campus-home-icon.bus svg {
     animation: none;

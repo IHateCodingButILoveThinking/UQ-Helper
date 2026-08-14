@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 const WEATHER_URL =
-  "https://api.open-meteo.com/v1/forecast?latitude=-27.4975&longitude=153.0137&current=temperature_2m,apparent_temperature,is_day,precipitation,weather_code,wind_speed_10m&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=Australia%2FBrisbane";
+  "https://api.open-meteo.com/v1/forecast?latitude=-27.4975&longitude=153.0137&current=temperature_2m,is_day,weather_code,wind_speed_10m&forecast_days=1&timezone=Australia%2FBrisbane";
 const AIR_QUALITY_URL =
   "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=-27.4975&longitude=153.0137&current=us_aqi,pm2_5&timezone=Australia%2FBrisbane";
 const OPEN_METEO_SOURCE_URL = "https://open-meteo.com/";
@@ -58,11 +58,8 @@ export function HomeConditionsCard() {
 
   const current = weather?.current;
   const temperature = current?.temperature_2m;
-  const feelsLike = current?.apparent_temperature;
   const windSpeed = current?.wind_speed_10m;
   const weatherCode = current?.weather_code;
-  const high = weather?.daily?.temperature_2m_max?.[0];
-  const low = weather?.daily?.temperature_2m_min?.[0];
   const aqi = airQuality?.current?.us_aqi;
   const weatherState = useMemo(
     () => getWeatherState(weatherCode, current?.is_day, windSpeed),
@@ -78,28 +75,21 @@ export function HomeConditionsCard() {
       aria-label="Today's weather and air quality at UQ St Lucia"
       aria-busy={loading}
     >
-      <div className="home-weather-orb" aria-hidden="true">
-        <span className="home-weather-ring" />
-        <WeatherIcon />
-      </div>
+      <div className="home-weather-primary">
+        <div className="home-weather-orb" aria-hidden="true">
+          <WeatherIcon />
+        </div>
 
-      <div className="home-weather-primary" aria-live="polite">
-        <div className="home-weather-label">
-          <span className="home-live-dot" aria-hidden="true" />
-          Today at UQ
+        <div className="home-weather-copy" aria-live="polite">
+          <small>UQ now</small>
+          <div className="home-weather-reading">
+            <strong>
+              {loading ? "—" : hasWeather ? Math.round(temperature) : "—"}
+              <sup>°</sup>
+            </strong>
+            <span>{loading ? "Checking" : weatherState.label}</span>
+          </div>
         </div>
-        <div className="home-weather-reading">
-          <strong>{loading ? "—" : hasWeather ? Math.round(temperature) : "—"}</strong>
-          <sup>°</sup>
-          <span>{loading ? "Checking weather" : weatherState.label}</span>
-        </div>
-        <p>
-          {hasWeather
-            ? `${formatTemperature(high)} high · ${formatTemperature(low)} low · feels ${formatTemperature(feelsLike)}`
-            : loading
-              ? "Loading live campus conditions…"
-              : "Weather is temporarily unavailable."}
-        </p>
       </div>
 
       <div className="home-conditions-metrics">
@@ -109,7 +99,9 @@ export function HomeConditionsCard() {
           </span>
           <span>
             <small>Wind</small>
-            <strong>{Number.isFinite(windSpeed) ? `${Math.round(windSpeed)} km/h` : "—"}</strong>
+            <strong>
+              {Number.isFinite(windSpeed) ? `${Math.round(windSpeed)} km/h` : "—"}
+            </strong>
           </span>
         </div>
 
@@ -118,9 +110,9 @@ export function HomeConditionsCard() {
             <Gauge />
           </span>
           <span>
-            <small>Air quality</small>
+            <small>Air</small>
             <strong>
-              {Number.isFinite(aqi) ? `${Math.round(aqi)} · ${airState.label}` : "—"}
+              {Number.isFinite(aqi) ? `${Math.round(aqi)} ${airState.label}` : "—"}
             </strong>
           </span>
         </div>
@@ -131,8 +123,9 @@ export function HomeConditionsCard() {
         href={OPEN_METEO_SOURCE_URL}
         target="_blank"
         rel="noreferrer"
+        aria-label="Open the Open-Meteo weather data source"
+        title="Open-Meteo source"
       >
-        Live data by Open-Meteo
         <ExternalLink aria-hidden="true" />
       </a>
     </section>
@@ -150,10 +143,6 @@ async function fetchJson(url, signal) {
   }
 
   return response.json();
-}
-
-function formatTemperature(value) {
-  return Number.isFinite(value) ? `${Math.round(value)}°` : "—";
 }
 
 function getWeatherState(code, isDay, windSpeed) {

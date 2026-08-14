@@ -1,10 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowUpRight,
-  ChevronLeft,
-  ChevronRight,
   Clock3,
   Radio,
   RefreshCw,
@@ -39,7 +37,6 @@ const TRAIN_STATIONS = [
 ];
 
 export default function TrainTimesPage({ modeSelector }) {
-  const stationPickerRef = useRef(null);
   const [selectedStationId, setSelectedStationId] = useState("boggo-road");
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -99,29 +96,12 @@ export default function TrainTimesPage({ modeSelector }) {
   }, [activeStation.stopName]);
 
   const departures = data?.departures ?? [];
-  const scrollStations = (direction) => {
-    stationPickerRef.current?.scrollBy({
-      behavior: "smooth",
-      left: direction * 160,
-    });
-  };
-
   return (
     <section className="train-page" aria-label="Live train times">
       {modeSelector}
 
       <div className="train-station-carousel">
-        <button
-          type="button"
-          className="train-station-scroll"
-          aria-label="Scroll train stations left"
-          onClick={() => scrollStations(-1)}
-        >
-          <ChevronLeft aria-hidden="true" />
-        </button>
-
         <div
-          ref={stationPickerRef}
           className="train-station-picker"
           aria-label="Choose train station"
         >
@@ -149,15 +129,6 @@ export default function TrainTimesPage({ modeSelector }) {
             </button>
           ))}
         </div>
-
-        <button
-          type="button"
-          className="train-station-scroll"
-          aria-label="Scroll train stations right"
-          onClick={() => scrollStations(1)}
-        >
-          <ChevronRight aria-hidden="true" />
-        </button>
       </div>
 
       <header className="train-hero">

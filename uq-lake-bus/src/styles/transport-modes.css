@@ -1,13 +1,22 @@
-.transport-mode-nav {
+.transport-navigation-shell {
   position: sticky;
   top: max(8px, env(safe-area-inset-top));
   z-index: 35;
-  width: min(100%, 480px);
+  width: min(100%, 530px);
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 8px;
+  margin: 0 auto;
+}
+
+.transport-mode-nav {
+  width: 100%;
   min-height: 52px;
   display: grid;
-  grid-template-columns: 46px repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 4px;
-  margin: 0 auto;
+  margin: 0;
   padding: 4px;
   border: 1px solid rgba(64, 44, 84, 0.09);
   border-radius: 19px;
@@ -65,10 +74,27 @@
   box-shadow: 0 8px 18px rgba(49, 95, 196, 0.22);
 }
 
-.transport-mode-nav .transport-home-button {
-  width: 44px;
+.transport-home-button {
+  width: 52px;
+  min-height: 52px;
+  display: grid;
+  place-items: center;
   padding: 0;
+  border: 1px solid rgba(64, 44, 84, 0.09);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow:
+    0 12px 28px rgba(53, 34, 76, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.94);
   color: #4e4658;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    box-shadow 180ms ease,
+    color 180ms ease,
+    transform 180ms ease;
+  backdrop-filter: blur(22px) saturate(1.22);
+  -webkit-backdrop-filter: blur(22px) saturate(1.22);
 }
 
 .transport-home-label {
@@ -81,10 +107,24 @@
   white-space: nowrap;
 }
 
-.transport-mode-nav .transport-home-button:hover,
-.transport-mode-nav .transport-home-button:focus-visible {
-  background: #f1edf4;
+.transport-home-button:hover,
+.transport-home-button:focus-visible {
+  background: #ffffff;
+  box-shadow:
+    0 15px 32px rgba(53, 34, 76, 0.16),
+    0 0 0 3px rgba(81, 36, 122, 0.1);
   color: #51247a;
+  outline: none;
+  transform: translateY(-1px);
+}
+
+.transport-home-button:active {
+  transform: scale(0.96);
+}
+
+.transport-home-button svg {
+  width: 20px;
+  height: 20px;
 }
 
 .transport-mode-nav svg {
@@ -93,7 +133,7 @@
   flex: 0 0 auto;
 }
 
-.ferry-page > .transport-mode-nav {
+.ferry-page > .transport-navigation-shell {
   flex: 0 0 auto;
   top: max(8px, env(safe-area-inset-top));
   margin-top: calc(10px + env(safe-area-inset-top));
@@ -114,22 +154,18 @@ body[data-page="train"] {
 }
 
 .train-station-carousel {
-  width: min(100%, 480px);
-  display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) 38px;
-  align-items: center;
-  gap: 5px;
+  width: min(100%, 430px);
   margin: -2px auto 0;
 }
 
 .train-station-picker {
   min-width: 0;
   display: flex;
-  gap: 5px;
+  gap: 4px;
   overflow-x: auto;
-  padding: 5px;
+  padding: 4px;
   border: 1px solid rgba(49, 95, 196, 0.1);
-  border-radius: 18px;
+  border-radius: 16px;
   background: rgba(232, 239, 255, 0.78);
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
@@ -141,11 +177,12 @@ body[data-page="train"] {
 }
 
 .train-station-picker button {
-  flex: 0 0 132px;
-  min-height: 39px;
-  padding: 0 12px;
+  flex: 0 0 auto;
+  min-width: max-content;
+  min-height: 38px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 13px;
+  border-radius: 12px;
   background: transparent;
   color: #60708f;
   cursor: pointer;
@@ -166,32 +203,6 @@ body[data-page="train"] {
   background: #ffffff;
   box-shadow: 0 7px 16px rgba(50, 72, 112, 0.11);
   color: #244d9f;
-}
-
-.train-station-scroll {
-  width: 38px;
-  height: 38px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 1px solid rgba(49, 95, 196, 0.1);
-  border-radius: 13px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: 0 7px 16px rgba(50, 72, 112, 0.08);
-  color: #315fc4;
-  cursor: pointer;
-}
-
-.train-station-scroll:hover,
-.train-station-scroll:focus-visible {
-  border-color: rgba(49, 95, 196, 0.22);
-  background: #eef3ff;
-  outline: none;
-}
-
-.train-station-scroll svg {
-  width: 17px;
-  height: 17px;
 }
 
 .train-hero,
@@ -506,11 +517,16 @@ body[data-page="train"] {
     padding-top: calc(8px + env(safe-area-inset-top));
   }
 
-  .transport-mode-nav {
+  .transport-navigation-shell {
     top: max(6px, env(safe-area-inset-top));
     width: 100%;
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .transport-mode-nav {
     min-height: 50px;
-    grid-template-columns: 44px repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 3px;
     padding: 4px;
     border-radius: 18px;
@@ -532,11 +548,13 @@ body[data-page="train"] {
     height: 17px;
   }
 
-  .transport-mode-nav .transport-home-button {
-    width: 42px;
+  .transport-home-button {
+    width: 48px;
+    min-height: 50px;
+    border-radius: 17px;
   }
 
-  .ferry-page > .transport-mode-nav {
+  .ferry-page > .transport-navigation-shell {
     top: max(6px, env(safe-area-inset-top));
     width: calc(100% - 16px);
     margin-top: calc(8px + env(safe-area-inset-top));
@@ -549,20 +567,8 @@ body[data-page="train"] {
     padding: 18px;
   }
 
-  .train-station-carousel {
-    grid-template-columns: 34px minmax(0, 1fr) 34px;
-    gap: 4px;
-  }
-
-  .train-station-scroll {
-    width: 34px;
-    height: 38px;
-    border-radius: 12px;
-  }
-
   .train-station-picker button {
-    flex-basis: 118px;
-    padding-inline: 9px;
+    padding-inline: 14px;
     font-size: 0.67rem;
   }
 
