@@ -78,13 +78,22 @@ export async function fetchShoutOuts(placeId, options = {}) {
 }
 
 export async function fetchShoutOutSummary(options = {}) {
-  return apiRequest("/api/summary", { signal: options.signal });
+  const bounds = options.bounds;
+  const params = new URLSearchParams();
+  if (bounds) {
+    params.set("west", String(bounds.west));
+    params.set("south", String(bounds.south));
+    params.set("east", String(bounds.east));
+    params.set("north", String(bounds.north));
+  }
+  params.set("limit", "200");
+  return apiRequest(`/api/map?${params.toString()}`, { signal: options.signal });
 }
 
-export async function createShoutOut({ placeId, message, emoji = "" }) {
+export async function createShoutOut({ placeId, location, message, emoji = "" }) {
   return apiRequest("/api/messages", {
     method: "POST",
-    body: { placeId, message, emoji },
+    body: { placeId, location, message, emoji },
   });
 }
 

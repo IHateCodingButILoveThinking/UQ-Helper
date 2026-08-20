@@ -1,18 +1,19 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   ArrowLeft,
   ChevronDown,
+  ChevronUp,
   Flag,
   LocateFixed,
   MapPin,
-  Maximize2,
   MessageCircle,
-  Minimize2,
-  RefreshCw,
+  Plus,
   Send,
+  ShieldCheck,
   Sparkles,
+  X,
 } from "lucide-react";
 
 import {
@@ -21,372 +22,224 @@ import {
   fetchShoutOuts,
   reactToShoutOut,
   reportShoutOut,
-  SHOUTOUT_PLACES,
 } from "../lib/shoutout-api";
 
-const PLACE_STORAGE_KEY = "uq-shout-place-v1";
 const POST_EMOJIS = ["", "👋", "☕", "📚", "🎉", "👀"];
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👀"];
 const AVATAR_FACES = ["•ᴗ•", "•‿•", "•◡•", "^‿^", "•⌣•"];
-const CAMPUS_MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
+const BRISBANE_BOUNDS = {
+  west: 152.7,
+  south: -27.8,
+  east: 153.5,
+  north: -27.1,
+};
+const DEFAULT_CENTER = [153.0133, -27.4971];
 
 export default function ShoutOutPage({ onHome }) {
-  const [placeId, setPlaceId] = useState(readStoredPlace);
+  const [mapBounds, setMapBounds] = useState(null);
+  const [summaries, setSummaries] = useState([]);
+  const [mapLoading, setMapLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [summaries, setSummaries] = useState({});
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [draft, setDraft] = useState("");
-  const [postEmoji, setPostEmoji] = useState("");
-  const [posting, setPosting] = useState(false);
-  const [notice, setNotice] = useState("");
-  const [locationState, setLocationState] = useState("idle");
-  const [userPosition, setUserPosition] = useState(null);
-  const [reactionOpenId, setReactionOpenId] = useState("");
+  const [messagesLoading, setMessagesLoading] = useState(false);
   const [reactedIds, setReactedIds] = useState(() => new Set());
   const [reportedIds, setReportedIds] = useState(() => new Set());
-  const feedRef = useRef(null);
-  const requestSequenceRef = useRef(0);
+  const [reactionOpenId, setReactionOpenId] = useState("");
+  const messageRequestRef = useRef(0);
 
-  const selectedPlace = useMemo(
-    () => SHOUTOUT_PLACES.find((place) => place.id === placeId) ?? SHOUTOUT_PLACES[0],
-    [placeId],
-  );
-
-  const loadMessages = useCallback(
-    async ({ silent = false, signal } = {}) => {
-      const requestId = ++requestSequenceRef.current;
-      silent ? setRefreshing(true) : setLoading(true);
-      if (!silent) setMessages([]);
-      try {
-        const [payload, summaryPayload] = await Promise.all([
-          fetchShoutOuts(placeId, { signal }),
-          fetchShoutOutSummary({ signal }).catch(() => null),
-        ]);
-        if (requestId !== requestSequenceRef.current) return;
-        setMessages(payload.messages ?? []);
-        if (summaryPayload) {
-          setSummaries(
-            Object.fromEntries(
-              (summaryPayload.summaries ?? []).map((summary) => [summary.placeId, summary]),
-            ),
-          );
-        }
-        setError("");
-      } catch (loadError) {
-        if (loadError.name === "AbortError" || requestId !== requestSequenceRef.current) return;
-        setError(loadError.message || "Shout outs are unavailable right now.");
-      } finally {
-        if (requestId === requestSequenceRef.current) {
-          setLoading(false);
-          setRefreshing(false);
-        }
+  const updateMapBounds = useCallback((nextBounds) => {
+    setMapBounds((current) => {
+      if (
+        current &&
+        current.west === nextBounds.west &&
+        current.south === nextBounds.south &&
+        current.east === nextBounds.east &&
+        current.north === nextBounds.north
+      ) {
+        return current;
       }
-    },
-    [placeId],
-  );
-
-  const scrollToPosts = useCallback(() => {
-    const anchor = feedRef.current;
-    if (!anchor) return;
-    const reduceMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    anchor.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
-    window.setTimeout(() => anchor.focus({ preventScroll: true }), reduceMotion ? 0 : 380);
+      return nextBounds;
+    });
   }, []);
 
   useEffect(() => {
+    if (!mapBounds) return undefined;
     const controller = new AbortController();
-    loadMessages({ signal: controller.signal });
-    const intervalId = window.setInterval(
-      () => loadMessages({ silent: true }),
-      30_000,
-    );
+
+    const loadMapPosts = async () => {
+      try {
+        const payload = await fetchShoutOutSummary({
+          bounds: mapBounds,
+          signal: controller.signal,
+        });
+        const nextSummaries = payload.summaries ?? [];
+        setSummaries(nextSummaries);
+        setSelected((current) => {
+          if (!current) return current;
+          return nextSummaries.find((item) => item.placeId === current.placeId) ?? current;
+        });
+      } catch (error) {
+        if (error.name !== "AbortError") console.error("Could not refresh map posts", error);
+      } finally {
+        if (!controller.signal.aborted) setMapLoading(false);
+      }
+    };
+
+    loadMapPosts();
+    const intervalId = window.setInterval(loadMapPosts, 30_000);
     return () => {
       controller.abort();
       window.clearInterval(intervalId);
     };
-  }, [loadMessages]);
+  }, [mapBounds]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(PLACE_STORAGE_KEY, placeId);
-    } catch {
-      // Selection still works when storage is unavailable.
+    if (!selected?.placeId) {
+      setMessages([]);
+      return undefined;
     }
-    setNotice("");
+
+    const requestId = ++messageRequestRef.current;
+    const controller = new AbortController();
+    setMessagesLoading(true);
     setReactionOpenId("");
-  }, [placeId]);
 
-  const submitMessage = async (event) => {
-    event.preventDefault();
-    if (!draft.trim() || posting) return;
-
-    setPosting(true);
-    setNotice("");
-    try {
-      const payload = await createShoutOut({
-        placeId,
-        message: draft,
-        emoji: postEmoji,
+    fetchShoutOuts(selected.placeId, { signal: controller.signal })
+      .then((payload) => {
+        if (requestId === messageRequestRef.current) setMessages(payload.messages ?? []);
+      })
+      .catch((error) => {
+        if (error.name !== "AbortError" && requestId === messageRequestRef.current) {
+          setMessages([]);
+        }
+      })
+      .finally(() => {
+        if (requestId === messageRequestRef.current) setMessagesLoading(false);
       });
-      setMessages((current) => [payload.message, ...current]);
-      setSummaries((current) => {
-        const previous = current[placeId];
-        return {
-          ...current,
-          [placeId]: {
-            placeId,
-            messageCount: Number(previous?.messageCount ?? 0) + 1,
-            latest: payload.message,
-          },
-        };
-      });
-      setDraft("");
-      setPostEmoji("");
-      setNotice("Posted for 7 days");
-    } catch (postError) {
-      setNotice(postError.message || "Could not post right now.");
-    } finally {
-      setPosting(false);
-    }
-  };
 
-  const chooseNearestPlace = () => {
-    if (!navigator.geolocation) {
-      setLocationState("unsupported");
-      return;
-    }
-    setLocationState("loading");
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const nearest = [...SHOUTOUT_PLACES].sort(
-          (a, b) =>
-            distanceKm(coords.latitude, coords.longitude, a.latitude, a.longitude) -
-            distanceKm(coords.latitude, coords.longitude, b.latitude, b.longitude),
-        )[0];
-        setUserPosition([coords.longitude, coords.latitude]);
-        setPlaceId(nearest.id);
-        setLocationState("ready");
-      },
-      () => setLocationState("denied"),
-      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 7000 },
+    return () => controller.abort();
+  }, [selected?.placeId]);
+
+  const createPost = async ({ location, message, emoji }) => {
+    const payload = await createShoutOut({ location, message, emoji });
+    const postedMessage = payload.message;
+    const postedLocation = postedMessage.location;
+    const previous = summaries.find((item) => item.placeId === postedLocation.placeId);
+    const nextSummary = {
+      ...postedLocation,
+      messageCount: Number(previous?.messageCount ?? 0) + 1,
+      latest: postedMessage,
+    };
+
+    setSummaries((current) => [
+      nextSummary,
+      ...current.filter((item) => item.placeId !== nextSummary.placeId),
+    ]);
+    setSelected(nextSummary);
+    setMessages((current) =>
+      previous?.placeId === nextSummary.placeId ? [postedMessage, ...current] : [postedMessage],
     );
+    return payload;
   };
 
   const react = async (messageId, emoji) => {
     if (reactedIds.has(messageId)) return;
     setReactionOpenId("");
-    try {
-      const payload = await reactToShoutOut(messageId, emoji);
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === messageId
-            ? { ...message, reactionCount: payload.reactionCount }
-            : message,
-        ),
-      );
-      setReactedIds((current) => new Set(current).add(messageId));
-    } catch (reactionError) {
-      setNotice(reactionError.message || "Could not add that reaction.");
-    }
+    const payload = await reactToShoutOut(messageId, emoji);
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === messageId
+          ? { ...message, reactionCount: payload.reactionCount }
+          : message,
+      ),
+    );
+    setReactedIds((current) => new Set(current).add(messageId));
   };
 
   const report = async (messageId) => {
     if (reportedIds.has(messageId)) return;
-    try {
-      await reportShoutOut(messageId);
-      setReportedIds((current) => new Set(current).add(messageId));
-      setNotice("Thanks — report received");
-    } catch (reportError) {
-      setNotice(reportError.message || "Could not report this message.");
-    }
+    await reportShoutOut(messageId);
+    setReportedIds((current) => new Set(current).add(messageId));
   };
 
   return (
-    <section className="shout-page" aria-label="UQ campus shout outs">
+    <section className="shout-page" aria-label="Brisbane shout-out map">
       <header className="shout-topbar">
         <button type="button" className="shout-icon-button" onClick={onHome} aria-label="Back to home">
           <ArrowLeft aria-hidden="true" />
         </button>
         <span className="shout-title-mark" aria-hidden="true"><MessageCircle /></span>
-        <span className="shout-title-copy"><small>UQ St Lucia</small><h1>Shout Out</h1></span>
-        <button
-          type="button"
-          className="shout-icon-button"
-          onClick={() => loadMessages({ silent: true })}
-          disabled={refreshing}
-          aria-label="Refresh messages"
-        >
-          <RefreshCw className={refreshing ? "spinning" : ""} aria-hidden="true" />
-        </button>
+        <span className="shout-title-copy"><small>Brisbane</small><h1>Shout Out</h1></span>
+        <span className="shout-safe-mark" title="Server-side safety checks" aria-label="Posts are safety checked">
+          <ShieldCheck aria-hidden="true" />
+        </span>
       </header>
 
-      <section className="shout-map-card" aria-label="Choose a campus place">
-        <div className="shout-map-head">
-          <span><MapPin aria-hidden="true" /><strong>{selectedPlace.label}</strong></span>
-          <button type="button" onClick={chooseNearestPlace} disabled={locationState === "loading"}>
-            <LocateFixed aria-hidden="true" />
-            {locationState === "loading" ? "Finding" : "Near me"}
-          </button>
-        </div>
+      <ShoutMap
+        summaries={summaries}
+        selected={selected}
+        onSelect={setSelected}
+        onClearSelection={() => setSelected(null)}
+        onBoundsChange={updateMapBounds}
+        onCreate={createPost}
+        mapLoading={mapLoading}
+        messages={messages}
+        messagesLoading={messagesLoading}
+        reactionOpenId={reactionOpenId}
+        setReactionOpenId={setReactionOpenId}
+        reactedIds={reactedIds}
+        reportedIds={reportedIds}
+        onReact={react}
+        onReport={report}
+      />
 
-        <CampusMap
-          placeId={placeId}
-          onSelect={setPlaceId}
-          onViewPosts={scrollToPosts}
-          summaries={summaries}
-          userPosition={userPosition}
-        />
-
-        <div className="shout-place-strip" aria-label="Campus places">
-          {SHOUTOUT_PLACES.map((place) => (
-            <button
-              key={place.id}
-              type="button"
-              className={place.id === placeId ? "selected" : ""}
-              onClick={() => setPlaceId(place.id)}
-            >
-              {place.shortLabel}
-            </button>
-          ))}
-        </div>
-
-        {locationState === "denied" ? <p className="shout-location-note">Choose a place manually or allow location access.</p> : null}
-      </section>
-
-      <section className="shout-feed" aria-label={`Messages at ${selectedPlace.label}`}>
-        <div className="shout-feed-head">
-          <span><strong>{selectedPlace.shortLabel}</strong><small>{summaries[placeId]?.messageCount ?? messages.length} recent</small></span>
-          <small>7-day posts</small>
-        </div>
-
-        <form className="shout-composer" onSubmit={submitMessage}>
-          <div className="shout-compose-main">
-            <textarea
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              maxLength={160}
-              rows={2}
-              aria-label={`Post at ${selectedPlace.label}`}
-              placeholder={`What’s happening at ${selectedPlace.shortLabel}?`}
-            />
-            <button type="submit" disabled={!draft.trim() || posting} aria-label="Post shout out">
-              <Send aria-hidden="true" />
-            </button>
-          </div>
-          <div className="shout-compose-tools">
-            <span className="shout-post-emojis" aria-label="Add an emoji">
-              {POST_EMOJIS.slice(1).map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  className={postEmoji === emoji ? "selected" : ""}
-                  onClick={() => setPostEmoji((current) => current === emoji ? "" : emoji)}
-                  aria-label={`Add ${emoji}`}
-                  aria-pressed={postEmoji === emoji}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </span>
-            <small>{draft.length}/160</small>
-          </div>
-        </form>
-
-        <AnimatePresence>
-          {notice ? (
-            <motion.p className="shout-notice" initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
-              {notice}
-            </motion.p>
-          ) : null}
-        </AnimatePresence>
-
-        <div
-          ref={feedRef}
-          className="shout-feed-anchor"
-          tabIndex={-1}
-          aria-label={`Recent posts at ${selectedPlace.label}`}
-        />
-
-        {loading ? (
-          <div className="shout-loading" aria-label="Loading messages">
-            {[1, 2, 3].map((item) => <span key={item} />)}
-          </div>
-        ) : error ? (
-          <div className="shout-empty"><MessageCircle aria-hidden="true" /><strong>Can’t connect yet</strong><span>{error}</span></div>
-        ) : messages.length === 0 ? (
-          <div className="shout-empty"><Sparkles aria-hidden="true" /><strong>Be the first here</strong><span>Leave a useful campus update.</span></div>
-        ) : (
-          <div className="shout-message-list">
-            {messages.map((message) => (
-              <motion.article
-                key={message.id}
-                className="shout-message"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                layout
-              >
-                <span className="shout-avatar" style={{ backgroundColor: message.avatarColor }} aria-hidden="true">
-                  {AVATAR_FACES[message.avatarVariant % AVATAR_FACES.length]}
-                </span>
-                <div className="shout-message-body">
-                  <div className="shout-message-meta">
-                    <strong>Anonymous</strong>
-                    <span>{relativeTime(message.createdAt)}</span>
-                  </div>
-                  <p>{message.emoji ? <b>{message.emoji}</b> : null}{message.message}</p>
-                  <div className="shout-message-actions">
-                    <button
-                      type="button"
-                      className={reactedIds.has(message.id) ? "reacted" : ""}
-                      onClick={() => setReactionOpenId((current) => current === message.id ? "" : message.id)}
-                      aria-label="React to message"
-                    >
-                      <span aria-hidden="true">♡</span>{message.reactionCount || "React"}
-                    </button>
-                    <button
-                      type="button"
-                      className={reportedIds.has(message.id) ? "reported" : ""}
-                      onClick={() => report(message.id)}
-                      aria-label="Report message"
-                    >
-                      <Flag aria-hidden="true" />{reportedIds.has(message.id) ? "Reported" : "Report"}
-                    </button>
-                  </div>
-                  <AnimatePresence>
-                    {reactionOpenId === message.id && !reactedIds.has(message.id) ? (
-                      <motion.div className="shout-reaction-picker" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}>
-                        {REACTION_EMOJIS.map((emoji) => (
-                          <button key={emoji} type="button" onClick={() => react(message.id, emoji)} aria-label={`React ${emoji}`}>{emoji}</button>
-                        ))}
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
-                </div>
-              </motion.article>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <p className="shout-privacy-note">Location suggests a place only. Coordinates are never posted.</p>
+      <p className="shout-privacy-note">
+        Only the approximate pin you confirm is public. Posts disappear after 7 days.
+      </p>
     </section>
   );
 }
 
-function CampusMap({ placeId, onSelect, onViewPosts, summaries, userPosition }) {
+function ShoutMap({
+  summaries,
+  selected,
+  onSelect,
+  onClearSelection,
+  onBoundsChange,
+  onCreate,
+  mapLoading,
+  messages,
+  messagesLoading,
+  reactionOpenId,
+  setReactionOpenId,
+  reactedIds,
+  reportedIds,
+  onReact,
+  onReport,
+}) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
-  const maplibreRef = useRef(null);
-  const markersRef = useRef(new Map());
-  const userMarkerRef = useRef(null);
+  const summariesRef = useRef(summaries);
+  const onSelectRef = useRef(onSelect);
+  const onBoundsChangeRef = useRef(onBoundsChange);
+  const modeRef = useRef("browse");
+  const textareaRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-  const selectedPlace =
-    SHOUTOUT_PLACES.find((place) => place.id === placeId) ?? SHOUTOUT_PLACES[0];
-  const selectedSummary = summaries[placeId];
+  const [mode, setMode] = useState("browse");
+  const [pinCoordinate, setPinCoordinate] = useState(DEFAULT_CENTER);
+  const [locating, setLocating] = useState(false);
+  const [mapNotice, setMapNotice] = useState("");
+  const [draft, setDraft] = useState("");
+  const [postEmoji, setPostEmoji] = useState("");
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState("");
+
+  summariesRef.current = summaries;
+  onSelectRef.current = onSelect;
+  onBoundsChangeRef.current = onBoundsChange;
+  modeRef.current = mode;
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return undefined;
@@ -397,54 +250,149 @@ function CampusMap({ placeId, onSelect, onViewPosts, summaries, userPosition }) 
       try {
         const { default: maplibregl } = await import("maplibre-gl");
         if (cancelled || !containerRef.current) return;
-        maplibreRef.current = maplibregl;
 
-        const initialPlace =
-          SHOUTOUT_PLACES.find((place) => place.id === placeId) ?? SHOUTOUT_PLACES[0];
         map = new maplibregl.Map({
           container: containerRef.current,
-          style: CAMPUS_MAP_STYLE,
-          center: [initialPlace.longitude, initialPlace.latitude],
-          zoom: 15.55,
-          minZoom: 10.2,
+          style: MAP_STYLE,
+          center: DEFAULT_CENTER,
+          zoom: 12.7,
+          minZoom: 9.8,
           maxZoom: 19,
+          maxBounds: [
+            [BRISBANE_BOUNDS.west, BRISBANE_BOUNDS.south],
+            [BRISBANE_BOUNDS.east, BRISBANE_BOUNDS.north],
+          ],
           pitch: 0,
           bearing: 0,
-          dragPan: false,
-          scrollZoom: false,
-          touchZoomRotate: false,
           attributionControl: false,
+          powerPreference: "high-performance",
         });
 
-        map.addControl(
-          new maplibregl.NavigationControl({ showCompass: false, showZoom: true }),
-          "bottom-right",
-        );
-        map.addControl(
-          new maplibregl.AttributionControl({ compact: true }),
-          "bottom-left",
-        );
+        map.addControl(new maplibregl.AttributionControl({ compact: true }), "top-left");
 
-        SHOUTOUT_PLACES.forEach((place) => {
-          const markerButton = document.createElement("button");
-          markerButton.type = "button";
-          markerButton.className = `shout-real-marker ${place.id === placeId ? "selected" : ""}`;
-          markerButton.setAttribute("aria-label", `Show messages at ${place.label}`);
-          markerButton.setAttribute("aria-pressed", String(place.id === placeId));
-          markerButton.innerHTML = `<span aria-hidden="true"><b class="shout-marker-count"></b></span><small>${place.shortLabel}</small>`;
-          markerButton.addEventListener("click", () => onSelect(place.id));
-
-          const marker = new maplibregl.Marker({ element: markerButton, anchor: "bottom" })
-            .setLngLat([place.longitude, place.latitude])
-            .addTo(map);
-          markersRef.current.set(place.id, { marker, markerButton, place });
-        });
+        const publishBounds = () => {
+          const bounds = map.getBounds();
+          onBoundsChangeRef.current({
+            west: roundMapCoordinate(bounds.getWest()),
+            south: roundMapCoordinate(bounds.getSouth()),
+            east: roundMapCoordinate(bounds.getEast()),
+            north: roundMapCoordinate(bounds.getNorth()),
+          });
+          if (modeRef.current === "pinning") {
+            const center = map.getCenter();
+            setPinCoordinate([center.lng, center.lat]);
+          }
+        };
 
         map.on("load", () => {
           if (cancelled) return;
+          map.addSource("shout-points", {
+            type: "geojson",
+            data: emptyFeatureCollection(),
+            cluster: true,
+            clusterMaxZoom: 15,
+            clusterRadius: 48,
+          });
+
+          map.addLayer({
+            id: "shout-clusters",
+            type: "circle",
+            source: "shout-points",
+            filter: ["has", "point_count"],
+            paint: {
+              "circle-color": "#16755d",
+              "circle-radius": ["step", ["get", "point_count"], 19, 10, 23, 30, 27],
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 3,
+              "circle-opacity": 0.94,
+            },
+          });
+          map.addLayer({
+            id: "shout-cluster-count",
+            type: "symbol",
+            source: "shout-points",
+            filter: ["has", "point_count"],
+            layout: {
+              "text-font": ["Noto Sans Regular"],
+              "text-field": ["get", "point_count_abbreviated"],
+              "text-size": 12,
+            },
+            paint: { "text-color": "#ffffff" },
+          });
+          map.addLayer({
+            id: "shout-post-points",
+            type: "circle",
+            source: "shout-points",
+            filter: ["!", ["has", "point_count"]],
+            paint: {
+              "circle-color": ["case", ["==", ["get", "selected"], 1], "#0b7057", "#ffffff"],
+              "circle-radius": ["case", ["==", ["get", "selected"], 1], 12, 10],
+              "circle-stroke-color": "#16755d",
+              "circle-stroke-width": 3,
+              "circle-translate": [0, 0],
+            },
+          });
+          map.addLayer({
+            id: "shout-post-count",
+            type: "symbol",
+            source: "shout-points",
+            filter: ["!", ["has", "point_count"]],
+            layout: {
+              "text-font": ["Noto Sans Regular"],
+              "text-field": ["to-string", ["get", "messageCount"]],
+              "text-size": 10,
+            },
+            paint: {
+              "text-color": ["case", ["==", ["get", "selected"], 1], "#ffffff", "#12674f"],
+            },
+          });
+          map.addLayer({
+            id: "shout-post-labels",
+            type: "symbol",
+            source: "shout-points",
+            minzoom: 14.2,
+            filter: ["!", ["has", "point_count"]],
+            layout: {
+              "text-font": ["Noto Sans Regular"],
+              "text-field": ["get", "label"],
+              "text-size": 11,
+              "text-offset": [0, 1.8],
+              "text-anchor": "top",
+              "text-max-width": 9,
+            },
+            paint: {
+              "text-color": "#26463d",
+              "text-halo-color": "#ffffff",
+              "text-halo-width": 1.5,
+            },
+          });
+
+          map.on("click", "shout-clusters", async (event) => {
+            if (modeRef.current !== "browse") return;
+            const feature = event.features?.[0];
+            const source = map.getSource("shout-points");
+            if (!feature || !source) return;
+            const zoom = await source.getClusterExpansionZoom(feature.properties.cluster_id);
+            map.easeTo({ center: feature.geometry.coordinates, zoom, duration: 360 });
+          });
+          map.on("click", "shout-post-points", (event) => {
+            if (modeRef.current !== "browse") return;
+            const placeId = event.features?.[0]?.properties?.placeId;
+            const summary = summariesRef.current.find((item) => item.placeId === placeId);
+            if (!summary) return;
+            setMode("browse");
+            onSelectRef.current(summary);
+          });
+          ["shout-clusters", "shout-post-points"].forEach((layerId) => {
+            map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
+            map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; });
+          });
+
           setMapReady(true);
+          publishBounds();
           map.resize();
         });
+        map.on("moveend", publishBounds);
         map.on("error", () => {
           if (!cancelled) setMapError(true);
         });
@@ -457,174 +405,328 @@ function CampusMap({ placeId, onSelect, onViewPosts, summaries, userPosition }) 
     startMap();
     return () => {
       cancelled = true;
-      markersRef.current.clear();
-      userMarkerRef.current = null;
-      maplibreRef.current = null;
       mapRef.current = null;
       map?.remove();
     };
-  }, [onSelect]);
+  }, []);
 
   useEffect(() => {
-    markersRef.current.forEach(({ markerButton, place }) => {
-      const selected = place.id === placeId;
-      markerButton.classList.toggle("selected", selected);
-      markerButton.setAttribute("aria-pressed", String(selected));
+    if (!mapReady) return;
+    const source = mapRef.current?.getSource("shout-points");
+    if (!source) return;
+    source.setData({
+      type: "FeatureCollection",
+      features: summaries
+        .filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
+        .map((item) => ({
+          type: "Feature",
+          geometry: { type: "Point", coordinates: [item.longitude, item.latitude] },
+          properties: {
+            placeId: item.placeId,
+            label: item.kind === "pin" ? "Near this point" : item.label,
+            messageCount: Number(item.messageCount ?? 0),
+            selected: item.placeId === selected?.placeId ? 1 : 0,
+          },
+        })),
     });
-
-    const selectedPlace = SHOUTOUT_PLACES.find((place) => place.id === placeId);
-    if (mapRef.current && selectedPlace) {
-      mapRef.current.easeTo({
-        center: [selectedPlace.longitude, selectedPlace.latitude],
-        zoom: Math.max(mapRef.current.getZoom(), 15.5),
-        offset: [0, -28],
-        duration: 420,
-        essential: true,
-      });
-    }
-  }, [placeId]);
+  }, [mapReady, selected?.placeId, summaries]);
 
   useEffect(() => {
-    markersRef.current.forEach(({ markerButton, place }) => {
-      const count = Number(summaries[place.id]?.messageCount ?? 0);
-      const countBadge = markerButton.querySelector(".shout-marker-count");
-      if (countBadge) countBadge.textContent = count > 99 ? "99+" : count > 0 ? String(count) : "";
-      markerButton.classList.toggle("has-messages", count > 0);
-      markerButton.setAttribute(
-        "aria-label",
-        `${place.label}, ${count} recent ${count === 1 ? "post" : "posts"}. Show latest`,
-      );
+    if (!mapReady || !mapRef.current) return;
+    const visibility = mode === "pinning" || mode === "composing" ? "none" : "visible";
+    ["shout-clusters", "shout-cluster-count", "shout-post-points", "shout-post-count", "shout-post-labels"].forEach((layerId) => {
+      if (mapRef.current.getLayer(layerId)) {
+        mapRef.current.setLayoutProperty(layerId, "visibility", visibility);
+      }
     });
-  }, [mapReady, summaries]);
+  }, [mapReady, mode]);
 
   useEffect(() => {
-    const resizeTimer = window.setTimeout(() => mapRef.current?.resize(), 280);
-    const previousOverflow = document.body.style.overflow;
-    const map = mapRef.current;
-
-    if (expanded) {
-      document.body.style.overflow = "hidden";
-      document.body.classList.add("shout-map-is-expanded");
-      map?.dragPan.enable();
-      map?.scrollZoom.enable();
-      map?.touchZoomRotate.enable();
-    } else {
-      document.body.classList.remove("shout-map-is-expanded");
-      map?.dragPan.disable();
-      map?.scrollZoom.disable();
-      map?.touchZoomRotate.disable();
-    }
-
-    const closeOnEscape = (event) => {
-      if (event.key === "Escape") setExpanded(false);
+    const closePanel = (event) => {
+      if (event.key !== "Escape" || mode === "browse") return;
+      setMode("browse");
+      setPostError("");
     };
-    if (expanded) window.addEventListener("keydown", closeOnEscape);
-
-    return () => {
-      window.clearTimeout(resizeTimer);
-      window.removeEventListener("keydown", closeOnEscape);
-      document.body.style.overflow = previousOverflow;
-      document.body.classList.remove("shout-map-is-expanded");
-    };
-  }, [expanded]);
+    window.addEventListener("keydown", closePanel);
+    return () => window.removeEventListener("keydown", closePanel);
+  }, [mode]);
 
   useEffect(() => {
-    if (!mapRef.current || !maplibreRef.current || !userPosition) return;
+    if (mode === "composing") window.setTimeout(() => textareaRef.current?.focus(), 180);
+  }, [mode]);
 
-    if (!userMarkerRef.current) {
-      const dot = document.createElement("span");
-      dot.className = "shout-user-location";
-      dot.setAttribute("aria-label", "Your approximate location");
-      userMarkerRef.current = new maplibreRef.current.Marker({ element: dot })
-        .setLngLat(userPosition)
-        .addTo(mapRef.current);
-    } else {
-      userMarkerRef.current.setLngLat(userPosition);
-    }
-  }, [mapReady, userPosition]);
+  useEffect(() => {
+    if (!mapNotice) return undefined;
+    const timerId = window.setTimeout(() => setMapNotice(""), 3600);
+    return () => window.clearTimeout(timerId);
+  }, [mapNotice]);
 
-  const viewPosts = () => {
-    if (expanded) {
-      setExpanded(false);
-      window.setTimeout(onViewPosts, 300);
+  const locateUser = (forPosting = false) => {
+    if (!navigator.geolocation) {
+      setMapNotice("Move the map to choose a spot");
       return;
     }
-    onViewPosts();
+    setLocating(true);
+    setMapNotice(forPosting ? "Finding you…" : "Finding your area…");
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const insideBrisbane =
+          coords.latitude >= BRISBANE_BOUNDS.south &&
+          coords.latitude <= BRISBANE_BOUNDS.north &&
+          coords.longitude >= BRISBANE_BOUNDS.west &&
+          coords.longitude <= BRISBANE_BOUNDS.east;
+        if (!insideBrisbane) {
+          setMapNotice("Posting is available in Brisbane");
+          setLocating(false);
+          return;
+        }
+        mapRef.current?.easeTo({
+          center: [coords.longitude, coords.latitude],
+          zoom: Math.max(mapRef.current.getZoom(), 15),
+          duration: 520,
+          essential: true,
+        });
+        setPinCoordinate([coords.longitude, coords.latitude]);
+        setMapNotice(forPosting ? "Move the map if needed" : "You’re near the centre pin");
+        setLocating(false);
+      },
+      () => {
+        setMapNotice(forPosting ? "Move the map to choose a spot" : "Location was not shared");
+        setLocating(false);
+      },
+      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 7000 },
+    );
   };
 
-  const messageCount = Number(selectedSummary?.messageCount ?? 0);
-  const latest = selectedSummary?.latest;
+  const startPost = () => {
+    const center = mapRef.current?.getCenter();
+    if (center) setPinCoordinate([center.lng, center.lat]);
+    onClearSelection();
+    setMode("pinning");
+    setPostError("");
+    locateUser(true);
+  };
+
+  const submitPost = async (event) => {
+    event.preventDefault();
+    if (!draft.trim() || posting) return;
+    setPosting(true);
+    setPostError("");
+    try {
+      await onCreate({
+        location: { latitude: pinCoordinate[1], longitude: pinCoordinate[0] },
+        message: draft,
+        emoji: postEmoji,
+      });
+      setDraft("");
+      setPostEmoji("");
+      setMode("browse");
+      setMapNotice("Posted for 7 days");
+    } catch (error) {
+      setPostError(error.message || "Could not post right now.");
+    } finally {
+      setPosting(false);
+    }
+  };
+
+  const selectedLabel = selected?.kind === "pin" ? "Near this point" : selected?.label;
 
   return (
-    <div
-      className={`shout-real-map-shell ${expanded ? "expanded" : ""}`}
-      role={expanded ? "dialog" : undefined}
-      aria-modal={expanded ? "true" : undefined}
-      aria-label={expanded ? `Full-size map, ${selectedPlace.label} selected` : undefined}
-    >
-      <div ref={containerRef} className="shout-real-map" aria-label="Interactive map of Brisbane and UQ St Lucia" />
-      <button
-        type="button"
-        className="shout-map-expand"
-        onClick={() => setExpanded((current) => !current)}
-        aria-label={expanded ? "Close full-size map" : "Open full-size map"}
-      >
-        {expanded ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
-      </button>
-      {mapReady ? (
-        <motion.aside
-          key={placeId}
-          className="shout-map-comment-preview"
-          aria-live="polite"
-          initial={{ opacity: 0, y: -6 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <span
-            className="shout-map-preview-avatar"
-            style={{ backgroundColor: latest?.avatarColor ?? "#78958c" }}
-            aria-hidden="true"
-          >
-            {latest ? AVATAR_FACES[latest.avatarVariant % AVATAR_FACES.length] : "·"}
-          </span>
-          <span className="shout-map-preview-copy">
-            <span className="shout-map-preview-head">
-              <strong>{selectedPlace.shortLabel}</strong>
-              <small>{messageCount} {messageCount === 1 ? "post" : "posts"}</small>
-            </span>
-            <p>
-              {latest
-                ? <>{latest.emoji ? <b>{latest.emoji}</b> : null}{latest.message}</>
-                : "No recent posts here."}
-            </p>
-            <small className="shout-map-preview-meta">
-              {latest ? `Anonymous · ${relativeTime(latest.createdAt)}` : "Start the conversation"}
-            </small>
-          </span>
-          <button
-            type="button"
-            onClick={viewPosts}
-            aria-label={messageCount ? `View all ${messageCount} posts` : `Post at ${selectedPlace.label}`}
-          >
-            <span>{messageCount ? `View all ${messageCount}` : "Post here"}</span>
-            <ChevronDown aria-hidden="true" />
+    <section className={`shout-map-stage mode-${mode}`} aria-label="Interactive Brisbane message map">
+      <div ref={containerRef} className="shout-real-map" aria-label="Moveable map of Brisbane" />
+
+      <div className="shout-map-toolbar">
+        <span><MapPin aria-hidden="true" />Brisbane</span>
+        <span>
+          <button type="button" onClick={() => locateUser(false)} disabled={locating} aria-label="Find my area">
+            <LocateFixed aria-hidden="true" />
           </button>
-        </motion.aside>
+          <button type="button" className="primary" onClick={startPost}>
+            <Plus aria-hidden="true" />Post
+          </button>
+        </span>
+      </div>
+
+      {mode === "browse" ? (
+        <div className="shout-visually-hidden" aria-label="Posts visible on the map">
+          {summaries.map((summary) => (
+            <button key={summary.placeId} type="button" onClick={() => onSelect(summary)}>
+              {summary.kind === "pin" ? "Post near a pinned point" : summary.label}, {summary.messageCount} posts
+            </button>
+          ))}
+        </div>
       ) : null}
-      {!mapReady && !mapError ? <span className="shout-map-loading">Loading real map…</span> : null}
-      {mapError && !mapReady ? <span className="shout-map-loading error">Map is temporarily unavailable.</span> : null}
-    </div>
+
+      {mapNotice ? (
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={mapNotice}
+            className="shout-map-toast"
+            initial={{ opacity: 0, y: -5 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            {mapNotice}
+          </motion.p>
+        </AnimatePresence>
+      ) : null}
+
+      {mode === "pinning" ? (
+        <>
+          <span className="shout-center-pin" aria-hidden="true"><MapPin /></span>
+          <motion.div className="shout-pin-bar" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
+            <span><strong>Choose a spot</strong><small>Move the map under the pin</small></span>
+            <button type="button" className="ghost" onClick={() => setMode("browse")}>Cancel</button>
+            <button type="button" className="primary" onClick={() => setMode("composing")}>Post here</button>
+          </motion.div>
+        </>
+      ) : null}
+
+      <AnimatePresence mode="wait">
+        {mode === "composing" ? (
+          <motion.form
+            className="shout-map-sheet shout-compose-sheet"
+            onSubmit={submitPost}
+            role="dialog"
+            aria-label="Create a post at the selected pin"
+            initial={{ y: 36, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 22, opacity: 0 }}
+          >
+            <header>
+              <span><MapPin aria-hidden="true" /><strong>Post near this pin</strong></span>
+              <button type="button" onClick={() => setMode("pinning")} aria-label="Move the pin"><X aria-hidden="true" /></button>
+            </header>
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              maxLength={160}
+              rows={3}
+              placeholder="What’s happening here?"
+              aria-label="Shout-out message"
+            />
+            <div className="shout-compose-row">
+              <span className="shout-post-emojis" aria-label="Add an emoji">
+                {POST_EMOJIS.slice(1).map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className={postEmoji === emoji ? "selected" : ""}
+                    onClick={() => setPostEmoji((current) => current === emoji ? "" : emoji)}
+                    aria-label={`Add ${emoji}`}
+                    aria-pressed={postEmoji === emoji}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </span>
+              <small>{draft.length}/160</small>
+              <button type="submit" className="shout-send-button" disabled={!draft.trim() || posting}>
+                <Send aria-hidden="true" />{posting ? "Posting" : "Post"}
+              </button>
+            </div>
+            <p className="shout-safety-note"><ShieldCheck aria-hidden="true" />Links, contact details and unsafe posts are blocked.</p>
+            {postError ? <p className="shout-post-error" role="alert">{postError}</p> : null}
+          </motion.form>
+        ) : null}
+
+        {mode === "browse" && selected?.latest ? (
+          <motion.aside
+            key={selected.placeId}
+            className="shout-map-sheet shout-preview-sheet"
+            initial={{ y: 28, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 18, opacity: 0 }}
+            aria-label={`Latest post ${selectedLabel}`}
+          >
+            <span className="shout-preview-avatar" style={{ backgroundColor: selected.latest.avatarColor }} aria-hidden="true">
+              {AVATAR_FACES[selected.latest.avatarVariant % AVATAR_FACES.length]}
+            </span>
+            <span className="shout-preview-copy">
+              <span><strong>{selectedLabel}</strong><small>{selected.messageCount} {selected.messageCount === 1 ? "post" : "posts"}</small></span>
+              <p>{selected.latest.emoji ? <b>{selected.latest.emoji}</b> : null}{selected.latest.message}</p>
+              <small>Anonymous · {relativeTime(selected.latest.createdAt)}</small>
+            </span>
+            <button type="button" className="shout-view-button" onClick={() => setMode("viewing")}>
+              View <ChevronUp aria-hidden="true" />
+            </button>
+            <button type="button" className="shout-sheet-close" onClick={onClearSelection} aria-label="Close post preview">
+              <X aria-hidden="true" />
+            </button>
+          </motion.aside>
+        ) : null}
+
+        {mode === "viewing" && selected ? (
+          <motion.section
+            className="shout-map-sheet shout-thread-sheet"
+            role="dialog"
+            aria-label={`Posts ${selectedLabel}`}
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 30, opacity: 0 }}
+          >
+            <header>
+              <span><strong>{selectedLabel}</strong><small>{selected.messageCount} recent</small></span>
+              <button type="button" onClick={() => setMode("browse")} aria-label="Collapse posts"><ChevronDown aria-hidden="true" /></button>
+            </header>
+            <div className="shout-thread-list">
+              {messagesLoading ? (
+                <div className="shout-thread-loading"><span /><span /><span /></div>
+              ) : messages.length === 0 ? (
+                <div className="shout-thread-empty"><Sparkles aria-hidden="true" />No recent posts</div>
+              ) : messages.map((message) => (
+                <article className="shout-message" key={message.id}>
+                  <span className="shout-avatar" style={{ backgroundColor: message.avatarColor }} aria-hidden="true">
+                    {AVATAR_FACES[message.avatarVariant % AVATAR_FACES.length]}
+                  </span>
+                  <div className="shout-message-body">
+                    <div className="shout-message-meta"><strong>Anonymous</strong><span>{relativeTime(message.createdAt)}</span></div>
+                    <p>{message.emoji ? <b>{message.emoji}</b> : null}{message.message}</p>
+                    <div className="shout-message-actions">
+                      <button
+                        type="button"
+                        className={reactedIds.has(message.id) ? "reacted" : ""}
+                        onClick={() => setReactionOpenId((current) => current === message.id ? "" : message.id)}
+                      >
+                        ♡ {message.reactionCount || "React"}
+                      </button>
+                      <button
+                        type="button"
+                        className={reportedIds.has(message.id) ? "reported" : ""}
+                        onClick={() => onReport(message.id)}
+                      >
+                        <Flag aria-hidden="true" />{reportedIds.has(message.id) ? "Reported" : "Report"}
+                      </button>
+                    </div>
+                    {reactionOpenId === message.id && !reactedIds.has(message.id) ? (
+                      <div className="shout-reaction-picker">
+                        {REACTION_EMOJIS.map((emoji) => (
+                          <button key={emoji} type="button" onClick={() => onReact(message.id, emoji)}>{emoji}</button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </motion.section>
+        ) : null}
+      </AnimatePresence>
+
+      {!mapReady && !mapError ? <span className="shout-map-loading">Loading map…</span> : null}
+      {mapError && !mapReady ? <span className="shout-map-loading error">Map unavailable</span> : null}
+      {mapReady && mapLoading ? <span className="shout-map-sync" aria-label="Loading nearby posts" /> : null}
+    </section>
   );
 }
 
-function readStoredPlace() {
-  try {
-    const saved = window.localStorage.getItem(PLACE_STORAGE_KEY);
-    return SHOUTOUT_PLACES.some((place) => place.id === saved)
-      ? saved
-      : "great-court";
-  } catch {
-    return "great-court";
-  }
+function emptyFeatureCollection() {
+  return { type: "FeatureCollection", features: [] };
+}
+
+function roundMapCoordinate(value) {
+  return Math.round(value * 10_000) / 10_000;
 }
 
 function relativeTime(value) {
@@ -633,17 +735,4 @@ function relativeTime(value) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
   return `${Math.floor(seconds / 86400)}d`;
-}
-
-function distanceKm(latitude, longitude, targetLatitude, targetLongitude) {
-  const toRadians = (value) => (value * Math.PI) / 180;
-  const earthRadiusKm = 6371;
-  const latitudeDelta = toRadians(targetLatitude - latitude);
-  const longitudeDelta = toRadians(targetLongitude - longitude);
-  const startLatitude = toRadians(latitude);
-  const endLatitude = toRadians(targetLatitude);
-  const a =
-    Math.sin(latitudeDelta / 2) ** 2 +
-    Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDelta / 2) ** 2;
-  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
