@@ -664,6 +664,100 @@ body[data-page="airport"] {
 .journey-connector { height: 26px; display: grid; place-items: center; color: #85b6a6; }
 .journey-connector svg { width: 15px; }
 
+.later-trains {
+  display: grid;
+  margin-top: 8px;
+}
+
+.later-trains-toggle {
+  width: 100%;
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 11px;
+  background: rgba(255,255,255,.075);
+  color: rgba(255,255,255,.62);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 180ms ease, background 180ms ease;
+}
+
+.later-trains-toggle span {
+  overflow: hidden;
+  font-size: .58rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.later-trains-toggle strong {
+  color: #a6efd4;
+  font-size: .59rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.later-trains-toggle svg {
+  width: 15px;
+  height: 15px;
+  color: #8ee0c2;
+  transition: transform 200ms ease;
+}
+
+.later-trains-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.later-trains-toggle:hover,
+.later-trains-toggle:focus-visible {
+  border-color: rgba(142,224,194,.45);
+  background: rgba(255,255,255,.11);
+  outline: none;
+}
+
+.later-trains-reveal { overflow: hidden; }
+.later-trains-list { display: grid; gap: 5px; padding-top: 6px; }
+
+.later-train-row {
+  min-height: 47px;
+  display: grid;
+  grid-template-columns: 25px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 9px;
+  border-radius: 10px;
+  background: rgba(255,255,255,.065);
+}
+
+.later-train-order {
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: rgba(142,224,194,.11);
+  color: #8ee0c2;
+  font-size: .56rem;
+  font-weight: 950;
+}
+
+.later-train-copy,
+.later-train-wait { min-width: 0; display: grid; gap: 2px; }
+.later-train-copy strong { color: #fff; font-size: .68rem; }
+.later-train-copy small {
+  overflow: hidden;
+  color: rgba(255,255,255,.53);
+  font-size: .53rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.later-train-wait { justify-items: end; }
+.later-train-wait strong { color: #a6efd4; font-size: .75rem; }
+.later-train-wait small { color: rgba(255,255,255,.46); font-size: .49rem; font-weight: 850; text-transform: uppercase; }
+
 .tram-board-head { margin-bottom: 11px; }
 .tram-board-head > div { display: grid; gap: 3px; }
 .tram-board-head h2 { margin: 0; color: #21443c; font-size: 1rem; }

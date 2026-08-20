@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowDown,
   ArrowLeftRight,
+  ChevronDown,
   Clock3,
   LocateFixed,
   MapPin,
@@ -41,6 +42,7 @@ export default function GoldCoastTravelPage({ modeSelector }) {
   const [tramId, setTramId] = useState(() => readStored(TRAM_STORAGE_KEY, "surfers-paradise"));
   const [tramDirection, setTramDirection] = useState("south");
   const [journeyDirection, setJourneyDirection] = useState("gold-coast");
+  const [showLaterTrains, setShowLaterTrains] = useState(false);
   const [railData, setRailData] = useState(null);
   const [helensvaleData, setHelensvaleData] = useState(null);
   const [tramData, setTramData] = useState(null);
@@ -105,6 +107,10 @@ export default function GoldCoastTravelPage({ modeSelector }) {
     }
   }, [railId, tramId]);
 
+  useEffect(() => {
+    setShowLaterTrains(false);
+  }, [railId]);
+
   const trains = useMemo(
     () =>
       (railData?.departures ?? [])
@@ -123,6 +129,7 @@ export default function GoldCoastTravelPage({ modeSelector }) {
     [tramData, tramDirection],
   );
   const nextTrain = trains[0];
+  const laterTrains = trains.slice(1, 4);
   const transfer = useMemo(
     () => findTransfer(nextTrain, helensvaleData?.departures ?? []),
     [nextTrain, helensvaleData],
@@ -269,6 +276,13 @@ export default function GoldCoastTravelPage({ modeSelector }) {
             ] : [{ label: "On arrival", value: "Check platform" }]}
             tone={transfer?.bufferMinutes >= 6 ? "good" : "neutral"}
           />
+          {laterTrains.length ? (
+            <LaterTrainOptions
+              departures={laterTrains}
+              expanded={showLaterTrains}
+              onToggle={() => setShowLaterTrains((current) => !current)}
+            />
+          ) : null}
         </>
       ) : <TicketEmpty message={`No southbound trains from ${railStation.label}.`} />}
     </section>
@@ -367,6 +381,54 @@ function JourneyLeg({ Icon, departure, details = [], featured = false, label, ti
 
 function JourneyConnector() {
   return <div className="journey-connector" aria-hidden="true"><ArrowDown /></div>;
+}
+
+function LaterTrainOptions({ departures, expanded, onToggle }) {
+  const countLabel = `${departures.length} later ${departures.length === 1 ? "train" : "trains"}`;
+
+  return (
+    <div className="later-trains">
+      <button
+        type="button"
+        className="later-trains-toggle"
+        aria-controls="later-gold-coast-trains"
+        aria-expanded={expanded}
+        onClick={onToggle}
+      >
+        <span>Miss this train?</span>
+        <strong>{expanded ? "Hide later trains" : countLabel}</strong>
+        <ChevronDown aria-hidden="true" />
+      </button>
+      <AnimatePresence initial={false}>
+        {expanded ? (
+          <motion.div
+            id="later-gold-coast-trains"
+            className="later-trains-reveal"
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
+            <div className="later-trains-list">
+              {departures.map((departure, index) => (
+                <article className="later-train-row" key={departure.id}>
+                  <span className="later-train-order">{index + 2}</span>
+                  <span className="later-train-copy">
+                    <strong>{departure.displayTime}</strong>
+                    <small>Platform {departure.platform || "—"} · {departure.destination}</small>
+                  </span>
+                  <span className="later-train-wait">
+                    <strong>{departure.countdownText}</strong>
+                    <small>{departure.gtfsRealtime ? "Live" : "Timetable"}</small>
+                  </span>
+                </article>
+              ))}
+            </div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
 }
 
 function DepartureRow({ departure, index }) {
