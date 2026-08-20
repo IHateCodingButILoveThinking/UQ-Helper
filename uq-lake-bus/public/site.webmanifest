@@ -6,6 +6,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "lang": "en-AU",
   "background_color": "#eef3f1",
@@ -24,5 +25,26 @@
       "purpose": "any maskable"
     }
   ],
+  "shortcuts": [
+    {
+      "name": "Live transport",
+      "short_name": "Transport",
+      "url": "/?page=board",
+      "icons": [{ "src": "/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Ferry times",
+      "short_name": "Ferry",
+      "url": "/?page=ferry",
+      "icons": [{ "src": "/app-icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Train times",
+      "short_name": "Train",
+      "url": "/?page=train",
+      "icons": [{ "src": "/app-icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false,
   "categories": ["education", "navigation", "productivity"]
 }

@@ -12,6 +12,7 @@ import "./styles/live-board-header.css";
 import "./styles/home-live-info.css";
 import "./styles/transport-modes.css";
 import "./styles/travel.css";
+import "./styles/pwa-install.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -22,9 +23,20 @@ ReactDOM.createRoot(document.getElementById("root")).render(
 if ("serviceWorker" in navigator) {
   if (import.meta.env.PROD) {
     window.addEventListener("load", () => {
-      navigator.serviceWorker.register("/sw.js").catch((error) => {
-        console.error("Service worker registration failed:", error);
-      });
+      navigator.serviceWorker
+        .register("/sw.js", { updateViaCache: "none" })
+        .then((registration) => {
+          const checkForUpdate = () => {
+            if (document.visibilityState === "visible") {
+              registration.update().catch(() => {});
+            }
+          };
+          document.addEventListener("visibilitychange", checkForUpdate);
+          window.setInterval(checkForUpdate, 60 * 60 * 1000);
+        })
+        .catch((error) => {
+          console.error("Service worker registration failed:", error);
+        });
     });
   } else {
     navigator.serviceWorker.getRegistrations().then((registrations) => {

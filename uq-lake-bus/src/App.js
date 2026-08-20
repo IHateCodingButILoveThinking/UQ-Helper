@@ -21,6 +21,7 @@ import TrainTimesPage from "./pages/TrainTimesPage";
 import GoldCoastTravelPage from "./pages/GoldCoastTravelPage";
 import AirportTravelPage from "./pages/AirportTravelPage";
 import { HomeConditionsCard } from "./components/HomeLiveInfo";
+import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import TransportModeTabs from "./components/TransportModeTabs";
 import TravelModeTabs from "./components/TravelModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
@@ -1230,6 +1231,10 @@ export default function App() {
       <AnimatePresence mode="wait">
         {showSplash ? <CampusSplashScreen key="uq-splash" /> : null}
       </AnimatePresence>
+
+      <PwaInstallPrompt
+        visible={currentPage === HOME_PAGE_ID && !showSplash}
+      />
 
       {showHomeBackButton ? (
         <motion.button
