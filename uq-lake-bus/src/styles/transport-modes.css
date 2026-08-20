@@ -89,10 +89,24 @@
   box-shadow: 0 8px 18px rgba(49, 95, 196, 0.22);
 }
 
+.transport-mode-nav.active-gold-coast .transport-mode-active-pill {
+  background: #087f5b;
+  box-shadow: 0 8px 18px rgba(8, 127, 91, 0.22);
+}
+
+.transport-mode-nav.active-airport .transport-mode-active-pill {
+  background: #155e75;
+  box-shadow: 0 8px 18px rgba(21, 94, 117, 0.22);
+}
+
 .transport-mode-nav button > svg,
 .transport-mode-label {
   position: relative;
   z-index: 1;
+}
+
+.transport-mode-label-short {
+  display: none;
 }
 
 .transport-home-button {
@@ -159,6 +173,55 @@
   top: max(8px, env(safe-area-inset-top));
   margin-top: calc(10px + env(safe-area-inset-top));
   margin-bottom: 10px;
+}
+
+.travel-page > .transport-navigation-shell,
+.train-page > .transport-navigation-shell {
+  margin-top: calc(10px + env(safe-area-inset-top));
+  margin-bottom: 2px;
+}
+
+@media (max-width: 620px) {
+  .transport-navigation-shell {
+    grid-template-columns: 48px minmax(0, 1fr);
+    gap: 6px;
+  }
+
+  .transport-home-button {
+    width: 48px;
+    min-height: 58px;
+    border-radius: 17px;
+  }
+
+  .transport-mode-nav {
+    min-height: 58px;
+    gap: 1px;
+    padding: 3px;
+    border-radius: 18px;
+  }
+
+  .transport-mode-nav button {
+    min-height: 50px;
+    flex-direction: column;
+    gap: 2px;
+    padding: 3px 1px;
+    border-radius: 14px;
+    font-size: 0.56rem;
+    line-height: 1;
+  }
+
+  .transport-mode-nav svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .transport-mode-label-full {
+    display: none;
+  }
+
+  .transport-mode-label-short {
+    display: inline;
+  }
 }
 
 body[data-page="train"] {

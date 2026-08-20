@@ -1,0 +1,846 @@
+body[data-page="gold-coast"] {
+  background: linear-gradient(180deg, #f4fbf8 0%, #eaf6f2 52%, #f6faf8 100%);
+}
+
+body[data-page="airport"] {
+  background: linear-gradient(180deg, #f4f9fb 0%, #e9f3f7 55%, #f6fafb 100%);
+}
+
+.app-shell.page-gold-coast,
+.app-shell.page-airport {
+  max-width: 860px;
+}
+
+.travel-page {
+  display: grid;
+  gap: 9px;
+  color: #172b28;
+}
+
+.trip-page-top {
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto 38px 38px;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 3px;
+}
+
+.trip-page-top h1 {
+  margin: 0;
+  color: #173e36;
+  font-size: 1.45rem;
+  font-weight: 950;
+  letter-spacing: -.055em;
+}
+
+.trip-page-top.airport h1 { color: #173f4c; }
+
+.trip-page-mark,
+.trip-icon-button {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+}
+
+.trip-page-mark { background: #dff5e9; color: #087f5b; }
+.trip-page-mark.airport { background: #e3f2f7; color: #156b86; }
+.trip-page-mark svg { width: 20px; height: 20px; }
+
+.trip-icon-button {
+  border: 1px solid rgba(34, 74, 72, .09);
+  background: rgba(255,255,255,.78);
+  color: #607874;
+  cursor: pointer;
+}
+
+.trip-icon-button svg { width: 17px; height: 17px; }
+.trip-icon-button:focus-visible { outline: 3px solid rgba(19,127,94,.13); }
+.trip-icon-button:disabled { opacity: .55; }
+.trip-icon-button .spinning { animation: travel-spin .85s linear infinite; }
+
+.trip-data-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #879793;
+  font-size: .57rem;
+  font-weight: 900;
+}
+
+.trip-data-dot::before { width: 6px; height: 6px; border-radius: 999px; background: #aab5b2; content: ""; }
+.trip-data-dot.live { color: #16805f; }
+.trip-data-dot.live::before { background: #25aa7f; box-shadow: 0 0 0 3px rgba(37,170,127,.12); }
+.trip-page-top.airport .trip-data-dot.live { color: #16708e; }
+
+.journey-direction-button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 0 9px;
+  border: 1px solid #cfe5dd;
+  border-radius: 11px;
+  background: #edf8f4;
+  color: #14765a;
+  cursor: pointer;
+  font: inherit;
+  font-size: .58rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.journey-direction-button svg { width: 14px; height: 14px; }
+.journey-direction-button:hover,
+.journey-direction-button:focus-visible { border-color: #9bcebc; outline: 3px solid rgba(20,118,90,.1); }
+
+.journey-switch-row {
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: minmax(16px, 1fr) auto minmax(16px, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin: -1px 6px;
+}
+
+.journey-switch-row > span {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(31, 104, 84, .24));
+}
+
+.journey-switch-row > span:last-child {
+  background: linear-gradient(90deg, rgba(31, 104, 84, .24), transparent);
+}
+
+.journey-switch-row .journey-direction-button {
+  min-height: 36px;
+  padding-inline: 12px;
+  background: rgba(255,255,255,.9);
+  box-shadow: 0 6px 16px rgba(29, 83, 69, .08);
+}
+
+.journey-switch-row .journey-direction-button strong {
+  font-size: .62rem;
+  font-weight: 950;
+}
+
+.trip-control-bar {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(28, 75, 68, .08);
+  border-radius: 16px;
+  background: rgba(255,255,255,.76);
+}
+
+.trip-control-bar.two { grid-template-columns: repeat(2, minmax(0,1fr)); }
+.trip-control-bar label { min-width: 0; display: grid; gap: 5px; color: #71847f; font-size: .55rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.trip-control-bar select {
+  width: 100%;
+  min-height: 37px;
+  padding: 0 29px 0 9px;
+  border: 1px solid #d9e7e2;
+  border-radius: 10px;
+  background: #fff;
+  color: #244b42;
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 850;
+}
+.trip-control-bar.airport-one select { color: #244c58; border-color: #d6e5ea; }
+.trip-control-bar select:focus-visible { border-color: #46a98a; outline: 2px solid rgba(22,128,95,.1); }
+
+.smart-station-picker {
+  position: relative;
+  min-width: 0;
+  color: #294e45;
+  font-size: initial;
+  font-weight: initial;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.smart-station-trigger {
+  width: 100%;
+  min-height: 37px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  padding: 0 9px;
+  border: 1px solid #d9e7e2;
+  border-radius: 10px;
+  background: #fff;
+  color: #294e45;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.smart-station-trigger strong {
+  overflow: hidden;
+  font-size: .68rem;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.smart-station-trigger > svg { flex: 0 0 auto; width: 14px; height: 14px; transition: transform 160ms ease; }
+.smart-station-trigger[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.smart-station-trigger:focus-visible { border-color: #46a98a; outline: 2px solid rgba(22,128,95,.12); }
+
+.smart-station-picker.dark .smart-station-trigger {
+  min-height: 34px;
+  border: 0;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+}
+
+.smart-station-picker.dark .smart-station-trigger:focus-visible { outline-color: #8ee0c2; }
+
+.smart-station-popover {
+  position: absolute;
+  top: calc(100% + 7px);
+  right: 0;
+  z-index: 80;
+  width: min(270px, calc(100vw - 54px));
+  overflow: hidden;
+  padding: 8px;
+  border: 1px solid rgba(35, 76, 70, .1);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 18px 45px rgba(24, 58, 53, .2);
+}
+
+.smart-station-search {
+  min-height: 38px;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 1px solid #dce8e4;
+  border-radius: 10px;
+  background: #f7faf9;
+  color: #759087;
+}
+
+.smart-station-search > svg { width: 15px; }
+.smart-station-search input { min-width: 0; border: 0; outline: 0; background: transparent; color: #244b42; font: inherit; font-size: .7rem; font-weight: 750; }
+.smart-station-search button { width: 25px; height: 25px; display: grid; place-items: center; border: 0; background: transparent; color: #7e918c; cursor: pointer; }
+.smart-station-search button svg { width: 14px; }
+
+.smart-station-results {
+  max-height: 226px;
+  display: grid;
+  gap: 2px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.smart-station-results > button {
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #35564f;
+  cursor: pointer;
+  font: inherit;
+  font-size: .68rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.smart-station-results > button:hover,
+.smart-station-results > button:focus-visible,
+.smart-station-results > button.selected { background: #eaf7f2; color: #087f5b; outline: none; }
+.smart-station-results > button svg { width: 14px; }
+.smart-station-results p { margin: 0; padding: 14px 8px; color: #879690; font-size: .65rem; text-align: center; }
+
+.trip-utility-note {
+  margin: -2px 3px 0;
+  padding: 7px 9px;
+  border-radius: 9px;
+  background: #e8f7f0;
+  color: #347465;
+  font-size: .6rem;
+  line-height: 1.35;
+}
+.trip-utility-note.airport { background: #e8f4f7; color: #3a7182; }
+.trip-utility-note.error { background: #fff0ed; color: #9c4335; }
+
+.trip-navigation-shell {
+  position: sticky;
+  top: max(8px, env(safe-area-inset-top));
+  z-index: 35;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  width: min(100%, 430px);
+  margin: calc(10px + env(safe-area-inset-top)) auto 2px;
+}
+
+.trip-home-button,
+.trip-mode-nav {
+  min-height: 52px;
+  border: 1px solid rgba(24, 72, 78, .09);
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 12px 28px rgba(30, 69, 73, .1);
+  backdrop-filter: blur(20px);
+}
+
+.trip-home-button {
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  color: #47615f;
+  cursor: pointer;
+}
+
+.trip-home-button svg { width: 20px; }
+.trip-mode-nav { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 4px; padding: 4px; border-radius: 19px; }
+.trip-mode-nav button { min-width: 0; display: flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 14px; background: transparent; color: #6f807e; cursor: pointer; font: inherit; font-size: .69rem; font-weight: 900; }
+.trip-mode-nav button svg { width: 18px; height: 18px; }
+.trip-mode-nav button.active.gold-coast { background: #087f5b; color: #fff; }
+.trip-mode-nav button.active.airport { background: #156b86; color: #fff; }
+.trip-mode-nav button:focus-visible,
+.trip-home-button:focus-visible { outline: 3px solid rgba(22, 111, 112, .14); outline-offset: 1px; }
+
+.travel-hero,
+.travel-location-card,
+.travel-selectors,
+.airport-station-selector,
+.journey-card,
+.tram-board,
+.airport-board,
+.airtrain-info {
+  border: 1px solid rgba(25, 75, 67, 0.09);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 42px rgba(24, 73, 64, 0.075);
+}
+
+.travel-hero {
+  min-height: 142px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 25px;
+  overflow: hidden;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 92% 15%, rgba(37, 180, 135, 0.14), transparent 35%),
+    linear-gradient(135deg, #ffffff 0%, #f2fbf7 100%);
+}
+
+.airport-hero {
+  border-color: rgba(23, 95, 119, 0.1);
+  background:
+    radial-gradient(circle at 92% 15%, rgba(45, 156, 189, 0.14), transparent 35%),
+    linear-gradient(135deg, #ffffff 0%, #f1f9fc 100%);
+}
+
+.travel-kicker,
+.travel-section-head > span,
+.tram-board-head span,
+.airport-next-train small,
+.airtrain-info-head small {
+  color: #16805f;
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.airport-travel-page .travel-kicker,
+.airport-travel-page .travel-section-head > span,
+.airport-travel-page .airport-next-train small,
+.airport-travel-page .airtrain-info-head small {
+  color: #16708e;
+}
+
+.travel-hero h1 {
+  margin: 7px 0 5px;
+  color: #143c34;
+  font-size: clamp(1.6rem, 4vw, 2.35rem);
+  line-height: 1.03;
+  letter-spacing: -0.045em;
+}
+
+.airport-hero h1 {
+  color: #163b48;
+}
+
+.travel-hero p {
+  max-width: 550px;
+  margin: 0;
+  color: #5b716c;
+  font-size: 0.83rem;
+  line-height: 1.5;
+}
+
+.travel-refresh {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d7eee6;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #16805f;
+  cursor: pointer;
+}
+
+.travel-refresh:focus-visible,
+.travel-refresh:hover {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(22, 128, 95, 0.13);
+}
+
+.travel-refresh:disabled { opacity: 0.62; cursor: wait; }
+.travel-refresh svg { width: 18px; height: 18px; }
+.travel-refresh .spinning { animation: travel-spin 0.85s linear infinite; }
+
+.travel-location-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px 16px;
+  padding: 14px 16px;
+  border-radius: 20px;
+}
+
+.travel-location-copy {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.travel-location-copy > svg { width: 20px; color: #16805f; }
+.airport-location-card .travel-location-copy > svg { color: #16708e; }
+.travel-location-copy span { min-width: 0; display: grid; gap: 2px; }
+.travel-location-copy strong { color: #294b44; font-size: 0.77rem; }
+.travel-location-copy small { color: #788c87; font-size: 0.64rem; }
+
+.travel-location-card > button {
+  min-height: 38px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 12px;
+  background: #e6f6f0;
+  color: #087f5b;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.69rem;
+  font-weight: 900;
+}
+
+.airport-location-card > button { background: #e7f3f7; color: #146b86; }
+.travel-location-card > button:hover,
+.travel-location-card > button:focus-visible { outline: none; filter: brightness(0.97); box-shadow: 0 0 0 3px rgba(22,128,95,.1); }
+
+.travel-location-result {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: #f0faf6;
+  color: #367062;
+  font-size: 0.66rem;
+  line-height: 1.4;
+}
+
+.travel-location-result.error { background: #fff5f3; color: #a13c2c; }
+
+.travel-selectors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 15px;
+  border-radius: 22px;
+}
+
+.travel-selectors label,
+.airport-station-selector { display: grid; gap: 7px; }
+.travel-selectors label > span,
+.airport-station-selector label { color: #637a74; font-size: 0.64rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.travel-selectors select,
+.airport-station-selector select {
+  width: 100%;
+  min-height: 45px;
+  padding: 0 38px 0 12px;
+  border: 1px solid #d7e8e2;
+  border-radius: 13px;
+  background: #f8fcfa;
+  color: #24453e;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 850;
+}
+
+.travel-selectors select:focus-visible,
+.airport-station-selector select:focus-visible { border-color: #41a887; outline: 3px solid rgba(41, 163, 125, .12); }
+
+.airport-station-selector { padding: 16px; border-radius: 20px; }
+.airport-station-selector select { border-color: #d6e6ec; background: #f8fbfc; color: #24444e; }
+.airport-station-selector select:focus-visible { border-color: #4b9db6; outline-color: rgba(39, 128, 155, .12); }
+
+.travel-live-bar {
+  min-height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 5px;
+  color: #58756d;
+  font-size: .65rem;
+  font-weight: 800;
+}
+
+.travel-live-bar span { display: inline-flex; align-items: center; gap: 6px; }
+.travel-live-bar svg { width: 13px; color: #1e9b75; }
+.travel-live-bar small { color: #81938e; font-size: .61rem; }
+
+.journey-card,
+.tram-board,
+.airport-board,
+.airtrain-info { padding: 18px; border-radius: 26px; }
+
+.gold-route-ticket {
+  padding: 14px;
+  border: 0;
+  border-radius: 20px;
+  background: #123c34;
+  box-shadow: 0 15px 30px rgba(14, 58, 49, .18);
+}
+
+.gold-route-ticket .travel-section-head { margin: 0 2px 10px; }
+.gold-route-ticket .travel-section-head > span { color: #8ee0c2; }
+.gold-route-ticket .travel-section-head > strong { color: rgba(255,255,255,.78); }
+.gold-route-ticket .journey-leg { min-height: 57px; padding: 9px 10px; border: 0; border-radius: 13px; background: rgba(255,255,255,.075); }
+.gold-route-ticket .journey-leg.featured { background: #fff; }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-icon { background: rgba(255,255,255,.1); color: #8ee0c2; }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-copy small { color: #8ee0c2; }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-copy strong { color: #fff; }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-copy > span { color: rgba(255,255,255,.63); }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-time strong { color: #a6efd4; }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-time small { color: rgba(255,255,255,.55); }
+.gold-route-ticket .journey-leg.good,
+.gold-route-ticket .journey-leg.neutral { background: rgba(255,255,255,.075); }
+.gold-route-ticket .journey-connector { height: 13px; color: rgba(255,255,255,.38); }
+.gold-route-ticket .journey-connector svg { width: 12px; height: 12px; }
+
+.brisbane-route-ticket {
+  background: #173d4b;
+  box-shadow: 0 15px 30px rgba(17, 54, 68, .19);
+}
+
+.brisbane-route-ticket .travel-section-head > span,
+.brisbane-route-ticket .mode-section-control > span svg,
+.brisbane-route-ticket .journey-leg:not(.featured) .journey-leg-icon,
+.brisbane-route-ticket .journey-leg:not(.featured) .journey-leg-copy small { color: #9ed9eb; }
+.brisbane-route-ticket .smart-station-picker.dark .smart-station-trigger:focus-visible { outline-color: #9ed9eb; }
+
+.ticket-empty {
+  min-height: 72px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed rgba(255,255,255,.2);
+  border-radius: 12px;
+  color: rgba(255,255,255,.68);
+  font-size: .66rem;
+  text-align: center;
+}
+
+.ticket-empty svg { width: 18px; height: 18px; }
+
+.mode-section-control {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(130px, 190px);
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 11px;
+  padding-bottom: 11px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+
+.mode-section-control > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
+}
+
+.mode-section-control > span svg { width: 18px; color: #8ee0c2; }
+.mode-section-control > span strong { font-size: .84rem; }
+.mode-section-control label { min-width: 0; display: grid; grid-template-columns: auto minmax(0,1fr); align-items: center; gap: 6px; }
+.mode-section-control small { color: rgba(255,255,255,.52); font-size: .52rem; font-weight: 900; text-transform: uppercase; }
+.mode-section-control select,
+.tram-station-control select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 0 27px 0 8px;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  font: inherit;
+  font-size: .65rem;
+  font-weight: 850;
+}
+
+.mode-section-control select:focus-visible { outline: 2px solid #8ee0c2; outline-offset: 1px; }
+.mode-section-control option { color: #173e36; }
+
+.tram-board-head { align-items: end; }
+.tram-station-control { min-width: 0; width: min(58%, 260px); display: grid; gap: 4px; }
+.tram-station-control > span { color: #6f837d; font-size: .52rem; font-weight: 900; letter-spacing: .06em; text-transform: uppercase; }
+.tram-station-control select { border: 1px solid #dce9e4; background: #f7fbf9; color: #2a5148; }
+.tram-station-control select:focus-visible { border-color: #49a98b; outline: 2px solid rgba(22,128,95,.1); }
+
+.travel-section-head,
+.tram-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.travel-section-head strong { color: #355b52; font-size: .72rem; }
+
+.journey-leg {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #e2ede9;
+  border-radius: 18px;
+  background: #fbfdfc;
+}
+
+.journey-leg.featured { border-color: #bde0d4; background: linear-gradient(135deg, #ecf8f3, #f9fcfb); }
+.journey-leg.good { border-color: #cae8dc; background: #f5fbf8; }
+.journey-leg-icon {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #e5f5ef;
+  color: #0f805e;
+}
+.journey-leg-icon svg { width: 20px; height: 20px; }
+.journey-leg-copy { min-width: 0; display: grid; gap: 3px; }
+.journey-leg-copy small { color: #16805f; font-size: .59rem; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+.journey-leg-copy strong { overflow: hidden; color: #24463f; font-size: .82rem; text-overflow: ellipsis; white-space: nowrap; }
+.journey-leg-copy > span { color: #758883; font-size: .64rem; line-height: 1.35; }
+.journey-leg-facts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.journey-leg-fact { min-height: 21px; display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 7px; background: #eaf5f0; white-space: nowrap; }
+.journey-leg-fact i { color: #6b837c; font-size: .51rem; font-style: normal; font-weight: 750; }
+.journey-leg-fact b { color: #29544a; font-size: .58rem; font-weight: 950; }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-fact { background: rgba(255,255,255,.1); }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-fact i { color: rgba(255,255,255,.56); }
+.gold-route-ticket .journey-leg:not(.featured) .journey-leg-fact b { color: #fff; }
+.journey-leg-time { min-width: 66px; display: grid; justify-items: end; gap: 2px; }
+.journey-leg-time strong { color: #087f5b; font-size: 1.05rem; letter-spacing: -.03em; }
+.journey-leg-time small { color: #45977e; font-size: .56rem; font-weight: 900; text-transform: uppercase; }
+.journey-connector { height: 26px; display: grid; place-items: center; color: #85b6a6; }
+.journey-connector svg { width: 15px; }
+
+.tram-board-head { margin-bottom: 11px; }
+.tram-board-head > div { display: grid; gap: 3px; }
+.tram-board-head h2 { margin: 0; color: #21443c; font-size: 1rem; }
+.tram-board-head > svg { width: 23px; color: #16805f; }
+.tram-board-head .tram-board-title { display: flex; align-items: center; gap: 8px; }
+.tram-title-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: #e4f5ee; color: #087f5b; }
+.tram-title-icon svg { width: 18px; height: 18px; }
+.tram-source-note { width: max-content; display: block; margin: 8px 2px 0 auto; color: #82938e; font-size: .52rem; font-weight: 750; text-decoration: none; }
+.tram-source-note:hover,
+.tram-source-note:focus-visible { color: #087f5b; outline: none; text-decoration: underline; }
+
+.travel-direction-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  margin-bottom: 12px;
+  border-radius: 14px;
+  background: #eef5f2;
+}
+
+.travel-direction-toggle button {
+  min-height: 39px;
+  padding: 5px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #668079;
+  cursor: pointer;
+  font: inherit;
+  font-size: .64rem;
+  font-weight: 850;
+}
+.travel-direction-toggle button.active { background: #fff; color: #087f5b; box-shadow: 0 4px 12px rgba(27, 88, 71, .1); }
+.travel-direction-toggle button:focus-visible { outline: 2px solid #55a98d; outline-offset: 1px; }
+
+.travel-departure-list { display: grid; gap: 7px; }
+.travel-departure-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 13px;
+  border: 1px solid #e4ece9;
+  border-radius: 15px;
+  background: #fbfcfc;
+}
+.travel-departure-row > span { min-width: 0; display: grid; gap: 3px; }
+.travel-departure-row > span:last-child { flex: 0 0 auto; justify-items: end; }
+.travel-departure-row strong { overflow: hidden; color: #2c4b44; font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
+.travel-departure-row > span:last-child strong { color: #087f5b; font-size: .86rem; }
+.travel-departure-row small { color: #7a8c87; font-size: .59rem; }
+
+.travel-skeleton { display: grid; gap: 10px; padding: 18px; border-radius: 24px; background: #fff; }
+.travel-skeleton div { height: 72px; border-radius: 16px; background: linear-gradient(100deg, #edf3f1 20%, #f8fbfa 42%, #edf3f1 65%); background-size: 220% 100%; animation: travel-shimmer 1.25s infinite linear; }
+
+.travel-state { min-height: 128px; display: grid; place-items: center; align-content: center; gap: 8px; padding: 18px; border: 1px solid #ddebe6; border-radius: 24px; background: rgba(255,255,255,.9); color: #6f837e; text-align: center; }
+.travel-state.compact { min-height: 86px; border-radius: 16px; background: #fafcfb; }
+.travel-state.error { border-color: #f1d8d3; color: #a34334; }
+.travel-state svg { width: 22px; }
+.travel-state p { margin: 0; font-size: .73rem; line-height: 1.45; }
+
+.airport-board { border-color: rgba(23, 95, 119, .1); }
+.airport-board { padding: 12px; border-radius: 20px; background: #0f2f3a; box-shadow: 0 16px 32px rgba(12, 45, 55, .18); }
+.airport-next-train {
+  position: relative;
+  min-height: 126px;
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 15px;
+  padding: 17px;
+  overflow: hidden;
+  border-radius: 21px;
+  background: linear-gradient(135deg, #dff3f8 0%, #f2fafc 100%);
+}
+.airport-next-icon { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 18px; background: #fff; color: #16708e; box-shadow: 0 8px 20px rgba(24, 104, 129, .12); }
+.airport-next-icon svg { width: 25px; height: 25px; }
+.airport-next-train > div { min-width: 0; }
+.airport-next-train h2 { margin: 5px 0 2px; color: #125f78; font-size: clamp(1.8rem, 7vw, 2.8rem); line-height: .98; letter-spacing: -.06em; }
+.airport-next-train p { margin: 0; color: #587b86; font-size: .71rem; }
+.airport-next-facts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.airport-next-facts span { padding: 3px 6px; border-radius: 7px; background: rgba(255,255,255,.72); color: #6b8790; font-size: .57rem; font-weight: 750; }
+.airport-next-facts b { color: #255765; font-weight: 950; }
+.airport-live-tag { align-self: start; padding: 5px 8px; border-radius: 999px; background: #d8f3e9; color: #11805e; font-size: .56rem; font-weight: 900; text-transform: uppercase; }
+.airport-live-tag.scheduled { background: #edf1f3; color: #718088; }
+.airport-upcoming-head { margin: 18px 1px 10px; }
+.airport-upcoming-head { margin: 12px 2px 7px; }
+.airport-board .airport-upcoming-head > span { color: #8bd1e4; }
+.airport-board .airport-upcoming-head > strong { color: rgba(255,255,255,.7); }
+.airport-board .travel-departure-row { padding: 9px 10px; border: 0; border-radius: 10px; background: rgba(255,255,255,.07); }
+.airport-board .travel-departure-row strong { color: #fff; }
+.airport-board .travel-departure-row small { color: rgba(255,255,255,.55); }
+.airport-board .travel-departure-row > span:last-child strong { color: #a7e3f1; }
+.airport-travel-page .airport-board .travel-departure-row > span:last-child strong { color: #a7e3f1; }
+
+.airtrain-info { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head actions" "facts facts"; gap: 9px 10px; padding: 13px; border-color: rgba(23, 95, 119, .1); border-radius: 18px; }
+.airtrain-info-head { grid-area: head; min-width: 0; display: flex; align-items: center; gap: 9px; margin: 0; }
+.airtrain-info-head > span { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 11px; background: #e8f3f7; color: #16708e; }
+.airtrain-info-head h2 { margin: 2px 0 0; color: #234652; font-size: 1rem; }
+.airtrain-facts { grid-area: facts; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+.airtrain-facts > div { display: flex; align-items: flex-start; gap: 8px; padding: 9px; border: 1px solid #e1ecef; border-radius: 11px; background: #f9fcfd; }
+.airtrain-facts svg { flex: 0 0 auto; width: 18px; color: #16708e; }
+.airtrain-facts span { display: grid; gap: 3px; }
+.airtrain-facts strong { color: #2c4d58; font-size: .72rem; }
+.airtrain-facts small { color: #738991; font-size: .61rem; line-height: 1.45; }
+.airtrain-actions { grid-area: actions; display: flex; flex-wrap: nowrap; align-items: center; justify-content: flex-end; gap: 5px; margin: 0; }
+.airtrain-actions a { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 0 9px; border-radius: 9px; background: #156b86; color: #fff; font-size: .58rem; font-weight: 900; text-decoration: none; white-space: nowrap; }
+.airtrain-actions a.secondary { border: 1px solid #d5e5ea; background: #fff; color: #326675; }
+.airtrain-actions svg { width: 14px; }
+.airtrain-actions a:focus-visible { outline: 3px solid rgba(21, 107, 134, .18); outline-offset: 2px; }
+
+.flight-status-link {
+  min-height: 54px;
+  display: grid;
+  grid-template-columns: 34px auto minmax(0,1fr) 18px;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 13px;
+  border: 1px solid rgba(23, 95, 119, .1);
+  border-radius: 19px;
+  background: rgba(255,255,255,.94);
+  box-shadow: 0 12px 28px rgba(28, 75, 89, .07);
+  color: #244a57;
+  text-decoration: none;
+}
+
+.flight-status-link > svg:first-child { width: 19px; color: #16708e; }
+.flight-status-link > svg:last-child { width: 15px; color: #78919a; }
+.flight-status-link strong { font-size: .73rem; }
+.flight-status-link span { color: #81949a; font-size: .62rem; }
+.flight-status-link:focus-visible { outline: 3px solid rgba(21,107,134,.14); outline-offset: 2px; }
+
+@keyframes travel-spin { to { transform: rotate(360deg); } }
+@keyframes travel-shimmer { to { background-position-x: -220%; } }
+
+@media (max-width: 620px) {
+  .travel-page { gap: 10px; }
+  .trip-navigation-shell { grid-template-columns: 48px minmax(0,1fr); gap: 6px; }
+  .trip-home-button, .trip-mode-nav { min-height: 54px; }
+  .travel-hero { min-height: 124px; padding: 20px 17px; border-radius: 23px; }
+  .travel-hero h1 { font-size: 1.62rem; }
+  .travel-hero p { font-size: .73rem; }
+  .travel-selectors { grid-template-columns: 1fr; gap: 10px; padding: 13px; }
+  .journey-card, .tram-board, .airport-board, .airtrain-info { padding: 12px; border-radius: 19px; }
+  .trip-control-bar.two { grid-template-columns: 1fr 1fr; }
+  .journey-leg { grid-template-columns: 38px minmax(0, 1fr) auto; gap: 9px; padding: 12px 10px; }
+  .journey-leg-icon { width: 38px; height: 38px; border-radius: 12px; }
+  .journey-leg-copy strong { font-size: .73rem; }
+  .journey-leg-copy > span { font-size: .58rem; white-space: normal; }
+  .journey-leg-time { min-width: 56px; }
+  .journey-leg-time strong { font-size: .9rem; }
+  .airport-next-train { grid-template-columns: 46px minmax(0, 1fr); min-height: 124px; gap: 11px; padding: 16px 12px; }
+  .airport-next-icon { width: 46px; height: 46px; border-radius: 15px; }
+  .airport-live-tag { position: absolute; top: 11px; right: 11px; }
+  .airport-next-train h2 { font-size: 2rem; }
+  .airtrain-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 430px) {
+  .travel-location-card { grid-template-columns: 1fr; padding: 13px; }
+  .travel-location-card > button { width: 100%; }
+  .travel-location-result { grid-column: 1; }
+  .travel-direction-toggle button { font-size: .57rem; }
+  .travel-departure-row { padding: 11px 10px; }
+  .travel-departure-row strong { font-size: .68rem; }
+  .travel-live-bar { padding: 0 2px; }
+  .mode-section-control { grid-template-columns: minmax(70px, .7fr) minmax(0, 1.3fr); }
+  .tram-station-control { width: 62%; }
+}
+
+@media (max-width: 360px) {
+  .journey-direction-button { width: 34px; padding: 0; }
+  .journey-switch-row .journey-direction-button { width: auto; padding-inline: 10px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .travel-refresh .spinning,
+  .travel-skeleton div { animation: none; }
+}

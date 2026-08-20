@@ -10,7 +10,7 @@ import {
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
-import { Bus, LampDesk } from "lucide-react";
+import { Bus, LampDesk, Palmtree, Plane } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
@@ -18,8 +18,11 @@ import FoodDirectoryPage from "./pages/FoodDirectoryPage";
 import FerryTimesPage from "./pages/FerryTimesPage";
 import LibrarySpacesPage from "./pages/LibrarySpacesPage";
 import TrainTimesPage from "./pages/TrainTimesPage";
+import GoldCoastTravelPage from "./pages/GoldCoastTravelPage";
+import AirportTravelPage from "./pages/AirportTravelPage";
 import { HomeConditionsCard } from "./components/HomeLiveInfo";
 import TransportModeTabs from "./components/TransportModeTabs";
+import TravelModeTabs from "./components/TravelModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
 
 const REFRESH_MS = 30000;
@@ -32,6 +35,8 @@ const PLANNER_PAGE_ID = "planner";
 const LIBRARY_SPACES_PAGE_ID = "spaces";
 const FERRY_PAGE_ID = "ferry";
 const TRAIN_PAGE_ID = "train";
+const GOLD_COAST_PAGE_ID = "gold-coast";
+const AIRPORT_PAGE_ID = "airport";
 const FOOD_PAGE_ID = "food";
 const EXAMS_PAGE_ID = "exams";
 const FEATURE_FLAGS = Object.freeze({
@@ -53,6 +58,7 @@ const FAVORITES_STORAGE_KEY = "uq-bus-board-favorites-v1";
 const LIBRARY_SPACES_REFRESH_MS = 60_000;
 const LIBRARY_SPACES_SOURCE_URL =
   "https://web.library.uq.edu.au/visit/using-library-study-spaces/study-space-availability";
+const TRANSLINK_OPEN_DATA_URL = "https://translink.com.au/about-translink/open-data";
 const stopSearchCache = new Map();
 const toastTransition = cssTransition({
   enter: "bus-toast-enter",
@@ -411,7 +417,11 @@ export default function App() {
             ? "UQ F1 Ferry Times"
             : currentPage === TRAIN_PAGE_ID
               ? "Toowong Train Times"
-              : currentPage === FOOD_PAGE_ID
+              : currentPage === GOLD_COAST_PAGE_ID
+                ? "Gold Coast Train & Tram Times"
+                : currentPage === AIRPORT_PAGE_ID
+                  ? "Brisbane Airport Train Times"
+                  : currentPage === FOOD_PAGE_ID
                 ? "UQ Food & Drink"
                 : currentPage === EXAMS_PAGE_ID
                   ? "UQ Exam Countdown"
@@ -789,7 +799,9 @@ export default function App() {
       ? librarySpaces?.sourceUrl || LIBRARY_SPACES_SOURCE_URL
       : currentPage === PLANNER_PAGE_ID
         ? plannerSearchResult?.sourceUrl
-        : activeData?.sourceUrl;
+        : currentPage === GOLD_COAST_PAGE_ID || currentPage === AIRPORT_PAGE_ID
+          ? TRANSLINK_OPEN_DATA_URL
+          : activeData?.sourceUrl;
   const footerCopy =
     currentPage === LIBRARY_SPACES_PAGE_ID
       ? {
@@ -810,6 +822,8 @@ export default function App() {
         LIBRARY_SPACES_PAGE_ID,
         FERRY_PAGE_ID,
         TRAIN_PAGE_ID,
+        GOLD_COAST_PAGE_ID,
+        AIRPORT_PAGE_ID,
         ...(FEATURE_FLAGS.food ? [FOOD_PAGE_ID] : []),
         ...(FEATURE_FLAGS.exams ? [EXAMS_PAGE_ID] : []),
       ].includes(pageId)
@@ -834,6 +848,8 @@ export default function App() {
       bus: BOARD_PAGE_ID,
       ferry: FERRY_PAGE_ID,
       train: TRAIN_PAGE_ID,
+      "gold-coast": GOLD_COAST_PAGE_ID,
+      airport: AIRPORT_PAGE_ID,
     };
 
     handlePageChange(pageByMode[mode] ?? BOARD_PAGE_ID);
@@ -1242,6 +1258,8 @@ export default function App() {
             currentPage === BOARD_PAGE_ID ? "board-content-motion" : "",
             currentPage === FERRY_PAGE_ID ? "ferry-content-motion" : "",
             currentPage === TRAIN_PAGE_ID ? "train-content-motion" : "",
+            currentPage === GOLD_COAST_PAGE_ID ? "travel-content-motion" : "",
+            currentPage === AIRPORT_PAGE_ID ? "travel-content-motion" : "",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -1253,6 +1271,8 @@ export default function App() {
             <CampusHomePage
               onOpenBoard={() => handlePageChange(BOARD_PAGE_ID)}
               onOpenStudySpaces={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
+              onOpenGoldCoast={() => handlePageChange(GOLD_COAST_PAGE_ID)}
+              onOpenAirport={() => handlePageChange(AIRPORT_PAGE_ID)}
               transportDescription={
                 data?.departures?.[0]
                   ? `Next ${data.departures[0].routeCode} · ${data.departures[0].countdownText}`
@@ -1766,6 +1786,26 @@ export default function App() {
                 />
               }
             />
+          ) : currentPage === GOLD_COAST_PAGE_ID ? (
+            <GoldCoastTravelPage
+              modeSelector={
+                <TravelModeTabs
+                  activeMode="gold-coast"
+                  onHome={() => handlePageChange(HOME_PAGE_ID)}
+                  onSelect={handleTransportModeChange}
+                />
+              }
+            />
+          ) : currentPage === AIRPORT_PAGE_ID ? (
+            <AirportTravelPage
+              modeSelector={
+                <TravelModeTabs
+                  activeMode="airport"
+                  onHome={() => handlePageChange(HOME_PAGE_ID)}
+                  onSelect={handleTransportModeChange}
+                />
+              }
+            />
           ) : currentPage === FOOD_PAGE_ID ? (
             <FoodDirectoryPage />
           ) : currentPage === EXAMS_PAGE_ID ? (
@@ -1785,6 +1825,8 @@ export default function App() {
 
       {currentPage !== HOME_PAGE_ID &&
       currentPage !== FERRY_PAGE_ID &&
+      currentPage !== GOLD_COAST_PAGE_ID &&
+      currentPage !== AIRPORT_PAGE_ID &&
       currentPage !== FOOD_PAGE_ID &&
       currentPage !== EXAMS_PAGE_ID ? (
         <footer className="app-footer">
@@ -2025,6 +2067,8 @@ function CampusSplashScreen() {
 function CampusHomePage({
   onOpenBoard,
   onOpenStudySpaces,
+  onOpenGoldCoast,
+  onOpenAirport,
   transportDescription,
 }) {
   const homeActions = [
@@ -2101,6 +2145,43 @@ function CampusHomePage({
             ),
           )}
         </div>
+
+        <section className="campus-trip-section" aria-label="Trips">
+          <div className="campus-trip-head">
+            <span>Trips</span>
+            <small>Beyond campus</small>
+          </div>
+          <div className="campus-trip-actions">
+            <motion.button
+              type="button"
+              className="campus-trip-option gold-coast"
+              aria-label="Live travel to the Gold Coast"
+              onClick={onOpenGoldCoast}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="campus-trip-icon"><Palmtree aria-hidden="true" /></span>
+              <span className="campus-trip-copy">
+                <strong>Gold Coast</strong>
+                <span>Live train + tram</span>
+              </span>
+              <span className="campus-trip-status"><i aria-hidden="true" />Live</span>
+            </motion.button>
+            <motion.button
+              type="button"
+              className="campus-trip-option airport"
+              aria-label="Travel to Brisbane Airport"
+              onClick={onOpenAirport}
+              whileTap={{ scale: 0.98 }}
+            >
+              <span className="campus-trip-icon"><Plane aria-hidden="true" /></span>
+              <span className="campus-trip-copy">
+                <strong>Airport</strong>
+                <span>Airtrain + flights</span>
+              </span>
+              <span className="campus-trip-status">Airtrain</span>
+            </motion.button>
+          </div>
+        </section>
       </div>
     </section>
   );
@@ -2577,7 +2658,21 @@ function getInitialStopId() {
 }
 
 function getInitialPageId() {
-  return HOME_PAGE_ID;
+  const pageId = new URLSearchParams(window.location.search).get("page");
+  return [
+    HOME_PAGE_ID,
+    BOARD_PAGE_ID,
+    PLANNER_PAGE_ID,
+    LIBRARY_SPACES_PAGE_ID,
+    FERRY_PAGE_ID,
+    TRAIN_PAGE_ID,
+    GOLD_COAST_PAGE_ID,
+    AIRPORT_PAGE_ID,
+    ...(FEATURE_FLAGS.food ? [FOOD_PAGE_ID] : []),
+    ...(FEATURE_FLAGS.exams ? [EXAMS_PAGE_ID] : []),
+  ].includes(pageId)
+    ? pageId
+    : HOME_PAGE_ID;
 }
 
 function shouldShowCampusSplash() {
@@ -3403,6 +3498,8 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
     pageId === LIBRARY_SPACES_PAGE_ID ||
     pageId === FERRY_PAGE_ID ||
     pageId === TRAIN_PAGE_ID ||
+    pageId === GOLD_COAST_PAGE_ID ||
+    pageId === AIRPORT_PAGE_ID ||
     pageId === FOOD_PAGE_ID ||
     pageId === EXAMS_PAGE_ID
   ) {

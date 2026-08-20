@@ -2,9 +2,9 @@ import { motion } from "framer-motion";
 import { BusFront, House, Ship, TrainFront } from "lucide-react";
 
 const MODES = [
-  { Icon: BusFront, id: "bus", label: "Bus" },
-  { Icon: Ship, id: "ferry", label: "Ferry" },
-  { Icon: TrainFront, id: "train", label: "Train" },
+  { Icon: BusFront, id: "bus", label: "Bus", shortLabel: "Bus" },
+  { Icon: Ship, id: "ferry", label: "Ferry", shortLabel: "Ferry" },
+  { Icon: TrainFront, id: "train", label: "Train", shortLabel: "Train" },
 ];
 
 export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
@@ -27,7 +27,7 @@ export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
         className={`transport-mode-nav active-${activeMode}`}
         aria-label="Choose transport type"
       >
-        {MODES.map(({ Icon, id, label }) => (
+        {MODES.map(({ Icon, id, label, shortLabel }) => (
           <motion.button
             key={id}
             type="button"
@@ -49,7 +49,10 @@ export default function TransportModeTabs({ activeMode, onHome, onSelect }) {
               />
             ) : null}
             <Icon aria-hidden="true" />
-            <span className="transport-mode-label">{label}</span>
+            <span className="transport-mode-label">
+              <span className="transport-mode-label-full">{label}</span>
+              <span className="transport-mode-label-short">{shortLabel}</span>
+            </span>
           </motion.button>
         ))}
       </nav>
