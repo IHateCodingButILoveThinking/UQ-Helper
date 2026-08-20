@@ -51,3 +51,18 @@ The frontend is React with Vite, and the backend is a tiny Express endpoint that
 
 Track how congested of the bus
 And The station status how many people
+# UQ Campus Helper
+
+## Cloudflare Shout Out API
+
+The anonymous campus Shout Out feature uses a Cloudflare Worker and D1 database.
+The frontend never stores or sends a user's precise location; geolocation is used
+only in the browser to suggest the nearest supported campus place.
+
+```bash
+npx wrangler login
+npm run db:migrate:shoutouts
+npm run deploy:shoutouts
+```
+
+Worker configuration and migrations live in `cloudflare/shoutouts/`.

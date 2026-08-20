@@ -10,7 +10,7 @@ import {
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
-import { Bus, LampDesk, Palmtree, Plane } from "lucide-react";
+import { Bus, LampDesk, MessageCircle, Palmtree, Plane } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
@@ -20,6 +20,7 @@ import LibrarySpacesPage from "./pages/LibrarySpacesPage";
 import TrainTimesPage from "./pages/TrainTimesPage";
 import GoldCoastTravelPage from "./pages/GoldCoastTravelPage";
 import AirportTravelPage from "./pages/AirportTravelPage";
+import ShoutOutPage from "./pages/ShoutOutPage";
 import { HomeConditionsCard } from "./components/HomeLiveInfo";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import TransportModeTabs from "./components/TransportModeTabs";
@@ -38,6 +39,7 @@ const FERRY_PAGE_ID = "ferry";
 const TRAIN_PAGE_ID = "train";
 const GOLD_COAST_PAGE_ID = "gold-coast";
 const AIRPORT_PAGE_ID = "airport";
+const SHOUTOUT_PAGE_ID = "shout-outs";
 const FOOD_PAGE_ID = "food";
 const EXAMS_PAGE_ID = "exams";
 const FEATURE_FLAGS = Object.freeze({
@@ -422,6 +424,8 @@ export default function App() {
                 ? "Gold Coast Train & Tram Times"
                 : currentPage === AIRPORT_PAGE_ID
                   ? "Brisbane Airport Train Times"
+                  : currentPage === SHOUTOUT_PAGE_ID
+                    ? "UQ Campus Shout Outs"
                   : currentPage === FOOD_PAGE_ID
                 ? "UQ Food & Drink"
                 : currentPage === EXAMS_PAGE_ID
@@ -825,6 +829,7 @@ export default function App() {
         TRAIN_PAGE_ID,
         GOLD_COAST_PAGE_ID,
         AIRPORT_PAGE_ID,
+        SHOUTOUT_PAGE_ID,
         ...(FEATURE_FLAGS.food ? [FOOD_PAGE_ID] : []),
         ...(FEATURE_FLAGS.exams ? [EXAMS_PAGE_ID] : []),
       ].includes(pageId)
@@ -1265,6 +1270,7 @@ export default function App() {
             currentPage === TRAIN_PAGE_ID ? "train-content-motion" : "",
             currentPage === GOLD_COAST_PAGE_ID ? "travel-content-motion" : "",
             currentPage === AIRPORT_PAGE_ID ? "travel-content-motion" : "",
+            currentPage === SHOUTOUT_PAGE_ID ? "shout-content-motion" : "",
           ]
             .filter(Boolean)
             .join(" ")}
@@ -1278,6 +1284,7 @@ export default function App() {
               onOpenStudySpaces={() => handlePageChange(LIBRARY_SPACES_PAGE_ID)}
               onOpenGoldCoast={() => handlePageChange(GOLD_COAST_PAGE_ID)}
               onOpenAirport={() => handlePageChange(AIRPORT_PAGE_ID)}
+              onOpenShoutOut={() => handlePageChange(SHOUTOUT_PAGE_ID)}
               transportDescription={
                 data?.departures?.[0]
                   ? `Next ${data.departures[0].routeCode} · ${data.departures[0].countdownText}`
@@ -1811,6 +1818,8 @@ export default function App() {
                 />
               }
             />
+          ) : currentPage === SHOUTOUT_PAGE_ID ? (
+            <ShoutOutPage onHome={() => handlePageChange(HOME_PAGE_ID)} />
           ) : currentPage === FOOD_PAGE_ID ? (
             <FoodDirectoryPage />
           ) : currentPage === EXAMS_PAGE_ID ? (
@@ -1832,6 +1841,7 @@ export default function App() {
       currentPage !== FERRY_PAGE_ID &&
       currentPage !== GOLD_COAST_PAGE_ID &&
       currentPage !== AIRPORT_PAGE_ID &&
+      currentPage !== SHOUTOUT_PAGE_ID &&
       currentPage !== FOOD_PAGE_ID &&
       currentPage !== EXAMS_PAGE_ID ? (
         <footer className="app-footer">
@@ -2074,6 +2084,7 @@ function CampusHomePage({
   onOpenStudySpaces,
   onOpenGoldCoast,
   onOpenAirport,
+  onOpenShoutOut,
   transportDescription,
 }) {
   const homeActions = [
@@ -2150,6 +2161,22 @@ function CampusHomePage({
             ),
           )}
         </div>
+
+        <motion.button
+          type="button"
+          className="campus-community-option"
+          aria-label="Open campus Shout Out map"
+          onClick={onOpenShoutOut}
+          whileHover={{ y: -2 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          <span className="campus-community-icon"><MessageCircle aria-hidden="true" /></span>
+          <span className="campus-community-copy">
+            <strong>Shout Out</strong>
+            <span>Messages around campus</span>
+          </span>
+          <span className="campus-community-status"><i aria-hidden="true" />Map</span>
+        </motion.button>
 
         <section className="campus-trip-section" aria-label="Trips">
           <div className="campus-trip-head">
@@ -2673,6 +2700,7 @@ function getInitialPageId() {
     TRAIN_PAGE_ID,
     GOLD_COAST_PAGE_ID,
     AIRPORT_PAGE_ID,
+    SHOUTOUT_PAGE_ID,
     ...(FEATURE_FLAGS.food ? [FOOD_PAGE_ID] : []),
     ...(FEATURE_FLAGS.exams ? [EXAMS_PAGE_ID] : []),
   ].includes(pageId)
@@ -3505,6 +3533,7 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
     pageId === TRAIN_PAGE_ID ||
     pageId === GOLD_COAST_PAGE_ID ||
     pageId === AIRPORT_PAGE_ID ||
+    pageId === SHOUTOUT_PAGE_ID ||
     pageId === FOOD_PAGE_ID ||
     pageId === EXAMS_PAGE_ID
   ) {

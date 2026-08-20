@@ -13,6 +13,7 @@ import "./styles/home-live-info.css";
 import "./styles/transport-modes.css";
 import "./styles/travel.css";
 import "./styles/pwa-install.css";
+import "./styles/shout-outs.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
