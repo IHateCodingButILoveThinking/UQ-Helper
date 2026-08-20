@@ -265,7 +265,14 @@ export default function GoldCoastTravelPage({ modeSelector }) {
       {nextTrain ? (
         <>
           <JourneyLeg Icon={TrainFront} label="1 · Gold Coast line" title={`${railStation.label} → Helensvale`} departure={nextTrain} featured />
-          <JourneyConnector />
+          {laterTrains.length ? (
+            <LaterTrainOptions
+              departures={laterTrains}
+              expanded={showLaterTrains}
+              onToggle={() => setShowLaterTrains((current) => !current)}
+            />
+          ) : null}
+          <JourneyConnector label="Then transfer" />
           <JourneyLeg
             Icon={MapPin}
             label="2 · Transfer"
@@ -276,13 +283,6 @@ export default function GoldCoastTravelPage({ modeSelector }) {
             ] : [{ label: "On arrival", value: "Check platform" }]}
             tone={transfer?.bufferMinutes >= 6 ? "good" : "neutral"}
           />
-          {laterTrains.length ? (
-            <LaterTrainOptions
-              departures={laterTrains}
-              expanded={showLaterTrains}
-              onToggle={() => setShowLaterTrains((current) => !current)}
-            />
-          ) : null}
         </>
       ) : <TicketEmpty message={`No southbound trains from ${railStation.label}.`} />}
     </section>
@@ -313,7 +313,7 @@ export default function GoldCoastTravelPage({ modeSelector }) {
                 ]}
                 tone={brisbaneTransfer.bufferMinutes >= 6 ? "good" : "neutral"}
               />
-              <JourneyConnector />
+              <JourneyConnector label="Then train" />
             </>
           ) : null}
           <JourneyLeg Icon={TrainFront} label={`${tramStartsAtHelensvale ? "1" : "2"} · Brisbane train`} title={`Helensvale → ${railStation.label}`} departure={brisbaneTransfer.train} featured />
@@ -379,8 +379,14 @@ function JourneyLeg({ Icon, departure, details = [], featured = false, label, ti
   );
 }
 
-function JourneyConnector() {
-  return <div className="journey-connector" aria-hidden="true"><ArrowDown /></div>;
+function JourneyConnector({ label }) {
+  return (
+    <div className="journey-connector" aria-label={label}>
+      <span aria-hidden="true" />
+      <strong><ArrowDown aria-hidden="true" />{label}</strong>
+      <span aria-hidden="true" />
+    </div>
+  );
 }
 
 function LaterTrainOptions({ departures, expanded, onToggle }) {

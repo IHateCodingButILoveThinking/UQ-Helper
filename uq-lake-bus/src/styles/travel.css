@@ -528,7 +528,10 @@ body[data-page="airport"] {
 .gold-route-ticket .travel-section-head > span { color: #8ee0c2; }
 .gold-route-ticket .travel-section-head > strong { color: rgba(255,255,255,.78); }
 .gold-route-ticket .journey-leg { min-height: 57px; padding: 9px 10px; border: 0; border-radius: 13px; background: rgba(255,255,255,.075); }
-.gold-route-ticket .journey-leg.featured { background: #fff; }
+.gold-route-ticket .journey-leg.featured {
+  background: linear-gradient(135deg, #dff4e9 0%, #edf8f3 100%);
+  box-shadow: inset 0 0 0 1px rgba(77, 164, 132, .14);
+}
 .gold-route-ticket .journey-leg:not(.featured) .journey-leg-icon { background: rgba(255,255,255,.1); color: #8ee0c2; }
 .gold-route-ticket .journey-leg:not(.featured) .journey-leg-copy small { color: #8ee0c2; }
 .gold-route-ticket .journey-leg:not(.featured) .journey-leg-copy strong { color: #fff; }
@@ -537,8 +540,10 @@ body[data-page="airport"] {
 .gold-route-ticket .journey-leg:not(.featured) .journey-leg-time small { color: rgba(255,255,255,.55); }
 .gold-route-ticket .journey-leg.good,
 .gold-route-ticket .journey-leg.neutral { background: rgba(255,255,255,.075); }
-.gold-route-ticket .journey-connector { height: 13px; color: rgba(255,255,255,.38); }
-.gold-route-ticket .journey-connector svg { width: 12px; height: 12px; }
+.gold-route-ticket .journey-connector { height: 30px; color: rgba(255,255,255,.66); }
+.gold-route-ticket .journey-connector > span { background: rgba(255,255,255,.16); }
+.gold-route-ticket .journey-connector strong { background: rgba(255,255,255,.08); }
+.gold-route-ticket .journey-connector svg { width: 15px; height: 15px; }
 
 .brisbane-route-ticket {
   background: #173d4b;
@@ -661,8 +666,29 @@ body[data-page="airport"] {
 .journey-leg-time { min-width: 66px; display: grid; justify-items: end; gap: 2px; }
 .journey-leg-time strong { color: #087f5b; font-size: 1.05rem; letter-spacing: -.03em; }
 .journey-leg-time small { color: #45977e; font-size: .56rem; font-weight: 900; text-transform: uppercase; }
-.journey-connector { height: 26px; display: grid; place-items: center; color: #85b6a6; }
-.journey-connector svg { width: 15px; }
+.journey-connector {
+  height: 34px;
+  display: grid;
+  grid-template-columns: minmax(14px, 1fr) auto minmax(14px, 1fr);
+  align-items: center;
+  gap: 7px;
+  color: #628f81;
+}
+
+.journey-connector > span { height: 1px; background: #d7e7e1; }
+.journey-connector strong {
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 7px;
+  border-radius: 8px;
+  background: #edf6f2;
+  font-size: .52rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.journey-connector svg { width: 15px; height: 15px; }
 
 .later-trains {
   display: grid;
