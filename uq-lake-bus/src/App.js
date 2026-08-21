@@ -24,7 +24,6 @@ import ShoutOutPage from "./pages/ShoutOutPage";
 import { HomeConditionsCard } from "./components/HomeLiveInfo";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import TransportModeTabs from "./components/TransportModeTabs";
-import TravelModeTabs from "./components/TravelModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
 
 const REFRESH_MS = 30000;
@@ -46,10 +45,6 @@ const FEATURE_FLAGS = Object.freeze({
   exams: false,
   food: false,
 });
-const SPLASH_DURATION_MS = 420;
-const SPLASH_SESSION_KEY = "uq-campus-splash-seen-v1";
-const UQ_SPLASH_LOGO_URL =
-  "https://static.uq.net.au/v15/logos/corporate/uq-logo-white.svg";
 const PLANNER_FIELD_ORIGIN = "origin";
 const PLANNER_FIELD_DESTINATION = "destination";
 const WALKABLE_UQ_STOP_MESSAGE =
@@ -231,7 +226,6 @@ const OFFICIAL_STATION_CHOICES = [
 export default function App() {
   const reduceMotion = useReducedMotion();
   const [currentPage, setCurrentPage] = useState(getInitialPageId);
-  const [showSplash, setShowSplash] = useState(shouldShowCampusSplash);
   const [librarySubPageOpen, setLibrarySubPageOpen] = useState(false);
   const [selectedStopId, setSelectedStopId] = useState(getInitialStopId);
   const [data, setData] = useState(null);
@@ -285,25 +279,6 @@ export default function App() {
   const showError = activeStop.sourceMode === "live" && error;
   const modalOpen =
     currentPage === BOARD_PAGE_ID && (filterOpen || stopSheetOpen);
-
-  useEffect(() => {
-    if (!showSplash) {
-      return undefined;
-    }
-
-    const splashTimer = window.setTimeout(() => {
-      try {
-        window.sessionStorage.setItem(SPLASH_SESSION_KEY, "true");
-      } catch {
-        // The shorter splash still exits normally when storage is unavailable.
-      }
-      setShowSplash(false);
-    }, SPLASH_DURATION_MS);
-
-    return () => {
-      window.clearTimeout(splashTimer);
-    };
-  }, [showSplash]);
 
   useEffect(() => {
     let timerId;
@@ -1233,13 +1208,7 @@ export default function App() {
 
   return (
     <main className={`app-shell ${activeStop.themeClass} page-${currentPage}`}>
-      <AnimatePresence mode="wait">
-        {showSplash ? <CampusSplashScreen key="uq-splash" /> : null}
-      </AnimatePresence>
-
-      <PwaInstallPrompt
-        visible={currentPage === HOME_PAGE_ID && !showSplash}
-      />
+      <PwaInstallPrompt visible={currentPage === HOME_PAGE_ID} />
 
       {showHomeBackButton ? (
         <motion.button
@@ -1800,23 +1769,11 @@ export default function App() {
             />
           ) : currentPage === GOLD_COAST_PAGE_ID ? (
             <GoldCoastTravelPage
-              modeSelector={
-                <TravelModeTabs
-                  activeMode="gold-coast"
-                  onHome={() => handlePageChange(HOME_PAGE_ID)}
-                  onSelect={handleTransportModeChange}
-                />
-              }
+              onHome={() => handlePageChange(HOME_PAGE_ID)}
             />
           ) : currentPage === AIRPORT_PAGE_ID ? (
             <AirportTravelPage
-              modeSelector={
-                <TravelModeTabs
-                  activeMode="airport"
-                  onHome={() => handlePageChange(HOME_PAGE_ID)}
-                  onSelect={handleTransportModeChange}
-                />
-              }
+              onHome={() => handlePageChange(HOME_PAGE_ID)}
             />
           ) : currentPage === SHOUTOUT_PAGE_ID ? (
             <ShoutOutPage onHome={() => handlePageChange(HOME_PAGE_ID)} />
@@ -2027,58 +1984,6 @@ export default function App() {
   );
 }
 
-function CampusSplashScreen() {
-  return (
-    <motion.div
-      className="uq-splash-screen"
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0, scale: 1.04 }}
-      transition={{ duration: 0.16, ease: "easeOut" }}
-      aria-label="The University of Queensland Create Change splash screen"
-    >
-      <div className="uq-splash-curves" aria-hidden="true">
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" focusable="false">
-          <path d="M0,100 C30,70 70,70 100,100 Z" fill="#6A3A95" />
-          <path d="M0,100 C38,80 78,90 100,60 L100,100 Z" fill="#884CBA" />
-          <path d="M0,0 C30,30 70,30 100,0 Z" fill="#401962" />
-        </svg>
-      </div>
-
-      <motion.div
-        className="uq-splash-content"
-        initial={{ opacity: 0, y: 22, scale: 0.92 }}
-        animate={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ delay: 0.02, duration: 0.27, ease: [0.16, 1, 0.3, 1] }}
-      >
-        <img
-          src={UQ_SPLASH_LOGO_URL}
-          alt="The University of Queensland Australia"
-          className="uq-splash-logo"
-          decoding="async"
-        />
-
-        <motion.span
-          className="uq-splash-divider"
-          initial={{ scaleX: 0 }}
-          animate={{ scaleX: 1 }}
-          transition={{ delay: 0.12, duration: 0.18, ease: "easeOut" }}
-          aria-hidden="true"
-        />
-
-        <motion.p
-          className="uq-splash-motto"
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.19, duration: 0.16, ease: "easeOut" }}
-        >
-          CREATE CHANGE
-        </motion.p>
-      </motion.div>
-    </motion.div>
-  );
-}
-
 function CampusHomePage({
   onOpenBoard,
   onOpenStudySpaces,
@@ -2103,6 +2008,14 @@ function CampusHomePage({
       label: "Study Spaces",
       onClick: onOpenStudySpaces,
       status: "Live",
+    },
+    {
+      accentClass: "community",
+      description: "Posts on the map",
+      Icon: MessageCircle,
+      label: "Shout Out",
+      onClick: onOpenShoutOut,
+      status: "Recent",
     },
   ];
 
@@ -2162,22 +2075,6 @@ function CampusHomePage({
           )}
         </div>
 
-        <motion.button
-          type="button"
-          className="campus-community-option"
-          aria-label="Open campus Shout Out map"
-          onClick={onOpenShoutOut}
-          whileHover={{ y: -2 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          <span className="campus-community-icon"><MessageCircle aria-hidden="true" /></span>
-          <span className="campus-community-copy">
-            <strong>Shout Out</strong>
-            <span>Messages around campus</span>
-          </span>
-          <span className="campus-community-status"><i aria-hidden="true" />Map</span>
-        </motion.button>
-
         <section className="campus-trip-section" aria-label="Trips">
           <div className="campus-trip-head">
             <span>Trips</span>
@@ -2210,7 +2107,7 @@ function CampusHomePage({
                 <strong>Airport</strong>
                 <span>Airtrain + flights</span>
               </span>
-              <span className="campus-trip-status">Airtrain</span>
+              <span className="campus-trip-status"><i aria-hidden="true" />Live</span>
             </motion.button>
           </div>
         </section>
@@ -2706,18 +2603,6 @@ function getInitialPageId() {
   ].includes(pageId)
     ? pageId
     : HOME_PAGE_ID;
-}
-
-function shouldShowCampusSplash() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  try {
-    return window.sessionStorage.getItem(SPLASH_SESSION_KEY) !== "true";
-  } catch {
-    return true;
-  }
 }
 
 function getInitialRouteId() {

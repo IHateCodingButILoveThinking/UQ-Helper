@@ -5,12 +5,13 @@ const HIDE_AFTER_REPORTS = 3;
 const MAX_MESSAGE_LENGTH = 160;
 const MAP_RESULT_LIMIT = 200;
 const PIN_GRID_E6 = 500;
+const MAX_POST_DISTANCE_KM = 1;
 
-const BRISBANE_BOUNDS = Object.freeze({
-  south: -27.8,
-  north: -27.1,
-  west: 152.7,
-  east: 153.5,
+const AUSTRALIA_BOUNDS = Object.freeze({
+  south: -44.5,
+  north: -9,
+  west: 112.5,
+  east: 154.5,
 });
 
 const PLACES = Object.freeze([
@@ -124,6 +125,19 @@ async function handleRequest(request, env, ctx) {
     return createMessage(request, env);
   }
 
+  if (request.method === "GET" && path === "/api/notifications") {
+    return listNotifications(request, env);
+  }
+
+  if (request.method === "POST" && path === "/api/notifications/read") {
+    return markNotificationsRead(request, env);
+  }
+
+  const replyMatch = path.match(/^\/api\/messages\/([0-9a-f-]{36})\/replies$/i);
+  if (request.method === "POST" && replyMatch) {
+    return createReply(request, env, replyMatch[1]);
+  }
+
   const reactionMatch = path.match(/^\/api\/messages\/([0-9a-f-]{36})\/react$/i);
   if (request.method === "POST" && reactionMatch) {
     return reactToMessage(request, env, reactionMatch[1]);
@@ -147,13 +161,15 @@ async function listMessages(request, env, url) {
 
   const { results = [] } = await env.DB.prepare(
     `SELECT m.id, m.place_id, m.body, m.emoji, m.avatar_color, m.avatar_variant,
-            m.created_at, m.expires_at, m.reaction_count,
+            m.created_at, m.expires_at, m.reaction_count, m.parent_id,
+            m.reply_count,
             l.latitude_e6, l.longitude_e6, l.label AS place_label,
             l.kind AS place_kind
        FROM messages AS m
        JOIN shout_locations AS l ON l.id = m.place_id
       WHERE m.place_id = ? AND m.expires_at > ? AND m.report_count < ?
-      ORDER BY m.created_at DESC, m.id DESC
+      ORDER BY CASE WHEN m.parent_id IS NULL THEN m.created_at ELSE 0 END DESC,
+               m.parent_id, m.created_at ASC, m.id ASC
       LIMIT ?`,
   )
     .bind(placeId, now, HIDE_AFTER_REPORTS, limit)
@@ -191,7 +207,7 @@ async function summarizeMessages(request, env, url) {
                 ) AS message_rank
            FROM messages AS m
            JOIN shout_locations AS l ON l.id = m.place_id
-          WHERE m.expires_at > ? AND m.report_count < ?
+          WHERE m.expires_at > ? AND m.report_count < ? AND m.parent_id IS NULL
             AND l.latitude_e6 BETWEEN ? AND ?
             AND l.longitude_e6 BETWEEN ? AND ?
        )
@@ -273,9 +289,9 @@ async function createMessage(request, env) {
   statements.push(
     env.DB.prepare(
       `INSERT INTO messages
-         (id, place_id, body, emoji, avatar_color, avatar_variant, created_at, expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).bind(id, placeId, body, emoji, avatarColor, avatarVariant, now, expiresAt),
+         (id, place_id, body, emoji, avatar_color, avatar_variant, created_at, expires_at, author_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(id, placeId, body, emoji, avatarColor, avatarVariant, now, expiresAt, clientHash),
     env.DB.prepare(
       `INSERT INTO rate_limits (client_hash, last_post_at, day_key, daily_count)
        VALUES (?, ?, ?, 1)
@@ -315,6 +331,170 @@ async function createMessage(request, env) {
   );
 }
 
+async function createReply(request, env, parentMessageId) {
+  ensureJsonRequest(request);
+  const payload = await readJson(request);
+  const body = normalizeMessage(payload.message);
+  const emoji = normalizePostEmoji(payload.emoji);
+  const clientHash = await getClientHash(request);
+  const now = unixNow();
+  const dayKey = new Date(now * 1000).toISOString().slice(0, 10);
+
+  const parent = await env.DB.prepare(
+    `SELECT m.id, m.place_id, m.author_hash, m.expires_at, m.parent_id,
+            l.latitude_e6, l.longitude_e6, l.label AS place_label,
+            l.kind AS place_kind
+       FROM messages AS m
+       JOIN shout_locations AS l ON l.id = m.place_id
+      WHERE m.id = ? AND m.expires_at > ? AND m.report_count < ?`,
+  )
+    .bind(parentMessageId, now, HIDE_AFTER_REPORTS)
+    .first();
+  if (!parent) throw new HTTPError(404, "This post is no longer available.");
+  if (parent.parent_id) throw new HTTPError(400, "Reply to the main post instead.");
+
+  const rate = await env.DB.prepare(
+    "SELECT last_post_at, day_key, daily_count FROM rate_limits WHERE client_hash = ?",
+  )
+    .bind(clientHash)
+    .first();
+  if (rate && now - Number(rate.last_post_at) < POST_COOLDOWN_SECONDS) {
+    const retryAfter = POST_COOLDOWN_SECONDS - (now - Number(rate.last_post_at));
+    throw new HTTPError(429, `Please wait ${retryAfter} seconds before replying again.`);
+  }
+  const dailyCount = rate?.day_key === dayKey ? Number(rate.daily_count) : 0;
+  if (dailyCount >= DAILY_POST_LIMIT) {
+    throw new HTTPError(429, "You have reached today’s posting limit.");
+  }
+
+  const id = crypto.randomUUID();
+  const expiresAt = Math.min(now + MESSAGE_LIFETIME_SECONDS, Number(parent.expires_at));
+  const randomBytes = crypto.getRandomValues(new Uint8Array(2));
+  const avatarColor = AVATAR_COLORS[randomBytes[0] % AVATAR_COLORS.length];
+  const avatarVariant = randomBytes[1] % 5;
+  const statements = [
+    env.DB.prepare(
+      `INSERT INTO messages
+         (id, place_id, body, emoji, avatar_color, avatar_variant, created_at,
+          expires_at, parent_id, author_hash)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).bind(
+      id,
+      parent.place_id,
+      body,
+      emoji,
+      avatarColor,
+      avatarVariant,
+      now,
+      expiresAt,
+      parentMessageId,
+      clientHash,
+    ),
+    env.DB.prepare(
+      "UPDATE messages SET reply_count = reply_count + 1 WHERE id = ?",
+    ).bind(parentMessageId),
+    env.DB.prepare(
+      `INSERT INTO rate_limits (client_hash, last_post_at, day_key, daily_count)
+       VALUES (?, ?, ?, 1)
+       ON CONFLICT(client_hash) DO UPDATE SET
+         last_post_at = excluded.last_post_at,
+         day_key = excluded.day_key,
+         daily_count = CASE
+           WHEN rate_limits.day_key = excluded.day_key THEN rate_limits.daily_count + 1
+           ELSE 1
+         END`,
+    ).bind(clientHash, now, dayKey),
+  ];
+
+  if (parent.author_hash && parent.author_hash !== clientHash) {
+    statements.push(
+      env.DB.prepare(
+        `INSERT INTO notifications
+           (id, recipient_hash, actor_hash, type, message_id, parent_message_id,
+            created_at, expires_at)
+         VALUES (?, ?, ?, 'reply', ?, ?, ?, ?)`,
+      ).bind(
+        crypto.randomUUID(),
+        parent.author_hash,
+        clientHash,
+        id,
+        parentMessageId,
+        now,
+        expiresAt,
+      ),
+    );
+  }
+
+  await env.DB.batch(statements);
+  return jsonResponse(
+    request,
+    env,
+    {
+      message: serializeMessage({
+        id,
+        place_id: parent.place_id,
+        body,
+        emoji,
+        avatar_color: avatarColor,
+        avatar_variant: avatarVariant,
+        created_at: now,
+        expires_at: expiresAt,
+        reaction_count: 0,
+        parent_id: parentMessageId,
+        reply_count: 0,
+        latitude_e6: parent.latitude_e6,
+        longitude_e6: parent.longitude_e6,
+        place_label: parent.place_label,
+        place_kind: parent.place_kind,
+      }),
+    },
+    201,
+  );
+}
+
+async function listNotifications(request, env) {
+  const clientHash = await getClientHash(request);
+  const now = unixNow();
+  const { results = [] } = await env.DB.prepare(
+    `SELECT n.id, n.type, n.message_id, n.parent_message_id, n.created_at,
+            n.read_at, m.body, m.emoji, m.place_id, l.label AS place_label
+       FROM notifications AS n
+       LEFT JOIN messages AS m ON m.id = n.message_id
+       LEFT JOIN shout_locations AS l ON l.id = m.place_id
+      WHERE n.recipient_hash = ? AND n.expires_at > ?
+      ORDER BY n.created_at DESC
+      LIMIT 20`,
+  )
+    .bind(clientHash, now)
+    .all();
+  return jsonResponse(request, env, {
+    unreadCount: results.filter((item) => !item.read_at).length,
+    notifications: results.map((item) => ({
+      id: item.id,
+      type: item.type,
+      messageId: item.message_id,
+      parentMessageId: item.parent_message_id,
+      message: item.body || "",
+      emoji: item.emoji || "",
+      placeId: item.place_id,
+      placeLabel: item.place_label || "Pinned spot",
+      createdAt: new Date(Number(item.created_at) * 1000).toISOString(),
+      read: Boolean(item.read_at),
+    })),
+  });
+}
+
+async function markNotificationsRead(request, env) {
+  ensureJsonRequest(request);
+  const clientHash = await getClientHash(request);
+  await env.DB.prepare(
+    "UPDATE notifications SET read_at = ? WHERE recipient_hash = ? AND read_at IS NULL",
+  )
+    .bind(unixNow(), clientHash)
+    .run();
+  return jsonResponse(request, env, { accepted: true });
+}
+
 async function reactToMessage(request, env, messageId) {
   ensureJsonRequest(request);
   const payload = await readJson(request);
@@ -335,11 +515,30 @@ async function reactToMessage(request, env, messageId) {
     .run();
 
   if (Number(insertion.meta?.changes) > 0) {
-    await env.DB.prepare(
-      "UPDATE messages SET reaction_count = reaction_count + 1 WHERE id = ?",
-    )
-      .bind(messageId)
-      .run();
+    const statements = [
+      env.DB.prepare(
+        "UPDATE messages SET reaction_count = reaction_count + 1 WHERE id = ?",
+      ).bind(messageId),
+    ];
+    if (exists.author_hash && exists.author_hash !== clientHash) {
+      statements.push(
+        env.DB.prepare(
+          `INSERT INTO notifications
+             (id, recipient_hash, actor_hash, type, message_id, parent_message_id,
+              created_at, expires_at)
+           VALUES (?, ?, ?, 'reaction', ?, ?, ?, ?)`,
+        ).bind(
+          crypto.randomUUID(),
+          exists.author_hash,
+          clientHash,
+          messageId,
+          exists.parent_id || messageId,
+          unixNow(),
+          Number(exists.expires_at),
+        ),
+      );
+    }
+    await env.DB.batch(statements);
   }
 
   const message = await env.DB.prepare(
@@ -382,7 +581,9 @@ async function reportMessage(request, env, messageId) {
 async function visibleMessageExists(database, messageId) {
   return database
     .prepare(
-      "SELECT id FROM messages WHERE id = ? AND expires_at > ? AND report_count < ?",
+      `SELECT id, author_hash, parent_id, expires_at
+         FROM messages
+        WHERE id = ? AND expires_at > ? AND report_count < ?`,
     )
     .bind(messageId, unixNow(), HIDE_AFTER_REPORTS)
     .first();
@@ -391,7 +592,7 @@ async function visibleMessageExists(database, messageId) {
 function normalizePlaceId(value) {
   const placeId = String(value ?? "").trim().toLowerCase();
   if (!PLACE_IDS.has(placeId) && !PIN_ID_PATTERN.test(placeId)) {
-    throw new HTTPError(400, "Choose a valid Brisbane map location.");
+    throw new HTTPError(400, "Choose a valid Australian map location.");
   }
   return placeId;
 }
@@ -409,9 +610,13 @@ async function resolvePostLocation(payload, database, now) {
   if (hasPlaceId) {
     const placeId = rawPlaceId.toLowerCase();
     if (!PLACE_IDS.has(placeId)) {
-      throw new HTTPError(400, "Choose a valid Brisbane map location.");
+      throw new HTTPError(400, "Choose a valid Australian map location.");
     }
     const place = PLACES.find((item) => item.id === placeId);
+    ensurePinNearCurrentLocation(payload.currentLocation, {
+      latitude: place.latitude,
+      longitude: place.longitude,
+    });
     return {
       id: place.id,
       label: place.label,
@@ -424,16 +629,17 @@ async function resolvePostLocation(payload, database, now) {
   const latitude = Number(rawLocation.latitude);
   const longitude = Number(rawLocation.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new HTTPError(400, "Move the pin to a valid Brisbane location.");
+    throw new HTTPError(400, "Move the pin to a valid Australian location.");
   }
   if (
-    latitude < BRISBANE_BOUNDS.south ||
-    latitude > BRISBANE_BOUNDS.north ||
-    longitude < BRISBANE_BOUNDS.west ||
-    longitude > BRISBANE_BOUNDS.east
+    latitude < AUSTRALIA_BOUNDS.south ||
+    latitude > AUSTRALIA_BOUNDS.north ||
+    longitude < AUSTRALIA_BOUNDS.west ||
+    longitude > AUSTRALIA_BOUNDS.east
   ) {
-    throw new HTTPError(400, "Pins are currently available within Brisbane only.");
+    throw new HTTPError(400, "Pins are currently available within Australia only.");
   }
+  ensurePinNearCurrentLocation(payload.currentLocation, { latitude, longitude });
 
   const nearestPlace = PLACES.map((place) => ({
     place,
@@ -467,6 +673,40 @@ async function resolvePostLocation(payload, database, now) {
   };
 }
 
+function ensurePinNearCurrentLocation(rawCurrentLocation, pinLocation) {
+  const currentLatitude = Number(rawCurrentLocation?.latitude);
+  const currentLongitude = Number(rawCurrentLocation?.longitude);
+  if (!Number.isFinite(currentLatitude) || !Number.isFinite(currentLongitude)) {
+    throw new HTTPError(
+      400,
+      "Share your current location before choosing where to post.",
+      "current_location_required",
+    );
+  }
+  if (
+    currentLatitude < AUSTRALIA_BOUNDS.south ||
+    currentLatitude > AUSTRALIA_BOUNDS.north ||
+    currentLongitude < AUSTRALIA_BOUNDS.west ||
+    currentLongitude > AUSTRALIA_BOUNDS.east
+  ) {
+    throw new HTTPError(400, "Posting is currently available within Australia only.");
+  }
+
+  const pinDistance = distanceKm(
+    currentLatitude,
+    currentLongitude,
+    pinLocation.latitude,
+    pinLocation.longitude,
+  );
+  if (pinDistance > MAX_POST_DISTANCE_KM) {
+    throw new HTTPError(
+      422,
+      "Choose a pin within 1 km of your current location.",
+      "pin_out_of_range",
+    );
+  }
+}
+
 function normalizeMapBounds(url) {
   const readCoordinate = (name, fallback) => {
     const rawValue = url.searchParams.get(name);
@@ -476,11 +716,11 @@ function normalizeMapBounds(url) {
     return value;
   };
 
-  const west = Math.max(BRISBANE_BOUNDS.west, readCoordinate("west", BRISBANE_BOUNDS.west));
-  const south = Math.max(BRISBANE_BOUNDS.south, readCoordinate("south", BRISBANE_BOUNDS.south));
-  const east = Math.min(BRISBANE_BOUNDS.east, readCoordinate("east", BRISBANE_BOUNDS.east));
-  const north = Math.min(BRISBANE_BOUNDS.north, readCoordinate("north", BRISBANE_BOUNDS.north));
-  if (west >= east || south >= north) throw new HTTPError(400, "Use valid Brisbane map bounds.");
+  const west = Math.max(AUSTRALIA_BOUNDS.west, readCoordinate("west", AUSTRALIA_BOUNDS.west));
+  const south = Math.max(AUSTRALIA_BOUNDS.south, readCoordinate("south", AUSTRALIA_BOUNDS.south));
+  const east = Math.min(AUSTRALIA_BOUNDS.east, readCoordinate("east", AUSTRALIA_BOUNDS.east));
+  const north = Math.min(AUSTRALIA_BOUNDS.north, readCoordinate("north", AUSTRALIA_BOUNDS.north));
+  if (west >= east || south >= north) throw new HTTPError(400, "Use valid Australian map bounds.");
 
   return {
     westE6: Math.round(west * 1_000_000),
@@ -586,6 +826,7 @@ async function cleanExpiredData(database) {
   const oldestRateLimit = now - 2 * 24 * 60 * 60;
   await database.batch([
     database.prepare("DELETE FROM messages WHERE expires_at <= ?").bind(now),
+    database.prepare("DELETE FROM notifications WHERE expires_at <= ?").bind(now),
     database.prepare("DELETE FROM rate_limits WHERE last_post_at <= ?").bind(oldestRateLimit),
     database.prepare(
       `DELETE FROM shout_locations
@@ -608,6 +849,8 @@ function serializeMessage(row) {
     createdAt: new Date(Number(row.created_at) * 1000).toISOString(),
     expiresAt: new Date(Number(row.expires_at) * 1000).toISOString(),
     reactionCount: Number(row.reaction_count ?? 0),
+    replyCount: Number(row.reply_count ?? 0),
+    parentId: row.parent_id || null,
     location: serializeLocation(row),
   };
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import {
   AlertCircle,
+  ArrowLeft,
   ArrowUpRight,
   Banknote,
   Clock3,
@@ -29,7 +30,7 @@ const AIRTRAIN_TIMETABLE_URL = "https://www.airtrain.com.au/timetable/";
 const BRISBANE_AIRPORT_FLIGHTS_URL =
   "https://www.bne.com.au/passenger/flights/arrivals-departures";
 
-export default function AirportTravelPage({ modeSelector }) {
+export default function AirportTravelPage({ onHome }) {
   const [stationId, setStationId] = useState(() => readStored(STORAGE_KEY, "central"));
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -105,9 +106,10 @@ export default function AirportTravelPage({ modeSelector }) {
 
   return (
     <section className="travel-page airport-travel-page" aria-label="Travel to Brisbane Airport">
-      {modeSelector}
-
       <header className="trip-page-top airport">
+        <button type="button" className="trip-back-button" aria-label="Back to home" onClick={onHome}>
+          <ArrowLeft aria-hidden="true" />
+        </button>
         <span className="trip-page-mark airport"><Plane aria-hidden="true" /></span>
         <h1>Airport</h1>
         <span className={`trip-data-dot ${data?.gtfsRealtime ? "live" : ""}`}>{data?.gtfsRealtime ? "Live" : "Times"}</span>

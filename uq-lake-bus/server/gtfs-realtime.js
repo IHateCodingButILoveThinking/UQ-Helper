@@ -11,6 +11,7 @@ const MODE_FEED_PATHS = Object.freeze({
   bus: "Bus",
   ferry: "Ferry",
   rail: "Rail",
+  tram: "Tram",
 });
 
 export async function applyGtfsRealtime(departures = []) {
@@ -182,6 +183,10 @@ function getDepartureMode(departure) {
 
   if (stopId.startsWith("SI:") || routeCode.startsWith("F")) {
     return "ferry";
+  }
+
+  if (routeCode === "L1") {
+    return "tram";
   }
 
   if (normalizeStopId(stopId).startsWith("6")) {

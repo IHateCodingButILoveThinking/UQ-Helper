@@ -296,6 +296,10 @@
   --card-color: #7c3db4;
 }
 
+.campus-home-actions.compact .campus-home-card.community {
+  --card-color: #df6554;
+}
+
 .campus-home-actions.compact .campus-home-card::after {
   position: absolute;
   right: -34px;
@@ -494,7 +498,7 @@
 }
 
 .campus-trip-option {
-  --trip-color: #16825f;
+  --trip-color: #138b96;
   position: relative;
   min-height: 142px;
   display: flex;
@@ -540,7 +544,28 @@
 }
 
 .campus-trip-option.airport {
-  --trip-color: #247c99;
+  --trip-color: #3478c7;
+}
+
+.campus-trip-option.gold-coast .campus-trip-icon {
+  background: #fff0b8;
+  color: #b77900;
+  box-shadow: inset 0 0 0 1px rgba(220, 167, 25, 0.13);
+}
+
+.campus-trip-option.gold-coast .campus-trip-status i {
+  background: #e8ad18;
+  box-shadow: 0 0 0 3px rgba(232, 173, 24, 0.13);
+}
+
+.campus-trip-option.airport .campus-trip-icon {
+  background: #e6f0ff;
+  color: #3478c7;
+}
+
+.campus-trip-option.airport .campus-trip-status i {
+  background: #4b8fe0;
+  box-shadow: 0 0 0 3px rgba(75, 143, 224, 0.13);
 }
 
 .campus-trip-icon {

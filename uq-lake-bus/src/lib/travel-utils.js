@@ -30,6 +30,11 @@ export function isTram(departure) {
 }
 
 export function isTramDirection(departure, direction) {
+  const normalizedDirection = departure.direction?.toLowerCase?.() ?? "";
+  if (normalizedDirection === "north" || normalizedDirection === "south") {
+    return normalizedDirection === direction;
+  }
+
   const destination = departure.destination?.toLowerCase() ?? "";
   return direction === "north"
     ? destination.includes("helensvale")

@@ -3,8 +3,10 @@ import { AnimatePresence, motion } from "framer-motion";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   ArrowLeft,
+  Bell,
   ChevronDown,
   ChevronUp,
+  Clock3,
   Flag,
   LocateFixed,
   MapPin,
@@ -18,9 +20,12 @@ import {
 
 import {
   createShoutOut,
+  fetchShoutOutNotifications,
   fetchShoutOutSummary,
   fetchShoutOuts,
+  markShoutOutNotificationsRead,
   reactToShoutOut,
+  replyToShoutOut,
   reportShoutOut,
 } from "../lib/shoutout-api";
 
@@ -28,13 +33,15 @@ const POST_EMOJIS = ["", "👋", "☕", "📚", "🎉", "👀"];
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👀"];
 const AVATAR_FACES = ["•ᴗ•", "•‿•", "•◡•", "^‿^", "•⌣•"];
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-const BRISBANE_BOUNDS = {
-  west: 152.7,
-  south: -27.8,
-  east: 153.5,
-  north: -27.1,
+const AUSTRALIA_BOUNDS = {
+  west: 112.5,
+  south: -44.5,
+  east: 154.5,
+  north: -9,
 };
 const DEFAULT_CENTER = [153.0133, -27.4971];
+const MAX_POST_DISTANCE_KM = 1;
+const RECENT_ACTIVITY_MS = 30 * 60 * 1000;
 
 export default function ShoutOutPage({ onHome }) {
   const [mapBounds, setMapBounds] = useState(null);
@@ -46,6 +53,9 @@ export default function ShoutOutPage({ onHome }) {
   const [reactedIds, setReactedIds] = useState(() => new Set());
   const [reportedIds, setReportedIds] = useState(() => new Set());
   const [reactionOpenId, setReactionOpenId] = useState("");
+  const [notifications, setNotifications] = useState([]);
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const messageRequestRef = useRef(0);
 
   const updateMapBounds = useCallback((nextBounds) => {
@@ -121,8 +131,33 @@ export default function ShoutOutPage({ onHome }) {
     return () => controller.abort();
   }, [selected?.placeId]);
 
-  const createPost = async ({ location, message, emoji }) => {
-    const payload = await createShoutOut({ location, message, emoji });
+  useEffect(() => {
+    const controller = new AbortController();
+    const loadNotifications = () => {
+      fetchShoutOutNotifications({ signal: controller.signal })
+        .then((payload) => {
+          setNotifications(payload.notifications ?? []);
+          setUnreadCount(Number(payload.unreadCount ?? 0));
+        })
+        .catch((error) => {
+          if (error.name !== "AbortError") console.error("Could not load notifications", error);
+        });
+    };
+    loadNotifications();
+    const intervalId = window.setInterval(loadNotifications, 30_000);
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  const createPost = async ({ location, currentLocation, message, emoji }) => {
+    const payload = await createShoutOut({
+      location,
+      currentLocation,
+      message,
+      emoji,
+    });
     const postedMessage = payload.message;
     const postedLocation = postedMessage.location;
     const previous = summaries.find((item) => item.placeId === postedLocation.placeId);
@@ -163,18 +198,86 @@ export default function ShoutOutPage({ onHome }) {
     setReportedIds((current) => new Set(current).add(messageId));
   };
 
+  const reply = async (messageId, message, emoji = "") => {
+    const payload = await replyToShoutOut(messageId, message, emoji);
+    setMessages((current) => [
+      ...current.map((item) =>
+        item.id === messageId
+          ? { ...item, replyCount: Number(item.replyCount ?? 0) + 1 }
+          : item,
+      ),
+      payload.message,
+    ]);
+    return payload;
+  };
+
+  const toggleNotifications = async () => {
+    const nextOpen = !notificationOpen;
+    setNotificationOpen(nextOpen);
+    if (nextOpen && unreadCount) {
+      setUnreadCount(0);
+      setNotifications((current) => current.map((item) => ({ ...item, read: true })));
+      try {
+        await markShoutOutNotificationsRead();
+      } catch (error) {
+        console.error("Could not mark notifications read", error);
+      }
+    }
+  };
+
   return (
-    <section className="shout-page" aria-label="Brisbane shout-out map">
+    <section className="shout-page" aria-label="Shout Out map">
       <header className="shout-topbar">
         <button type="button" className="shout-icon-button" onClick={onHome} aria-label="Back to home">
           <ArrowLeft aria-hidden="true" />
         </button>
-        <span className="shout-title-mark" aria-hidden="true"><MessageCircle /></span>
-        <span className="shout-title-copy"><small>Brisbane</small><h1>Shout Out</h1></span>
-        <span className="shout-safe-mark" title="Server-side safety checks" aria-label="Posts are safety checked">
-          <ShieldCheck aria-hidden="true" />
+        <span className="shout-title-copy"><h1>Shout Out</h1></span>
+        <span className="shout-top-actions">
+          <button
+            type="button"
+            className="shout-notification-button"
+            aria-label={`${unreadCount} unread notifications`}
+            aria-expanded={notificationOpen}
+            onClick={toggleNotifications}
+          >
+            <Bell aria-hidden="true" />
+            {unreadCount ? <i>{Math.min(unreadCount, 9)}{unreadCount > 9 ? "+" : ""}</i> : null}
+          </button>
+          <span className="shout-safe-mark" title="Server-side safety checks" aria-label="Posts are safety checked">
+            <ShieldCheck aria-hidden="true" />
+          </span>
         </span>
       </header>
+
+      <AnimatePresence>
+        {notificationOpen ? (
+          <motion.aside
+            className="shout-notification-panel"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -5 }}
+          >
+            <strong>Activity</strong>
+            {notifications.length ? notifications.slice(0, 6).map((item) => (
+              <button
+                type="button"
+                key={item.id}
+                onClick={() => {
+                  setNotificationOpen(false);
+                  const summary = summaries.find((entry) => entry.placeId === item.placeId);
+                  if (summary) setSelected(summary);
+                }}
+              >
+                <span>{item.type === "reply" ? <MessageCircle /> : "♥"}</span>
+                <span>
+                  <strong>{item.type === "reply" ? "New reply" : "New reaction"}</strong>
+                  <small>{item.placeLabel} · {relativeTime(item.createdAt)}</small>
+                </span>
+              </button>
+            )) : <small>No new activity yet</small>}
+          </motion.aside>
+        ) : null}
+      </AnimatePresence>
 
       <ShoutMap
         summaries={summaries}
@@ -191,11 +294,12 @@ export default function ShoutOutPage({ onHome }) {
         reactedIds={reactedIds}
         reportedIds={reportedIds}
         onReact={react}
+        onReply={reply}
         onReport={report}
       />
 
       <p className="shout-privacy-note">
-        Only the approximate pin you confirm is public. Posts disappear after 7 days.
+        Browse Australia · Post within 1 km of you · Approximate pins disappear after 7 days.
       </p>
     </section>
   );
@@ -216,6 +320,7 @@ function ShoutMap({
   reactedIds,
   reportedIds,
   onReact,
+  onReply,
   onReport,
 }) {
   const containerRef = useRef(null);
@@ -227,24 +332,53 @@ function ShoutMap({
   const textareaRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState(false);
+  const [mapAttempt, setMapAttempt] = useState(0);
   const [mode, setMode] = useState("browse");
   const [pinCoordinate, setPinCoordinate] = useState(DEFAULT_CENTER);
+  const [userCoordinate, setUserCoordinate] = useState(null);
+  const [pinPlaceName, setPinPlaceName] = useState("");
+  const [resolvedPinLabels, setResolvedPinLabels] = useState({});
   const [locating, setLocating] = useState(false);
   const [mapNotice, setMapNotice] = useState("");
   const [draft, setDraft] = useState("");
   const [postEmoji, setPostEmoji] = useState("");
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState("");
+  const [replyToId, setReplyToId] = useState("");
+  const [replyDraft, setReplyDraft] = useState("");
+  const [replyError, setReplyError] = useState("");
+  const [replying, setReplying] = useState(false);
 
   summariesRef.current = summaries;
   onSelectRef.current = onSelect;
   onBoundsChangeRef.current = onBoundsChange;
   modeRef.current = mode;
 
+  const resolvePinLabelAt = useCallback((coordinate) => {
+    const map = mapRef.current;
+    if (!map || !coordinate?.length) return "";
+
+    try {
+      const point = map.project(coordinate);
+      const features = map.queryRenderedFeatures([
+        [point.x - 42, point.y - 42],
+        [point.x + 42, point.y + 42],
+      ]);
+      return pickReadableMapLabel(features);
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const updateCurrentPinLabel = useCallback((coordinate) => {
+    setPinPlaceName(resolvePinLabelAt(coordinate));
+  }, [resolvePinLabelAt]);
+
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return undefined;
     let cancelled = false;
     let map;
+    let pulseAnimationFrame;
 
     const startMap = async () => {
       try {
@@ -256,11 +390,11 @@ function ShoutMap({
           style: MAP_STYLE,
           center: DEFAULT_CENTER,
           zoom: 12.7,
-          minZoom: 9.8,
+          minZoom: 3.4,
           maxZoom: 19,
           maxBounds: [
-            [BRISBANE_BOUNDS.west, BRISBANE_BOUNDS.south],
-            [BRISBANE_BOUNDS.east, BRISBANE_BOUNDS.north],
+            [AUSTRALIA_BOUNDS.west, AUSTRALIA_BOUNDS.south],
+            [AUSTRALIA_BOUNDS.east, AUSTRALIA_BOUNDS.north],
           ],
           pitch: 0,
           bearing: 0,
@@ -280,7 +414,12 @@ function ShoutMap({
           });
           if (modeRef.current === "pinning") {
             const center = map.getCenter();
-            setPinCoordinate([center.lng, center.lat]);
+            const coordinate = [center.lng, center.lat];
+            setPinCoordinate(coordinate);
+            updateCurrentPinLabel(coordinate);
+            map.once("idle", () => {
+              if (modeRef.current === "pinning") updateCurrentPinLabel(coordinate);
+            });
           }
         };
 
@@ -293,6 +432,51 @@ function ShoutMap({
             clusterMaxZoom: 15,
             clusterRadius: 48,
           });
+          map.addSource("shout-newest-point", {
+            type: "geojson",
+            data: emptyFeatureCollection(),
+          });
+          map.addSource("shout-post-range", {
+            type: "geojson",
+            data: emptyFeatureCollection(),
+          });
+
+          map.addLayer({
+            id: "shout-post-range-fill",
+            type: "fill",
+            source: "shout-post-range",
+            layout: { visibility: "none" },
+            paint: {
+              "fill-color": "#1a8b6d",
+              "fill-opacity": 0.1,
+            },
+          });
+          map.addLayer({
+            id: "shout-post-range-line",
+            type: "line",
+            source: "shout-post-range",
+            layout: { visibility: "none" },
+            paint: {
+              "line-color": "#16836b",
+              "line-width": 2,
+              "line-dasharray": [2, 2],
+              "line-opacity": 0.72,
+            },
+          });
+
+          map.addLayer({
+            id: "shout-newest-pulse",
+            type: "circle",
+            source: "shout-newest-point",
+            paint: {
+              "circle-color": "#ef6f52",
+              "circle-radius": 18,
+              "circle-opacity": 0.28,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 1,
+              "circle-stroke-opacity": 0.5,
+            },
+          });
 
           map.addLayer({
             id: "shout-clusters",
@@ -300,7 +484,7 @@ function ShoutMap({
             source: "shout-points",
             filter: ["has", "point_count"],
             paint: {
-              "circle-color": "#16755d",
+              "circle-color": "#6657c7",
               "circle-radius": ["step", ["get", "point_count"], 19, 10, 23, 30, 27],
               "circle-stroke-color": "#ffffff",
               "circle-stroke-width": 3,
@@ -325,9 +509,18 @@ function ShoutMap({
             source: "shout-points",
             filter: ["!", ["has", "point_count"]],
             paint: {
-              "circle-color": ["case", ["==", ["get", "selected"], 1], "#0b7057", "#ffffff"],
+              "circle-color": [
+                "case",
+                ["==", ["get", "selected"], 1], "#5744be",
+                ["==", ["get", "recent"], 1], "#ef6f52",
+                "#ffffff",
+              ],
               "circle-radius": ["case", ["==", ["get", "selected"], 1], 12, 10],
-              "circle-stroke-color": "#16755d",
+              "circle-stroke-color": [
+                "case",
+                ["==", ["get", "recent"], 1], "#ffffff",
+                "#6657c7",
+              ],
               "circle-stroke-width": 3,
               "circle-translate": [0, 0],
             },
@@ -343,9 +536,26 @@ function ShoutMap({
               "text-size": 10,
             },
             paint: {
-              "text-color": ["case", ["==", ["get", "selected"], 1], "#ffffff", "#12674f"],
+              "text-color": [
+                "case",
+                ["==", ["get", "selected"], 1], "#ffffff",
+                ["==", ["get", "recent"], 1], "#ffffff",
+                "#5744be",
+              ],
             },
           });
+
+          const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          if (!reduceMotion) {
+            const animateNewest = (timestamp) => {
+              if (cancelled || !map.getLayer("shout-newest-pulse")) return;
+              const phase = (Math.sin(timestamp / 520) + 1) / 2;
+              map.setPaintProperty("shout-newest-pulse", "circle-radius", 15 + phase * 10);
+              map.setPaintProperty("shout-newest-pulse", "circle-opacity", 0.36 - phase * 0.22);
+              pulseAnimationFrame = window.requestAnimationFrame(animateNewest);
+            };
+            pulseAnimationFrame = window.requestAnimationFrame(animateNewest);
+          }
           map.addLayer({
             id: "shout-post-labels",
             type: "symbol",
@@ -405,38 +615,100 @@ function ShoutMap({
     startMap();
     return () => {
       cancelled = true;
+      if (pulseAnimationFrame) window.cancelAnimationFrame(pulseAnimationFrame);
       mapRef.current = null;
       map?.remove();
     };
-  }, []);
+  }, [mapAttempt, updateCurrentPinLabel]);
 
   useEffect(() => {
     if (!mapReady) return;
     const source = mapRef.current?.getSource("shout-points");
+    const newestSource = mapRef.current?.getSource("shout-newest-point");
     if (!source) return;
+    const discoveredLabels = {};
+    const newestSummary = findNewestSummary(summaries);
+    const newestIsRecent = isRecentPost(newestSummary?.latest?.createdAt);
     source.setData({
       type: "FeatureCollection",
       features: summaries
         .filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude))
-        .map((item) => ({
-          type: "Feature",
-          geometry: { type: "Point", coordinates: [item.longitude, item.latitude] },
-          properties: {
-            placeId: item.placeId,
-            label: item.kind === "pin" ? "Near this point" : item.label,
-            messageCount: Number(item.messageCount ?? 0),
-            selected: item.placeId === selected?.placeId ? 1 : 0,
-          },
-        })),
+        .map((item) => {
+          const coordinate = [item.longitude, item.latitude];
+          if (item.kind === "pin" && !resolvedPinLabels[item.placeId]) {
+            const resolved = resolvePinLabelAt(coordinate);
+            if (resolved) discoveredLabels[item.placeId] = resolved;
+          }
+
+          return {
+            type: "Feature",
+            geometry: { type: "Point", coordinates: coordinate },
+            properties: {
+              placeId: item.placeId,
+              label: displayLocationLabel(item, { ...resolvedPinLabels, ...discoveredLabels }, { includeCoordinate: false }),
+              messageCount: Number(item.messageCount ?? 0),
+              selected: item.placeId === selected?.placeId ? 1 : 0,
+              recent:
+                newestIsRecent && item.placeId === newestSummary?.placeId ? 1 : 0,
+            },
+          };
+        }),
     });
-  }, [mapReady, selected?.placeId, summaries]);
+    newestSource?.setData(
+      newestIsRecent &&
+      newestSummary &&
+      Number.isFinite(newestSummary.latitude) &&
+      Number.isFinite(newestSummary.longitude)
+        ? {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: {
+                  type: "Point",
+                  coordinates: [newestSummary.longitude, newestSummary.latitude],
+                },
+                properties: { placeId: newestSummary.placeId },
+              },
+            ],
+          }
+        : emptyFeatureCollection(),
+    );
+    if (Object.keys(discoveredLabels).length) {
+      setResolvedPinLabels((current) => ({ ...current, ...discoveredLabels }));
+    }
+  }, [mapReady, resolvedPinLabels, resolvePinLabelAt, selected?.placeId, summaries]);
+
+  useEffect(() => {
+    if (!mapReady) return;
+    const rangeSource = mapRef.current?.getSource("shout-post-range");
+    if (!rangeSource) return;
+    rangeSource.setData(
+      userCoordinate
+        ? createRadiusFeature(userCoordinate, MAX_POST_DISTANCE_KM)
+        : emptyFeatureCollection(),
+    );
+  }, [mapReady, userCoordinate]);
 
   useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const visibility = mode === "pinning" || mode === "composing" ? "none" : "visible";
-    ["shout-clusters", "shout-cluster-count", "shout-post-points", "shout-post-count", "shout-post-labels"].forEach((layerId) => {
+    [
+      "shout-clusters",
+      "shout-cluster-count",
+      "shout-post-points",
+      "shout-post-count",
+      "shout-post-labels",
+      "shout-newest-pulse",
+    ].forEach((layerId) => {
       if (mapRef.current.getLayer(layerId)) {
         mapRef.current.setLayoutProperty(layerId, "visibility", visibility);
+      }
+    });
+    const rangeVisibility = mode === "pinning" || mode === "composing" ? "visible" : "none";
+    ["shout-post-range-fill", "shout-post-range-line"].forEach((layerId) => {
+      if (mapRef.current.getLayer(layerId)) {
+        mapRef.current.setLayoutProperty(layerId, "visibility", rangeVisibility);
       }
     });
   }, [mapReady, mode]);
@@ -463,58 +735,94 @@ function ShoutMap({
 
   const locateUser = (forPosting = false) => {
     if (!navigator.geolocation) {
-      setMapNotice("Move the map to choose a spot");
+      setMapNotice(
+        forPosting
+          ? "Current location is required to post"
+          : "Current location is unavailable",
+      );
       return;
     }
     setLocating(true);
     setMapNotice(forPosting ? "Finding you…" : "Finding your area…");
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        const insideBrisbane =
-          coords.latitude >= BRISBANE_BOUNDS.south &&
-          coords.latitude <= BRISBANE_BOUNDS.north &&
-          coords.longitude >= BRISBANE_BOUNDS.west &&
-          coords.longitude <= BRISBANE_BOUNDS.east;
-        if (!insideBrisbane) {
-          setMapNotice("Posting is available in Brisbane");
+        const insideAustralia =
+          coords.latitude >= AUSTRALIA_BOUNDS.south &&
+          coords.latitude <= AUSTRALIA_BOUNDS.north &&
+          coords.longitude >= AUSTRALIA_BOUNDS.west &&
+          coords.longitude <= AUSTRALIA_BOUNDS.east;
+        if (!insideAustralia) {
+          setMapNotice("Posting is available within Australia");
           setLocating(false);
           return;
         }
+        if (forPosting && Number(coords.accuracy) > 1000) {
+          setMapNotice("Your location is too imprecise. Try again with better signal.");
+          setLocating(false);
+          return;
+        }
+        const nextCoordinate = [coords.longitude, coords.latitude];
+        setUserCoordinate(nextCoordinate);
+        setPinCoordinate(nextCoordinate);
+        updateCurrentPinLabel(nextCoordinate);
         mapRef.current?.easeTo({
-          center: [coords.longitude, coords.latitude],
+          center: nextCoordinate,
           zoom: Math.max(mapRef.current.getZoom(), 15),
           duration: 520,
           essential: true,
         });
-        setPinCoordinate([coords.longitude, coords.latitude]);
-        setMapNotice(forPosting ? "Move the map if needed" : "You’re near the centre pin");
+        if (forPosting) setMode("pinning");
+        setMapNotice(
+          forPosting
+            ? "Choose a spot inside the 1 km circle"
+            : "Map centred on your current area",
+        );
         setLocating(false);
       },
       () => {
-        setMapNotice(forPosting ? "Move the map to choose a spot" : "Location was not shared");
+        setMapNotice(
+          forPosting
+            ? "Share your current location to post"
+            : "Location was not shared",
+        );
         setLocating(false);
       },
-      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 7000 },
+      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 9000 },
     );
   };
 
   const startPost = () => {
-    const center = mapRef.current?.getCenter();
-    if (center) setPinCoordinate([center.lng, center.lat]);
     onClearSelection();
-    setMode("pinning");
     setPostError("");
+    setMapNotice("Share your current location to choose a nearby pin");
     locateUser(true);
+  };
+
+  const retryMap = () => {
+    setMapError(false);
+    setMapReady(false);
+    setMapAttempt((current) => current + 1);
   };
 
   const submitPost = async (event) => {
     event.preventDefault();
-    if (!draft.trim() || posting) return;
+    const pinDistance = distanceBetweenCoordinates(userCoordinate, pinCoordinate);
+    if (
+      !draft.trim() ||
+      posting ||
+      !userCoordinate ||
+      !Number.isFinite(pinDistance) ||
+      pinDistance > MAX_POST_DISTANCE_KM
+    ) return;
     setPosting(true);
     setPostError("");
     try {
       await onCreate({
         location: { latitude: pinCoordinate[1], longitude: pinCoordinate[0] },
+        currentLocation: {
+          latitude: userCoordinate[1],
+          longitude: userCoordinate[0],
+        },
         message: draft,
         emoji: postEmoji,
       });
@@ -529,29 +837,88 @@ function ShoutMap({
     }
   };
 
-  const selectedLabel = selected?.kind === "pin" ? "Near this point" : selected?.label;
+  const pinLabel =
+    pinPlaceName ||
+    formatCoordinateLabel({ latitude: pinCoordinate[1], longitude: pinCoordinate[0] });
+  const selectedLabel = displayLocationLabel(selected, resolvedPinLabels);
+  const pinDistanceKm = distanceBetweenCoordinates(userCoordinate, pinCoordinate);
+  const pinWithinRange =
+    Number.isFinite(pinDistanceKm) && pinDistanceKm <= MAX_POST_DISTANCE_KM;
+  const newestSummary = findNewestSummary(summaries);
+  const newestIsRecent = isRecentPost(newestSummary?.latest?.createdAt);
+  const rootMessages = messages.filter((message) => !message.parentId);
+
+  const submitReply = async (event, messageId) => {
+    event.preventDefault();
+    if (!replyDraft.trim() || replying) return;
+    setReplying(true);
+    setReplyError("");
+    try {
+      await onReply(messageId, replyDraft.trim());
+      setReplyDraft("");
+      setReplyToId("");
+    } catch (error) {
+      setReplyError(error.message || "Could not send this reply.");
+    } finally {
+      setReplying(false);
+    }
+  };
+
+  const focusSummary = (summary) => {
+    if (
+      !summary ||
+      !Number.isFinite(summary.latitude) ||
+      !Number.isFinite(summary.longitude)
+    ) return;
+    setMode("browse");
+    onSelect(summary);
+    mapRef.current?.easeTo({
+      center: [summary.longitude, summary.latitude],
+      zoom: Math.max(mapRef.current.getZoom(), 14),
+      duration: 420,
+    });
+  };
 
   return (
-    <section className={`shout-map-stage mode-${mode}`} aria-label="Interactive Brisbane message map">
-      <div ref={containerRef} className="shout-real-map" aria-label="Moveable map of Brisbane" />
+    <section className={`shout-map-stage mode-${mode}`} aria-label="Interactive Australian message map">
+      <div ref={containerRef} className="shout-real-map" aria-label="Moveable map of Australia" />
 
       <div className="shout-map-toolbar">
-        <span><MapPin aria-hidden="true" />Brisbane</span>
         <span>
           <button type="button" onClick={() => locateUser(false)} disabled={locating} aria-label="Find my area">
             <LocateFixed aria-hidden="true" />
           </button>
-          <button type="button" className="primary" onClick={startPost}>
+          <button type="button" className="primary" onClick={startPost} disabled={locating}>
             <Plus aria-hidden="true" />Post
           </button>
         </span>
       </div>
 
+      {mode === "browse" && newestSummary?.latest ? (
+        <button
+          type="button"
+          className={`shout-latest-activity ${newestIsRecent ? "recent" : ""}`}
+          onClick={() => focusSummary(newestSummary)}
+          aria-label={`Show latest visible post from ${displayLocationLabel(
+            newestSummary,
+            resolvedPinLabels,
+            { includeCoordinate: false },
+          )}`}
+        >
+          <i aria-hidden="true" />
+          <span>
+            <strong>{newestIsRecent ? "New nearby" : "Latest nearby"}</strong>
+            <small>{relativeTime(newestSummary.latest.createdAt)}</small>
+          </span>
+        </button>
+      ) : null}
+
       {mode === "browse" ? (
         <div className="shout-visually-hidden" aria-label="Posts visible on the map">
           {summaries.map((summary) => (
             <button key={summary.placeId} type="button" onClick={() => onSelect(summary)}>
-              {summary.kind === "pin" ? "Post near a pinned point" : summary.label}, {summary.messageCount} posts
+              {displayLocationLabel(summary, resolvedPinLabels)}, {summary.messageCount} posts
+              {summary.placeId === newestSummary?.placeId ? ", latest visible post" : ""}
             </button>
           ))}
         </div>
@@ -575,9 +942,23 @@ function ShoutMap({
         <>
           <span className="shout-center-pin" aria-hidden="true"><MapPin /></span>
           <motion.div className="shout-pin-bar" initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }}>
-            <span><strong>Choose a spot</strong><small>Move the map under the pin</small></span>
+            <span>
+              <strong>{pinLabel}</strong>
+              <small className={pinWithinRange ? "inside" : "outside"}>
+                {pinWithinRange
+                  ? `${formatDistanceMetres(pinDistanceKm)} from you · inside 1 km`
+                  : `${formatDistanceMetres(pinDistanceKm)} from you · move inside the circle`}
+              </small>
+            </span>
             <button type="button" className="ghost" onClick={() => setMode("browse")}>Cancel</button>
-            <button type="button" className="primary" onClick={() => setMode("composing")}>Post here</button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => setMode("composing")}
+              disabled={!pinWithinRange}
+            >
+              {pinWithinRange ? "Post here" : "Outside 1 km"}
+            </button>
           </motion.div>
         </>
       ) : null}
@@ -594,7 +975,7 @@ function ShoutMap({
             exit={{ y: 22, opacity: 0 }}
           >
             <header>
-              <span><MapPin aria-hidden="true" /><strong>Post near this pin</strong></span>
+              <span><MapPin aria-hidden="true" /><strong>{pinLabel}</strong></span>
               <button type="button" onClick={() => setMode("pinning")} aria-label="Move the pin"><X aria-hidden="true" /></button>
             </header>
             <textarea
@@ -622,7 +1003,11 @@ function ShoutMap({
                 ))}
               </span>
               <small>{draft.length}/160</small>
-              <button type="submit" className="shout-send-button" disabled={!draft.trim() || posting}>
+              <button
+                type="submit"
+                className="shout-send-button"
+                disabled={!draft.trim() || posting || !pinWithinRange}
+              >
                 <Send aria-hidden="true" />{posting ? "Posting" : "Post"}
               </button>
             </div>
@@ -644,12 +1029,17 @@ function ShoutMap({
               {AVATAR_FACES[selected.latest.avatarVariant % AVATAR_FACES.length]}
             </span>
             <span className="shout-preview-copy">
-              <span><strong>{selectedLabel}</strong><small>{selected.messageCount} {selected.messageCount === 1 ? "post" : "posts"}</small></span>
+              <span className="shout-preview-meta">
+                <strong>Anonymous</strong>
+                <small><Clock3 aria-hidden="true" />{formatPostTime(selected.latest.createdAt)}</small>
+              </span>
               <p>{selected.latest.emoji ? <b>{selected.latest.emoji}</b> : null}{selected.latest.message}</p>
-              <small>Anonymous · {relativeTime(selected.latest.createdAt)}</small>
+              <small className="shout-preview-location">
+                <MapPin aria-hidden="true" />{selectedLabel}
+              </small>
             </span>
             <button type="button" className="shout-view-button" onClick={() => setMode("viewing")}>
-              View <ChevronUp aria-hidden="true" />
+              <span>{selected.messageCount}</span>View all <ChevronUp aria-hidden="true" />
             </button>
             <button type="button" className="shout-sheet-close" onClick={onClearSelection} aria-label="Close post preview">
               <X aria-hidden="true" />
@@ -675,39 +1065,29 @@ function ShoutMap({
                 <div className="shout-thread-loading"><span /><span /><span /></div>
               ) : messages.length === 0 ? (
                 <div className="shout-thread-empty"><Sparkles aria-hidden="true" />No recent posts</div>
-              ) : messages.map((message) => (
-                <article className="shout-message" key={message.id}>
-                  <span className="shout-avatar" style={{ backgroundColor: message.avatarColor }} aria-hidden="true">
-                    {AVATAR_FACES[message.avatarVariant % AVATAR_FACES.length]}
-                  </span>
-                  <div className="shout-message-body">
-                    <div className="shout-message-meta"><strong>Anonymous</strong><span>{relativeTime(message.createdAt)}</span></div>
-                    <p>{message.emoji ? <b>{message.emoji}</b> : null}{message.message}</p>
-                    <div className="shout-message-actions">
-                      <button
-                        type="button"
-                        className={reactedIds.has(message.id) ? "reacted" : ""}
-                        onClick={() => setReactionOpenId((current) => current === message.id ? "" : message.id)}
-                      >
-                        ♡ {message.reactionCount || "React"}
-                      </button>
-                      <button
-                        type="button"
-                        className={reportedIds.has(message.id) ? "reported" : ""}
-                        onClick={() => onReport(message.id)}
-                      >
-                        <Flag aria-hidden="true" />{reportedIds.has(message.id) ? "Reported" : "Report"}
-                      </button>
-                    </div>
-                    {reactionOpenId === message.id && !reactedIds.has(message.id) ? (
-                      <div className="shout-reaction-picker">
-                        {REACTION_EMOJIS.map((emoji) => (
-                          <button key={emoji} type="button" onClick={() => onReact(message.id, emoji)}>{emoji}</button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                </article>
+              ) : rootMessages.map((message) => (
+                <ShoutMessageThread
+                  key={message.id}
+                  message={message}
+                  replies={messages.filter((item) => item.parentId === message.id)}
+                  reactedIds={reactedIds}
+                  reportedIds={reportedIds}
+                  reactionOpenId={reactionOpenId}
+                  setReactionOpenId={setReactionOpenId}
+                  onReact={onReact}
+                  onReport={onReport}
+                  replyOpen={replyToId === message.id}
+                  replyDraft={replyDraft}
+                  replyError={replyToId === message.id ? replyError : ""}
+                  replying={replying}
+                  onReplyToggle={() => {
+                    setReplyToId((current) => current === message.id ? "" : message.id);
+                    setReplyDraft("");
+                    setReplyError("");
+                  }}
+                  onReplyDraftChange={setReplyDraft}
+                  onReplySubmit={(event) => submitReply(event, message.id)}
+                />
               ))}
             </div>
           </motion.section>
@@ -715,8 +1095,106 @@ function ShoutMap({
       </AnimatePresence>
 
       {!mapReady && !mapError ? <span className="shout-map-loading">Loading map…</span> : null}
-      {mapError && !mapReady ? <span className="shout-map-loading error">Map unavailable</span> : null}
+      {mapError && !mapReady ? (
+        <span className="shout-map-loading error" role="alert">
+          <strong>Map couldn’t load</strong>
+          <small>Check your connection and try again.</small>
+          <button type="button" onClick={retryMap}>Retry map</button>
+        </span>
+      ) : null}
       {mapReady && mapLoading ? <span className="shout-map-sync" aria-label="Loading nearby posts" /> : null}
+    </section>
+  );
+}
+
+function ShoutMessageThread({
+  message,
+  replies,
+  reactedIds,
+  reportedIds,
+  reactionOpenId,
+  setReactionOpenId,
+  onReact,
+  onReport,
+  replyOpen,
+  replyDraft,
+  replyError,
+  replying,
+  onReplyToggle,
+  onReplyDraftChange,
+  onReplySubmit,
+}) {
+  const renderMessage = (item, nested = false) => (
+    <article className={`shout-message ${nested ? "reply" : ""}`} key={item.id}>
+      <span className="shout-avatar" style={{ backgroundColor: item.avatarColor }} aria-hidden="true">
+        {AVATAR_FACES[item.avatarVariant % AVATAR_FACES.length]}
+      </span>
+      <div className="shout-message-body">
+        <div className="shout-message-meta">
+          <strong>{nested ? "Anonymous reply" : "Anonymous"}</strong>
+          <span>{relativeTime(item.createdAt)} · {formatPostTime(item.createdAt)}</span>
+        </div>
+        <p>{item.emoji ? <b>{item.emoji}</b> : null}{item.message}</p>
+        <div className="shout-message-actions">
+          <button
+            type="button"
+            className={reactedIds.has(item.id) ? "reacted" : ""}
+            onClick={() => setReactionOpenId((current) => current === item.id ? "" : item.id)}
+          >
+            ♡ {item.reactionCount || "React"}
+          </button>
+          {!nested ? (
+            <button type="button" className="reply-action" onClick={onReplyToggle}>
+              <MessageCircle aria-hidden="true" />{replies.length ? `${replies.length} replies` : "Reply"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className={reportedIds.has(item.id) ? "reported" : ""}
+            onClick={() => onReport(item.id)}
+          >
+            <Flag aria-hidden="true" />{reportedIds.has(item.id) ? "Reported" : "Report"}
+          </button>
+        </div>
+        {reactionOpenId === item.id && !reactedIds.has(item.id) ? (
+          <div className="shout-reaction-picker">
+            {REACTION_EMOJIS.map((emoji) => (
+              <button key={emoji} type="button" onClick={() => onReact(item.id, emoji)}>{emoji}</button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </article>
+  );
+
+  return (
+    <section className="shout-message-thread">
+      {renderMessage(message)}
+      {replies.length ? (
+        <div className="shout-replies">
+          {replies.map((reply) => renderMessage(reply, true))}
+        </div>
+      ) : null}
+      {replyOpen ? (
+        <form className="shout-reply-form" onSubmit={onReplySubmit}>
+          <textarea
+            value={replyDraft}
+            onChange={(event) => onReplyDraftChange(event.target.value)}
+            maxLength={160}
+            rows={2}
+            autoFocus
+            placeholder="Write a safe reply…"
+            aria-label="Reply to this post"
+          />
+          <span>
+            <small>{replyError || `${replyDraft.length}/160`}</small>
+            <button type="button" onClick={onReplyToggle}>Cancel</button>
+            <button type="submit" disabled={!replyDraft.trim() || replying}>
+              <Send aria-hidden="true" />{replying ? "Sending" : "Reply"}
+            </button>
+          </span>
+        </form>
+      ) : null}
     </section>
   );
 }
@@ -725,8 +1203,159 @@ function emptyFeatureCollection() {
   return { type: "FeatureCollection", features: [] };
 }
 
+function createRadiusFeature([longitude, latitude], radiusKm) {
+  const earthRadiusKm = 6371;
+  const angularDistance = radiusKm / earthRadiusKm;
+  const latitudeRadians = (latitude * Math.PI) / 180;
+  const longitudeRadians = (longitude * Math.PI) / 180;
+  const coordinates = [];
+
+  for (let step = 0; step <= 64; step += 1) {
+    const bearing = (step / 64) * Math.PI * 2;
+    const destinationLatitude = Math.asin(
+      Math.sin(latitudeRadians) * Math.cos(angularDistance) +
+        Math.cos(latitudeRadians) * Math.sin(angularDistance) * Math.cos(bearing),
+    );
+    const destinationLongitude =
+      longitudeRadians +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(angularDistance) * Math.cos(latitudeRadians),
+        Math.cos(angularDistance) -
+          Math.sin(latitudeRadians) * Math.sin(destinationLatitude),
+      );
+    coordinates.push([
+      (destinationLongitude * 180) / Math.PI,
+      (destinationLatitude * 180) / Math.PI,
+    ]);
+  }
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        geometry: { type: "Polygon", coordinates: [coordinates] },
+        properties: {},
+      },
+    ],
+  };
+}
+
+function findNewestSummary(summaries = []) {
+  return summaries.reduce((newest, summary) => {
+    const createdAt = new Date(summary?.latest?.createdAt ?? 0).getTime();
+    const newestAt = new Date(newest?.latest?.createdAt ?? 0).getTime();
+    return createdAt > newestAt ? summary : newest;
+  }, null);
+}
+
+function isRecentPost(value) {
+  const createdAt = new Date(value ?? 0).getTime();
+  return Number.isFinite(createdAt) && Date.now() - createdAt <= RECENT_ACTIVITY_MS;
+}
+
+function distanceBetweenCoordinates(origin, destination) {
+  if (!origin?.length || !destination?.length) return Number.NaN;
+  const [originLongitude, originLatitude] = origin;
+  const [destinationLongitude, destinationLatitude] = destination;
+  if (
+    ![originLongitude, originLatitude, destinationLongitude, destinationLatitude].every(
+      Number.isFinite,
+    )
+  ) return Number.NaN;
+
+  const earthRadiusKm = 6371;
+  const latitudeDelta = ((destinationLatitude - originLatitude) * Math.PI) / 180;
+  const longitudeDelta = ((destinationLongitude - originLongitude) * Math.PI) / 180;
+  const originLatitudeRadians = (originLatitude * Math.PI) / 180;
+  const destinationLatitudeRadians = (destinationLatitude * Math.PI) / 180;
+  const haversine =
+    Math.sin(latitudeDelta / 2) ** 2 +
+    Math.cos(originLatitudeRadians) *
+      Math.cos(destinationLatitudeRadians) *
+      Math.sin(longitudeDelta / 2) ** 2;
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function formatDistanceMetres(distanceKm) {
+  if (!Number.isFinite(distanceKm)) return "Distance unavailable";
+  if (distanceKm < 1) return `${Math.max(0, Math.round(distanceKm * 1000))} m`;
+  return `${distanceKm.toFixed(1)} km`;
+}
+
 function roundMapCoordinate(value) {
   return Math.round(value * 10_000) / 10_000;
+}
+
+function displayLocationLabel(item, resolvedLabels = {}, { includeCoordinate = true } = {}) {
+  if (!item) return "Pinned spot";
+
+  const resolved = resolvedLabels[item.placeId];
+  const storedLabel =
+    item.label && item.label !== "Pinned spot" && item.label !== "Near this point"
+      ? item.label
+      : "";
+  const readableLabel = item.kind === "pin"
+    ? resolved || storedLabel
+    : storedLabel || resolved;
+  const coordinateLabel = formatCoordinateLabel(item);
+
+  if (!includeCoordinate) return readableLabel || coordinateLabel || "Pinned spot";
+  if (readableLabel && coordinateLabel) return `${readableLabel} · ${coordinateLabel}`;
+  return readableLabel || coordinateLabel || "Pinned spot";
+}
+
+function formatCoordinateLabel(location) {
+  const latitude = Number(location?.latitude);
+  const longitude = Number(location?.longitude);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return "";
+
+  const latDirection = latitude < 0 ? "S" : "N";
+  const lngDirection = longitude < 0 ? "W" : "E";
+  return `${Math.abs(latitude).toFixed(4)}° ${latDirection}, ${Math.abs(longitude).toFixed(4)}° ${lngDirection}`;
+}
+
+function pickReadableMapLabel(features = []) {
+  const ranked = features
+    .filter((feature) => feature?.source !== "shout-points")
+    .map((feature, index) => {
+      const properties = feature.properties ?? {};
+      const label =
+        properties["name:en"] ||
+        properties.name_en ||
+        properties.name ||
+        properties.ref ||
+        "";
+      const cleanLabel = String(label).trim();
+      if (!cleanLabel || cleanLabel.length > 60) return null;
+
+      return {
+        label: cleanLabel,
+        score: scoreMapLabel(feature, cleanLabel),
+        index,
+      };
+    })
+    .filter(Boolean)
+    .sort((left, right) => right.score - left.score || left.index - right.index);
+
+  return ranked[0]?.label ?? "";
+}
+
+function scoreMapLabel(feature, label) {
+  const layerId = String(feature?.layer?.id ?? "").toLowerCase();
+  const sourceLayer = String(feature?.sourceLayer ?? feature?.sourceLayerId ?? "").toLowerCase();
+  const kind = `${layerId} ${sourceLayer}`;
+  const normalized = label.toLowerCase();
+
+  if (/building|campus|university|school|library|poi|amenity|shop|park|garden|attraction/.test(kind)) {
+    return 80;
+  }
+  if (/place|suburb|neighbourhood|neighborhood|locality/.test(kind)) return 65;
+  if (/station|stop|tram|rail|transport/.test(kind)) return 55;
+  if (/road|street|path|highway/.test(kind)) return 35;
+  if (/water|river|creek/.test(kind)) return 20;
+  if (/unnamed|parking|toilets/.test(normalized)) return 5;
+  return 30;
 }
 
 function relativeTime(value) {
@@ -735,4 +1364,15 @@ function relativeTime(value) {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h`;
   return `${Math.floor(seconds / 86400)}d`;
+}
+
+function formatPostTime(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Time unavailable";
+  return new Intl.DateTimeFormat("en-AU", {
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
 }

@@ -71,7 +71,7 @@ export default function SmartStationPicker({
             ) : null}
           </div>
           <div className="smart-station-results">
-            {matches.length ? matches.slice(0, 8).map((station) => (
+            {matches.length ? matches.map((station) => (
               <button type="button" className={station.id === selected.id ? "selected" : ""} key={station.id} onClick={() => choose(station)}>
                 <span>{station.label}</span>
                 {station.id === selected.id ? <Check aria-hidden="true" /> : null}

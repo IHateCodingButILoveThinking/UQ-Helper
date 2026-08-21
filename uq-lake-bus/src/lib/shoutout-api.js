@@ -90,10 +90,16 @@ export async function fetchShoutOutSummary(options = {}) {
   return apiRequest(`/api/map?${params.toString()}`, { signal: options.signal });
 }
 
-export async function createShoutOut({ placeId, location, message, emoji = "" }) {
+export async function createShoutOut({
+  placeId,
+  location,
+  currentLocation,
+  message,
+  emoji = "",
+}) {
   return apiRequest("/api/messages", {
     method: "POST",
-    body: { placeId, location, message, emoji },
+    body: { placeId, location, currentLocation, message, emoji },
   });
 }
 
@@ -101,6 +107,24 @@ export async function reactToShoutOut(messageId, emoji) {
   return apiRequest(`/api/messages/${encodeURIComponent(messageId)}/react`, {
     method: "POST",
     body: { emoji },
+  });
+}
+
+export async function replyToShoutOut(messageId, message, emoji = "") {
+  return apiRequest(`/api/messages/${encodeURIComponent(messageId)}/replies`, {
+    method: "POST",
+    body: { message, emoji },
+  });
+}
+
+export async function fetchShoutOutNotifications(options = {}) {
+  return apiRequest("/api/notifications", { signal: options.signal });
+}
+
+export async function markShoutOutNotificationsRead() {
+  return apiRequest("/api/notifications/read", {
+    method: "POST",
+    body: {},
   });
 }
 
