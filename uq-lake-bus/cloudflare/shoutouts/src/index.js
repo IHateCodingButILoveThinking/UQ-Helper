@@ -121,6 +121,10 @@ async function handleRequest(request, env, ctx) {
     return summarizeMessages(request, env, url);
   }
 
+  if (request.method === "GET" && path === "/api/recent") {
+    return listRecentMessages(request, env, url);
+  }
+
   if (request.method === "POST" && path === "/api/messages") {
     return createMessage(request, env);
   }
@@ -233,6 +237,44 @@ async function summarizeMessages(request, env, url) {
       messageCount: Number(row.message_count ?? 0),
       latest: serializeMessage(row),
     })),
+  });
+}
+
+async function listRecentMessages(request, env, url) {
+  const now = unixNow();
+  const bounds = normalizeMapBounds(url);
+  const requestedLimit = Number(url.searchParams.get("limit"));
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.min(Math.max(Math.trunc(requestedLimit), 1), 50)
+    : 30;
+  const { results = [] } = await env.DB.prepare(
+    `SELECT m.id, m.place_id, m.body, m.emoji, m.avatar_color,
+            m.avatar_variant, m.created_at, m.expires_at,
+            m.reaction_count, m.reply_count, m.parent_id,
+            l.latitude_e6, l.longitude_e6, l.label AS place_label,
+            l.kind AS place_kind
+       FROM messages AS m
+       JOIN shout_locations AS l ON l.id = m.place_id
+      WHERE m.expires_at > ? AND m.report_count < ? AND m.parent_id IS NULL
+        AND l.latitude_e6 BETWEEN ? AND ?
+        AND l.longitude_e6 BETWEEN ? AND ?
+      ORDER BY m.created_at DESC, m.id DESC
+      LIMIT ?`,
+  )
+    .bind(
+      now,
+      HIDE_AFTER_REPORTS,
+      bounds.southE6,
+      bounds.northE6,
+      bounds.westE6,
+      bounds.eastE6,
+      limit,
+    )
+    .all();
+
+  return jsonResponse(request, env, {
+    generatedAt: new Date(now * 1000).toISOString(),
+    messages: results.map(serializeMessage),
   });
 }
 

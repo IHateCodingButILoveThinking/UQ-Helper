@@ -192,7 +192,7 @@ body[data-page="shout-outs"]::after {
 }
 
 .shout-real-map .maplibregl-canvas { outline: 0; }
-.shout-real-map .maplibregl-ctrl-top-left { top: 58px; left: 6px; }
+.shout-real-map .maplibregl-ctrl-top-left { top: 108px; left: 6px; }
 .shout-real-map .maplibregl-ctrl-attrib {
   border-radius: 7px;
   background: rgba(255, 255, 255, .84);
@@ -259,6 +259,43 @@ body[data-page="shout-outs"]::after {
 .mode-composing .shout-map-toolbar {
   opacity: 0;
   pointer-events: none;
+}
+
+.shout-region-rail {
+  position: absolute;
+  top: 62px;
+  left: 10px;
+  right: 10px;
+  z-index: 19;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 1px 5px;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x proximity;
+}
+.shout-region-rail::-webkit-scrollbar { display: none; }
+.shout-region-rail button {
+  min-height: 36px;
+  flex: 0 0 auto;
+  padding: 0 11px;
+  border: 1px solid rgba(67, 71, 113, .12);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .94);
+  box-shadow: 0 5px 15px rgba(35, 48, 44, .11);
+  color: #65716e;
+  cursor: pointer;
+  font: inherit;
+  font-size: .54rem;
+  font-weight: 850;
+  scroll-snap-align: start;
+  backdrop-filter: blur(10px);
+}
+.shout-region-rail button.active {
+  border-color: #6657c7;
+  background: #6657c7;
+  color: #fff;
 }
 
 .shout-latest-activity {
@@ -343,6 +380,51 @@ body[data-page="shout-outs"]::after {
 .mode-pinning .shout-map-toast,
 .mode-composing .shout-map-toast { top: 14px; }
 
+.shout-location-help {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 45;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid rgba(70, 91, 145, .18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 18px 44px rgba(26, 48, 70, .24);
+  backdrop-filter: blur(16px);
+}
+
+.shout-location-help-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: #e7f1ff;
+  color: #287bc9;
+}
+.shout-location-help-icon svg { width: 18px; height: 18px; }
+.shout-location-help > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.shout-location-help strong { color: #253e55; font-size: .66rem; font-weight: 950; }
+.shout-location-help p { margin: 0; color: #5e7180; font-size: .54rem; font-weight: 700; line-height: 1.35; }
+.shout-location-help small { color: #7c8993; font-size: .48rem; font-weight: 700; line-height: 1.35; }
+.shout-location-help button {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 11px;
+  cursor: pointer;
+  font: inherit;
+  font-size: .52rem;
+  font-weight: 900;
+}
+.shout-location-help button.ghost { background: #f0f3f5; color: #63727c; }
+.shout-location-help button.primary { background: #287bc9; color: #fff; }
+
 .shout-center-pin {
   position: absolute;
   top: 50%;
@@ -426,7 +508,8 @@ body[data-page="shout-outs"]::after {
 .shout-map-sheet { border-radius: 22px; }
 .shout-compose-sheet { display: grid; gap: 9px; padding: 12px; }
 .shout-compose-sheet header,
-.shout-thread-sheet > header {
+.shout-thread-sheet > header,
+.shout-recent-sheet > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -442,6 +525,7 @@ body[data-page="shout-outs"]::after {
 .shout-compose-sheet header strong { color: #25473e; font-size: .7rem; font-weight: 950; }
 .shout-compose-sheet header > button,
 .shout-thread-sheet > header > button,
+.shout-recent-sheet > header > button,
 .shout-sheet-close {
   width: 36px;
   height: 36px;
@@ -456,6 +540,7 @@ body[data-page="shout-outs"]::after {
 }
 .shout-compose-sheet header button svg,
 .shout-thread-sheet > header button svg,
+.shout-recent-sheet > header button svg,
 .shout-sheet-close svg { width: 15px; height: 15px; }
 
 .shout-compose-sheet textarea {
@@ -624,6 +709,40 @@ body[data-page="shout-outs"]::after {
   gap: 9px;
   padding: 12px;
 }
+
+.shout-recent-sheet {
+  max-height: min(64dvh, 520px);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 9px;
+  padding: 12px;
+}
+.shout-recent-sheet > header > span { min-width: 0; display: grid; gap: 2px; }
+.shout-recent-sheet > header strong { color: #30295d; font-size: .75rem; font-weight: 950; }
+.shout-recent-sheet > header small { color: #858092; font-size: .5rem; font-weight: 780; }
+.shout-recent-list { min-height: 0; display: grid; align-content: start; gap: 6px; overflow-y: auto; overscroll-behavior: contain; }
+.shout-recent-list > button {
+  min-height: 67px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border: 1px solid #e6e3f2;
+  border-radius: 13px;
+  background: #fbfafd;
+  color: #6559a5;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.shout-recent-list > button > span:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.shout-recent-list > button strong { overflow: hidden; color: #3d4650; font-size: .58rem; font-weight: 900; text-overflow: ellipsis; white-space: nowrap; }
+.shout-recent-list > button p { display: -webkit-box; overflow: hidden; margin: 0; color: #263b35; font-size: .62rem; font-weight: 680; line-height: 1.35; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.shout-recent-list > button small { color: #8c9692; font-size: .47rem; font-weight: 760; }
+.shout-recent-list > button > svg { width: 15px; height: 15px; }
+.shout-recent-order { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 9px; background: #eeeafb; color: #6657c7; font-size: .52rem; font-weight: 950; }
+.shout-recent-state { min-height: 100px; display: grid; place-items: center; margin: 0; color: #87928e; font-size: .58rem; font-weight: 800; text-align: center; }
 .shout-thread-sheet > header > span { min-width: 0; display: grid; gap: 2px; }
 .shout-thread-sheet > header strong { color: #204239; font-size: .76rem; font-weight: 950; }
 .shout-thread-sheet > header small { color: #8b9994; font-size: .5rem; font-weight: 800; }
@@ -809,6 +928,17 @@ body[data-page="shout-outs"]::after {
   .shout-pin-bar button { width: 100%; }
   .shout-compose-row { flex-wrap: wrap; }
   .shout-send-button { margin-left: auto; }
+}
+
+@media (max-width: 520px) {
+  .shout-location-help {
+    grid-template-columns: 38px minmax(0, 1fr);
+  }
+  .shout-location-help button {
+    width: 100%;
+  }
+  .shout-location-help button.ghost { grid-column: 1; }
+  .shout-location-help button.primary { grid-column: 2; }
 }
 
 @media (prefers-reduced-motion: reduce) {

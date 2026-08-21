@@ -90,6 +90,19 @@ export async function fetchShoutOutSummary(options = {}) {
   return apiRequest(`/api/map?${params.toString()}`, { signal: options.signal });
 }
 
+export async function fetchRecentShoutOuts(options = {}) {
+  const bounds = options.bounds;
+  const params = new URLSearchParams();
+  if (bounds) {
+    params.set("west", String(bounds.west));
+    params.set("south", String(bounds.south));
+    params.set("east", String(bounds.east));
+    params.set("north", String(bounds.north));
+  }
+  params.set("limit", String(options.limit ?? 30));
+  return apiRequest(`/api/recent?${params.toString()}`, { signal: options.signal });
+}
+
 export async function createShoutOut({
   placeId,
   location,

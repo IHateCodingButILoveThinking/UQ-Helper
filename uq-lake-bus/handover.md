@@ -66,10 +66,13 @@ The immediate work in progress is mobile visual QA and frontend deployment. The 
 - Replaced the cartoon-map direction with a real interactive MapLibre vector map.
 - Expanded viewport browsing and pin storage from Brisbane to mainland Australia and Tasmania.
 - Expanded browsing and posting again to cover Asia plus Australia, while retaining the same 1 km current-location check, approximate public pins, moderation, reporting, and seven-day expiry.
+- Added a horizontally scrollable country shortcut rail at the top of the map. Country choices move/fit the real map instead of creating separate pages, so users can quickly track posts in Australia and major Asian regions.
+- Turned Recent into a chronological feed for the visible country/map area. It shows newest-to-oldest location, text, relative time, exact time, and returns to the selected map pin.
 - Added a mobile pin flow: enter posting mode, move the map beneath the centre pin, confirm the location, then compose.
 - Geolocation is requested only after the user chooses Locate; it centres the map but does not automatically publish exact device coordinates.
 - Publishing now requires a fresh current-location action. The chosen pin must remain inside a visible 1 km circle; both client and Worker reject an out-of-range pin.
-- Improved unreliable phone location handling: the map now requests a normal location fix first, retries with high accuracy only when posting needs it, explains denied/unavailable/timeout states, disables Locate until the map is ready, and shows a blue current-location dot after success.
+- Improved unreliable phone location handling: the map now requests a normal location fix first, retries with high accuracy only when posting needs it, explains denied/unavailable/timeout states, reports when the map is not ready, and shows a blue current-location dot after success.
+- Removed the silent disabled Locate state found on slower iPhones. Locate now always responds, and denied/unavailable/timeout states open a persistent recovery panel with Safari website-setting instructions and a Try again action.
 - Pin placement now supports tapping a map spot as well as moving the map beneath the centre pin. A location fix can be reused for two minutes so reopening the composer is immediate without silently keeping stale coordinates.
 - Current location is used for the distance check but is not written to D1. The public pin remains snapped to approximately 50 m.
 - The confirmed public pin is snapped to an approximate location by the Worker.
@@ -86,6 +89,7 @@ The immediate work in progress is mobile visual QA and frontend deployment. The 
 - Added a compact in-app Activity inbox for reply and reaction notifications. Notifications are tied to the anonymous device token, contain no email/account data, and expire with the post.
 - Added and deployed D1 migration `0004_replies_notifications.sql`; deployed Worker version `67a521d8-70a3-4750-a255-5a566957876a`.
 - Added and deployed D1 migration `0005_asia_pacific_locations.sql`; deployed Worker version `da60a0a5-4b4e-479a-a683-be7bf4903920` and verified a Singapore viewport query.
+- Added and deployed the read-only `/api/recent` endpoint in Worker version `697a2bf2-0d1e-4983-a1c7-b3a35f9730f5`; verified Brisbane results are ordered by descending creation time.
 
 ## Work completed in the current session
 

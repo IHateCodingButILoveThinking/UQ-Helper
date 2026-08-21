@@ -20,6 +20,7 @@ import {
 
 import {
   createShoutOut,
+  fetchRecentShoutOuts,
   fetchShoutOutNotifications,
   fetchShoutOutSummary,
   fetchShoutOuts,
@@ -42,6 +43,22 @@ const ASIA_PACIFIC_BOUNDS = {
 const DEFAULT_CENTER = [153.0133, -27.4971];
 const MAX_POST_DISTANCE_KM = 1;
 const RECENT_ACTIVITY_MS = 30 * 60 * 1000;
+const REGION_SHORTCUTS = Object.freeze([
+  { id: "all", label: "All", bounds: [25, -45, 180, 82] },
+  { id: "australia", label: "Australia", bounds: [112, -44.5, 154.5, -9] },
+  { id: "singapore", label: "Singapore", bounds: [103.6, 1.15, 104.1, 1.5] },
+  { id: "malaysia", label: "Malaysia", bounds: [99.5, 0.7, 119.5, 7.5] },
+  { id: "japan", label: "Japan", bounds: [129, 30, 146, 46] },
+  { id: "korea", label: "South Korea", bounds: [126, 33, 130, 39] },
+  { id: "china", label: "China", bounds: [73, 18, 135, 54] },
+  { id: "hong-kong", label: "Hong Kong", bounds: [113.8, 22.1, 114.5, 22.6] },
+  { id: "taiwan", label: "Taiwan", bounds: [119, 21.7, 122.3, 25.5] },
+  { id: "thailand", label: "Thailand", bounds: [97, 5.5, 106, 20.5] },
+  { id: "vietnam", label: "Vietnam", bounds: [102, 8, 110, 24] },
+  { id: "indonesia", label: "Indonesia", bounds: [95, -11, 141, 6] },
+  { id: "philippines", label: "Philippines", bounds: [116, 4.5, 127, 21] },
+  { id: "india", label: "India", bounds: [68, 6, 98, 36] },
+]);
 
 export default function ShoutOutPage({ onHome }) {
   const [mapBounds, setMapBounds] = useState(null);
@@ -341,6 +358,7 @@ function ShoutMap({
   const [resolvedPinLabels, setResolvedPinLabels] = useState({});
   const [locating, setLocating] = useState(false);
   const [mapNotice, setMapNotice] = useState("");
+  const [locationHelp, setLocationHelp] = useState(null);
   const [draft, setDraft] = useState("");
   const [postEmoji, setPostEmoji] = useState("");
   const [posting, setPosting] = useState(false);
@@ -349,6 +367,11 @@ function ShoutMap({
   const [replyDraft, setReplyDraft] = useState("");
   const [replyError, setReplyError] = useState("");
   const [replying, setReplying] = useState(false);
+  const [activeRegion, setActiveRegion] = useState("australia");
+  const [recentMessages, setRecentMessages] = useState([]);
+  const [recentLoading, setRecentLoading] = useState(false);
+  const [recentError, setRecentError] = useState("");
+  const recentRequestRef = useRef(0);
 
   summariesRef.current = summaries;
   onSelectRef.current = onSelect;
@@ -792,14 +815,23 @@ function ShoutMap({
       setMapNotice("Map is still loading. Try again in a moment.");
       return;
     }
-    if (!navigator.geolocation) {
-      setMapNotice(
-        forPosting
-          ? "Current location is required to post"
-          : "Current location is unavailable",
-      );
+    if (!window.isSecureContext) {
+      setLocationHelp({
+        forPosting,
+        title: "Location needs a secure page",
+        message: "Open the HTTPS version of this website, then try Locate again.",
+      });
       return;
     }
+    if (!navigator.geolocation) {
+      setLocationHelp({
+        forPosting,
+        title: "Location is unavailable",
+        message: "This browser is not providing website location. Open the page in Safari and try again.",
+      });
+      return;
+    }
+    setLocationHelp(null);
     setLocating(true);
     setMapNotice(forPosting ? "Finding you…" : "Finding your area…");
 
@@ -831,6 +863,7 @@ function ShoutMap({
         const nextCoordinate = [coords.longitude, coords.latitude];
         setUserCoordinate(nextCoordinate);
         setUserLocatedAt(Date.now());
+        setLocationHelp(null);
         setPinCoordinate(nextCoordinate);
         updateCurrentPinLabel(nextCoordinate);
         mapRef.current?.easeTo({
@@ -855,6 +888,11 @@ function ShoutMap({
             ? "Your phone could not find a location. Check Location Services and try again."
             : "Location took too long. Move to an open area and try again.";
         setMapNotice(message);
+        setLocationHelp({
+          forPosting,
+          title: error?.code === 1 ? "Allow location on iPhone" : "Location was not found",
+          message,
+        });
         setLocating(false);
     };
 
@@ -966,13 +1004,58 @@ function ShoutMap({
     });
   };
 
+  const exploreRegion = (region) => {
+    const map = mapRef.current;
+    if (!map) return;
+    setActiveRegion(region.id);
+    setMode("browse");
+    onClearSelection();
+    map.fitBounds(
+      [
+        [region.bounds[0], region.bounds[1]],
+        [region.bounds[2], region.bounds[3]],
+      ],
+      { padding: 36, duration: 520, maxZoom: region.id === "all" ? 3.6 : 10.5 },
+    );
+  };
+
+  const openRecent = async () => {
+    const map = mapRef.current;
+    if (!map) return;
+    const requestId = ++recentRequestRef.current;
+    const bounds = map.getBounds();
+    setMode("recent");
+    setRecentLoading(true);
+    setRecentError("");
+    try {
+      const payload = await fetchRecentShoutOuts({
+        bounds: {
+          west: roundMapCoordinate(bounds.getWest()),
+          south: roundMapCoordinate(bounds.getSouth()),
+          east: roundMapCoordinate(bounds.getEast()),
+          north: roundMapCoordinate(bounds.getNorth()),
+        },
+        limit: 30,
+      });
+      if (requestId === recentRequestRef.current) {
+        setRecentMessages(payload.messages ?? []);
+      }
+    } catch (error) {
+      if (requestId === recentRequestRef.current) {
+        setRecentError(error.message || "Could not load recent posts.");
+      }
+    } finally {
+      if (requestId === recentRequestRef.current) setRecentLoading(false);
+    }
+  };
+
   return (
     <section className={`shout-map-stage mode-${mode}`} aria-label="Interactive Asia–Pacific message map">
       <div ref={containerRef} className="shout-real-map" aria-label="Moveable map of Asia and Australia" />
 
       <div className="shout-map-toolbar">
         <span>
-          <button type="button" onClick={() => locateUser(false)} disabled={locating || !mapReady} aria-label="Find my current location">
+          <button type="button" onClick={() => locateUser(false)} disabled={locating} aria-label="Find my current location">
             <LocateFixed className={locating ? "locating" : ""} aria-hidden="true" />
             <span>{locating ? "Finding" : "Locate"}</span>
           </button>
@@ -982,21 +1065,33 @@ function ShoutMap({
         </span>
       </div>
 
-      {mode === "browse" && newestSummary?.latest ? (
+      {mode === "browse" ? (
+        <nav className="shout-region-rail" aria-label="Explore posts by country">
+          {REGION_SHORTCUTS.map((region) => (
+            <button
+              type="button"
+              key={region.id}
+              className={activeRegion === region.id ? "active" : ""}
+              aria-pressed={activeRegion === region.id}
+              onClick={() => exploreRegion(region)}
+            >
+              {region.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
+
+      {mode === "browse" ? (
         <button
           type="button"
           className={`shout-latest-activity ${newestIsRecent ? "recent" : ""}`}
-          onClick={() => focusSummary(newestSummary)}
-          aria-label={`Show latest visible post from ${displayLocationLabel(
-            newestSummary,
-            resolvedPinLabels,
-            { includeCoordinate: false },
-          )}`}
+          onClick={openRecent}
+          aria-label="Show recent posts in this map area, newest first"
         >
           <i aria-hidden="true" />
           <span>
-            <strong>{newestIsRecent ? "New nearby" : "Latest nearby"}</strong>
-            <small>{relativeTime(newestSummary.latest.createdAt)}</small>
+            <strong>Recent</strong>
+            <small>{newestSummary?.latest ? relativeTime(newestSummary.latest.createdAt) : "This area"}</small>
           </span>
         </button>
       ) : null}
@@ -1026,6 +1121,41 @@ function ShoutMap({
         </AnimatePresence>
       ) : null}
 
+      <AnimatePresence>
+        {locationHelp ? (
+          <motion.aside
+            className="shout-location-help"
+            role="dialog"
+            aria-label={locationHelp.title}
+            initial={{ y: 24, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 14, opacity: 0 }}
+          >
+            <span className="shout-location-help-icon"><LocateFixed aria-hidden="true" /></span>
+            <span>
+              <strong>{locationHelp.title}</strong>
+              <p>{locationHelp.message}</p>
+              <small>
+                Safari: Page menu → More → Website Settings → Location → Allow.
+                Also check Settings → Privacy &amp; Security → Location Services.
+              </small>
+            </span>
+            <button type="button" className="ghost" onClick={() => setLocationHelp(null)}>Close</button>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => {
+                const forPosting = locationHelp.forPosting;
+                setLocationHelp(null);
+                locateUser(forPosting);
+              }}
+            >
+              Try again
+            </button>
+          </motion.aside>
+        ) : null}
+      </AnimatePresence>
+
       {mode === "pinning" ? (
         <>
           <span className="shout-center-pin" aria-hidden="true"><MapPin /></span>
@@ -1052,6 +1182,54 @@ function ShoutMap({
       ) : null}
 
       <AnimatePresence mode="wait">
+        {mode === "recent" ? (
+          <motion.section
+            className="shout-map-sheet shout-recent-sheet"
+            role="dialog"
+            aria-label="Recent posts, newest first"
+            initial={{ y: 40, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 24, opacity: 0 }}
+          >
+            <header>
+              <span>
+                <strong>Recent · {REGION_SHORTCUTS.find((item) => item.id === activeRegion)?.label || "Map area"}</strong>
+                <small>Newest to oldest in the visible map</small>
+              </span>
+              <button type="button" onClick={() => setMode("browse")} aria-label="Close recent posts"><ChevronDown aria-hidden="true" /></button>
+            </header>
+            <div className="shout-recent-list">
+              {recentLoading ? (
+                <div className="shout-thread-loading"><span /><span /><span /></div>
+              ) : recentError ? (
+                <p className="shout-recent-state">{recentError}</p>
+              ) : recentMessages.length ? recentMessages.map((message, index) => (
+                <button
+                  type="button"
+                  key={message.id}
+                  onClick={() => focusSummary(
+                    summaries.find((item) => item.placeId === message.placeId) ?? {
+                      ...message.location,
+                      messageCount: 1,
+                      latest: message,
+                    },
+                  )}
+                >
+                  <span className="shout-recent-order">{index + 1}</span>
+                  <span>
+                    <strong>{displayLocationLabel(message.location, resolvedPinLabels, { includeCoordinate: false })}</strong>
+                    <p>{message.emoji ? `${message.emoji} ` : ""}{message.message}</p>
+                    <small>{relativeTime(message.createdAt)} · {formatPostTime(message.createdAt)}</small>
+                  </span>
+                  <MapPin aria-hidden="true" />
+                </button>
+              )) : (
+                <p className="shout-recent-state">No recent posts in this map area.</p>
+              )}
+            </div>
+          </motion.section>
+        ) : null}
+
         {mode === "composing" ? (
           <motion.form
             className="shout-map-sheet shout-compose-sheet"
