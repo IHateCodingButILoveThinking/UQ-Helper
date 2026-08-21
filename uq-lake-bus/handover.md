@@ -7,7 +7,7 @@ Last updated: 21 August 2026
 Continue the mobile-first redesign and finish the two active feature areas:
 
 1. Make the Gold Coast journey flow immediately understandable: outbound is train to Helensvale, then tram; return is tram to Helensvale, then train to Brisbane. Keep the reverse-direction control between the two journey cards and keep text compact and high contrast.
-2. Finish the Shout Out map as a simple Australia-wide browsing experience. Publishing requires current-location permission and the confirmed public pin must remain within 1 km of that location.
+2. Finish the Shout Out map as a simple Asia–Pacific browsing experience. Publishing requires current-location permission and the confirmed public pin must remain within 1 km of that location.
 
 The immediate work in progress is mobile visual QA and frontend deployment. The D1 migrations and Worker API are already deployed.
 
@@ -65,9 +65,12 @@ The immediate work in progress is mobile visual QA and frontend deployment. The 
 
 - Replaced the cartoon-map direction with a real interactive MapLibre vector map.
 - Expanded viewport browsing and pin storage from Brisbane to mainland Australia and Tasmania.
+- Expanded browsing and posting again to cover Asia plus Australia, while retaining the same 1 km current-location check, approximate public pins, moderation, reporting, and seven-day expiry.
 - Added a mobile pin flow: enter posting mode, move the map beneath the centre pin, confirm the location, then compose.
 - Geolocation is requested only after the user chooses Locate; it centres the map but does not automatically publish exact device coordinates.
 - Publishing now requires a fresh current-location action. The chosen pin must remain inside a visible 1 km circle; both client and Worker reject an out-of-range pin.
+- Improved unreliable phone location handling: the map now requests a normal location fix first, retries with high accuracy only when posting needs it, explains denied/unavailable/timeout states, disables Locate until the map is ready, and shows a blue current-location dot after success.
+- Pin placement now supports tapping a map spot as well as moving the map beneath the centre pin. A location fix can be reused for two minutes so reopening the composer is immediate without silently keeping stale coordinates.
 - Current location is used for the distance check but is not written to D1. The public pin remains snapped to approximately 50 m.
 - The confirmed public pin is snapped to an approximate location by the Worker.
 - The UI attempts to derive a recognisable place name from visible vector-map labels and falls back to explicit coordinates instead of saying only “near this pin”.
@@ -82,6 +85,7 @@ The immediate work in progress is mobile visual QA and frontend deployment. The 
 - Added one-level anonymous replies below map posts. Replies reuse the same 160-character limit, safety moderation, cooldown, daily limit, reports, reactions, and parent-post expiry.
 - Added a compact in-app Activity inbox for reply and reaction notifications. Notifications are tied to the anonymous device token, contain no email/account data, and expire with the post.
 - Added and deployed D1 migration `0004_replies_notifications.sql`; deployed Worker version `67a521d8-70a3-4750-a255-5a566957876a`.
+- Added and deployed D1 migration `0005_asia_pacific_locations.sql`; deployed Worker version `da60a0a5-4b4e-479a-a683-be7bf4903920` and verified a Singapore viewport query.
 
 ## Work completed in the current session
 

@@ -252,6 +252,7 @@ body[data-page="shout-outs"]::after {
 
 .shout-map-toolbar button.primary { background: #13785e; color: #fff; }
 .shout-map-toolbar button svg { width: 15px; height: 15px; }
+.shout-map-toolbar button svg.locating { animation: shout-locate-spin .9s linear infinite; }
 .shout-map-toolbar button:disabled { opacity: .5; }
 
 .mode-pinning .shout-map-toolbar,
@@ -795,6 +796,7 @@ body[data-page="shout-outs"]::after {
   50% { transform: translate(-50%, -96%); }
 }
 @keyframes shout-pulse { 50% { opacity: .45; transform: scale(.86); } }
+@keyframes shout-locate-spin { to { transform: rotate(360deg); } }
 @keyframes shout-activity-breathe {
   50% { opacity: .58; box-shadow: 0 0 0 9px rgba(239, 111, 82, .07); }
 }
@@ -812,6 +814,7 @@ body[data-page="shout-outs"]::after {
 @media (prefers-reduced-motion: reduce) {
   .shout-center-pin,
   .shout-latest-activity.recent > i,
+  .shout-map-toolbar button svg.locating,
   .shout-map-sync,
   .shout-thread-loading span { animation: none; }
 }

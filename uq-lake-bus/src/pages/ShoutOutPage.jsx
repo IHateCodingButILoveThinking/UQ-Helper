@@ -33,11 +33,11 @@ const POST_EMOJIS = ["", "👋", "☕", "📚", "🎉", "👀"];
 const REACTION_EMOJIS = ["👍", "❤️", "😂", "🎉", "👀"];
 const AVATAR_FACES = ["•ᴗ•", "•‿•", "•◡•", "^‿^", "•⌣•"];
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
-const AUSTRALIA_BOUNDS = {
-  west: 112.5,
-  south: -44.5,
-  east: 154.5,
-  north: -9,
+const ASIA_PACIFIC_BOUNDS = {
+  west: 25,
+  south: -45,
+  east: 180,
+  north: 82,
 };
 const DEFAULT_CENTER = [153.0133, -27.4971];
 const MAX_POST_DISTANCE_KM = 1;
@@ -299,7 +299,7 @@ export default function ShoutOutPage({ onHome }) {
       />
 
       <p className="shout-privacy-note">
-        Browse Australia · Post within 1 km of you · Approximate pins disappear after 7 days.
+        Asia + Australia · Post within 1 km of you · Pins disappear after 7 days.
       </p>
     </section>
   );
@@ -336,6 +336,7 @@ function ShoutMap({
   const [mode, setMode] = useState("browse");
   const [pinCoordinate, setPinCoordinate] = useState(DEFAULT_CENTER);
   const [userCoordinate, setUserCoordinate] = useState(null);
+  const [userLocatedAt, setUserLocatedAt] = useState(0);
   const [pinPlaceName, setPinPlaceName] = useState("");
   const [resolvedPinLabels, setResolvedPinLabels] = useState({});
   const [locating, setLocating] = useState(false);
@@ -393,8 +394,8 @@ function ShoutMap({
           minZoom: 3.4,
           maxZoom: 19,
           maxBounds: [
-            [AUSTRALIA_BOUNDS.west, AUSTRALIA_BOUNDS.south],
-            [AUSTRALIA_BOUNDS.east, AUSTRALIA_BOUNDS.north],
+            [ASIA_PACIFIC_BOUNDS.west, ASIA_PACIFIC_BOUNDS.south],
+            [ASIA_PACIFIC_BOUNDS.east, ASIA_PACIFIC_BOUNDS.north],
           ],
           pitch: 0,
           bearing: 0,
@@ -439,6 +440,32 @@ function ShoutMap({
           map.addSource("shout-post-range", {
             type: "geojson",
             data: emptyFeatureCollection(),
+          });
+          map.addSource("shout-user-point", {
+            type: "geojson",
+            data: emptyFeatureCollection(),
+          });
+
+          map.addLayer({
+            id: "shout-user-accuracy",
+            type: "circle",
+            source: "shout-user-point",
+            paint: {
+              "circle-color": "#438fe3",
+              "circle-radius": 16,
+              "circle-opacity": 0.13,
+            },
+          });
+          map.addLayer({
+            id: "shout-user-dot",
+            type: "circle",
+            source: "shout-user-point",
+            paint: {
+              "circle-color": "#247bd1",
+              "circle-radius": 7,
+              "circle-stroke-color": "#ffffff",
+              "circle-stroke-width": 3,
+            },
           });
 
           map.addLayer({
@@ -593,6 +620,13 @@ function ShoutMap({
             setMode("browse");
             onSelectRef.current(summary);
           });
+          map.on("click", (event) => {
+            if (modeRef.current !== "pinning") return;
+            const coordinate = [event.lngLat.lng, event.lngLat.lat];
+            setPinCoordinate(coordinate);
+            updateCurrentPinLabel(coordinate);
+            map.easeTo({ center: coordinate, duration: 260, essential: true });
+          });
           ["shout-clusters", "shout-post-points"].forEach((layerId) => {
             map.on("mouseenter", layerId, () => { map.getCanvas().style.cursor = "pointer"; });
             map.on("mouseleave", layerId, () => { map.getCanvas().style.cursor = ""; });
@@ -691,6 +725,26 @@ function ShoutMap({
   }, [mapReady, userCoordinate]);
 
   useEffect(() => {
+    if (!mapReady) return;
+    const userSource = mapRef.current?.getSource("shout-user-point");
+    if (!userSource) return;
+    userSource.setData(
+      userCoordinate
+        ? {
+            type: "FeatureCollection",
+            features: [
+              {
+                type: "Feature",
+                geometry: { type: "Point", coordinates: userCoordinate },
+                properties: {},
+              },
+            ],
+          }
+        : emptyFeatureCollection(),
+    );
+  }, [mapReady, userCoordinate]);
+
+  useEffect(() => {
     if (!mapReady || !mapRef.current) return;
     const visibility = mode === "pinning" || mode === "composing" ? "none" : "visible";
     [
@@ -734,6 +788,10 @@ function ShoutMap({
   }, [mapNotice]);
 
   const locateUser = (forPosting = false) => {
+    if (!mapReady || !mapRef.current) {
+      setMapNotice("Map is still loading. Try again in a moment.");
+      return;
+    }
     if (!navigator.geolocation) {
       setMapNotice(
         forPosting
@@ -744,25 +802,35 @@ function ShoutMap({
     }
     setLocating(true);
     setMapNotice(forPosting ? "Finding you…" : "Finding your area…");
-    navigator.geolocation.getCurrentPosition(
-      ({ coords }) => {
-        const insideAustralia =
-          coords.latitude >= AUSTRALIA_BOUNDS.south &&
-          coords.latitude <= AUSTRALIA_BOUNDS.north &&
-          coords.longitude >= AUSTRALIA_BOUNDS.west &&
-          coords.longitude <= AUSTRALIA_BOUNDS.east;
-        if (!insideAustralia) {
-          setMapNotice("Posting is available within Australia");
+
+    const handleLocation = ({ coords }, canRetryForAccuracy = true) => {
+        const insideAsiaPacific =
+          coords.latitude >= ASIA_PACIFIC_BOUNDS.south &&
+          coords.latitude <= ASIA_PACIFIC_BOUNDS.north &&
+          coords.longitude >= ASIA_PACIFIC_BOUNDS.west &&
+          coords.longitude <= ASIA_PACIFIC_BOUNDS.east;
+        if (!insideAsiaPacific) {
+          setMapNotice("Your location appears outside the supported Asia–Pacific map.");
           setLocating(false);
           return;
         }
         if (forPosting && Number(coords.accuracy) > 1000) {
-          setMapNotice("Your location is too imprecise. Try again with better signal.");
+          if (canRetryForAccuracy) {
+            setMapNotice("Improving location accuracy…");
+            navigator.geolocation.getCurrentPosition(
+              (position) => handleLocation(position, false),
+              handleLocationError,
+              { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 },
+            );
+            return;
+          }
+          setMapNotice("Location is not accurate enough. Move near a window and try again.");
           setLocating(false);
           return;
         }
         const nextCoordinate = [coords.longitude, coords.latitude];
         setUserCoordinate(nextCoordinate);
+        setUserLocatedAt(Date.now());
         setPinCoordinate(nextCoordinate);
         updateCurrentPinLabel(nextCoordinate);
         mapRef.current?.easeTo({
@@ -774,27 +842,46 @@ function ShoutMap({
         if (forPosting) setMode("pinning");
         setMapNotice(
           forPosting
-            ? "Choose a spot inside the 1 km circle"
-            : "Map centred on your current area",
+            ? "Tap a spot or move the map inside the 1 km circle"
+            : `Location found${Number.isFinite(coords.accuracy) ? ` · about ${Math.round(coords.accuracy)} m accuracy` : ""}`,
         );
         setLocating(false);
-      },
-      () => {
-        setMapNotice(
-          forPosting
-            ? "Share your current location to post"
-            : "Location was not shared",
-        );
+    };
+
+    const handleLocationError = (error) => {
+        const message = error?.code === 1
+          ? "Location is blocked. Allow Location for this site in your browser settings."
+          : error?.code === 2
+            ? "Your phone could not find a location. Check Location Services and try again."
+            : "Location took too long. Move to an open area and try again.";
+        setMapNotice(message);
         setLocating(false);
-      },
-      { enableHighAccuracy: true, maximumAge: 60_000, timeout: 9000 },
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => handleLocation(position, true),
+      handleLocationError,
+      { enableHighAccuracy: false, maximumAge: 120_000, timeout: 12000 },
     );
   };
 
   const startPost = () => {
     onClearSelection();
     setPostError("");
-    setMapNotice("Share your current location to choose a nearby pin");
+    if (userCoordinate && Date.now() - userLocatedAt < 120_000) {
+      setPinCoordinate(userCoordinate);
+      updateCurrentPinLabel(userCoordinate);
+      setMode("pinning");
+      mapRef.current?.easeTo({
+        center: userCoordinate,
+        zoom: Math.max(mapRef.current.getZoom(), 15),
+        duration: 420,
+        essential: true,
+      });
+      setMapNotice("Tap a spot or move the map inside the 1 km circle");
+      return;
+    }
+    setMapNotice("Allow Location once to choose a nearby public pin");
     locateUser(true);
   };
 
@@ -880,13 +967,14 @@ function ShoutMap({
   };
 
   return (
-    <section className={`shout-map-stage mode-${mode}`} aria-label="Interactive Australian message map">
-      <div ref={containerRef} className="shout-real-map" aria-label="Moveable map of Australia" />
+    <section className={`shout-map-stage mode-${mode}`} aria-label="Interactive Asia–Pacific message map">
+      <div ref={containerRef} className="shout-real-map" aria-label="Moveable map of Asia and Australia" />
 
       <div className="shout-map-toolbar">
         <span>
-          <button type="button" onClick={() => locateUser(false)} disabled={locating} aria-label="Find my area">
-            <LocateFixed aria-hidden="true" />
+          <button type="button" onClick={() => locateUser(false)} disabled={locating || !mapReady} aria-label="Find my current location">
+            <LocateFixed className={locating ? "locating" : ""} aria-hidden="true" />
+            <span>{locating ? "Finding" : "Locate"}</span>
           </button>
           <button type="button" className="primary" onClick={startPost} disabled={locating}>
             <Plus aria-hidden="true" />Post
@@ -946,7 +1034,7 @@ function ShoutMap({
               <strong>{pinLabel}</strong>
               <small className={pinWithinRange ? "inside" : "outside"}>
                 {pinWithinRange
-                  ? `${formatDistanceMetres(pinDistanceKm)} from you · inside 1 km`
+                  ? `${formatDistanceMetres(pinDistanceKm)} from you · tap or move map`
                   : `${formatDistanceMetres(pinDistanceKm)} from you · move inside the circle`}
               </small>
             </span>

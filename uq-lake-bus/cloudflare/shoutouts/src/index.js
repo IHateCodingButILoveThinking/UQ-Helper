@@ -7,11 +7,11 @@ const MAP_RESULT_LIMIT = 200;
 const PIN_GRID_E6 = 500;
 const MAX_POST_DISTANCE_KM = 1;
 
-const AUSTRALIA_BOUNDS = Object.freeze({
-  south: -44.5,
-  north: -9,
-  west: 112.5,
-  east: 154.5,
+const ASIA_PACIFIC_BOUNDS = Object.freeze({
+  south: -45,
+  north: 82,
+  west: 25,
+  east: 180,
 });
 
 const PLACES = Object.freeze([
@@ -592,7 +592,7 @@ async function visibleMessageExists(database, messageId) {
 function normalizePlaceId(value) {
   const placeId = String(value ?? "").trim().toLowerCase();
   if (!PLACE_IDS.has(placeId) && !PIN_ID_PATTERN.test(placeId)) {
-    throw new HTTPError(400, "Choose a valid Australian map location.");
+    throw new HTTPError(400, "Choose a valid Asia–Pacific map location.");
   }
   return placeId;
 }
@@ -610,7 +610,7 @@ async function resolvePostLocation(payload, database, now) {
   if (hasPlaceId) {
     const placeId = rawPlaceId.toLowerCase();
     if (!PLACE_IDS.has(placeId)) {
-      throw new HTTPError(400, "Choose a valid Australian map location.");
+      throw new HTTPError(400, "Choose a valid Asia–Pacific map location.");
     }
     const place = PLACES.find((item) => item.id === placeId);
     ensurePinNearCurrentLocation(payload.currentLocation, {
@@ -629,15 +629,15 @@ async function resolvePostLocation(payload, database, now) {
   const latitude = Number(rawLocation.latitude);
   const longitude = Number(rawLocation.longitude);
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    throw new HTTPError(400, "Move the pin to a valid Australian location.");
+    throw new HTTPError(400, "Move the pin to a valid Asia–Pacific location.");
   }
   if (
-    latitude < AUSTRALIA_BOUNDS.south ||
-    latitude > AUSTRALIA_BOUNDS.north ||
-    longitude < AUSTRALIA_BOUNDS.west ||
-    longitude > AUSTRALIA_BOUNDS.east
+    latitude < ASIA_PACIFIC_BOUNDS.south ||
+    latitude > ASIA_PACIFIC_BOUNDS.north ||
+    longitude < ASIA_PACIFIC_BOUNDS.west ||
+    longitude > ASIA_PACIFIC_BOUNDS.east
   ) {
-    throw new HTTPError(400, "Pins are currently available within Australia only.");
+    throw new HTTPError(400, "Pins are currently available within Asia and Australia only.");
   }
   ensurePinNearCurrentLocation(payload.currentLocation, { latitude, longitude });
 
@@ -684,12 +684,12 @@ function ensurePinNearCurrentLocation(rawCurrentLocation, pinLocation) {
     );
   }
   if (
-    currentLatitude < AUSTRALIA_BOUNDS.south ||
-    currentLatitude > AUSTRALIA_BOUNDS.north ||
-    currentLongitude < AUSTRALIA_BOUNDS.west ||
-    currentLongitude > AUSTRALIA_BOUNDS.east
+    currentLatitude < ASIA_PACIFIC_BOUNDS.south ||
+    currentLatitude > ASIA_PACIFIC_BOUNDS.north ||
+    currentLongitude < ASIA_PACIFIC_BOUNDS.west ||
+    currentLongitude > ASIA_PACIFIC_BOUNDS.east
   ) {
-    throw new HTTPError(400, "Posting is currently available within Australia only.");
+    throw new HTTPError(400, "Posting is currently available within Asia and Australia only.");
   }
 
   const pinDistance = distanceKm(
@@ -716,11 +716,11 @@ function normalizeMapBounds(url) {
     return value;
   };
 
-  const west = Math.max(AUSTRALIA_BOUNDS.west, readCoordinate("west", AUSTRALIA_BOUNDS.west));
-  const south = Math.max(AUSTRALIA_BOUNDS.south, readCoordinate("south", AUSTRALIA_BOUNDS.south));
-  const east = Math.min(AUSTRALIA_BOUNDS.east, readCoordinate("east", AUSTRALIA_BOUNDS.east));
-  const north = Math.min(AUSTRALIA_BOUNDS.north, readCoordinate("north", AUSTRALIA_BOUNDS.north));
-  if (west >= east || south >= north) throw new HTTPError(400, "Use valid Australian map bounds.");
+  const west = Math.max(ASIA_PACIFIC_BOUNDS.west, readCoordinate("west", ASIA_PACIFIC_BOUNDS.west));
+  const south = Math.max(ASIA_PACIFIC_BOUNDS.south, readCoordinate("south", ASIA_PACIFIC_BOUNDS.south));
+  const east = Math.min(ASIA_PACIFIC_BOUNDS.east, readCoordinate("east", ASIA_PACIFIC_BOUNDS.east));
+  const north = Math.min(ASIA_PACIFIC_BOUNDS.north, readCoordinate("north", ASIA_PACIFIC_BOUNDS.north));
+  if (west >= east || south >= north) throw new HTTPError(400, "Use valid Asia–Pacific map bounds.");
 
   return {
     westE6: Math.round(west * 1_000_000),
