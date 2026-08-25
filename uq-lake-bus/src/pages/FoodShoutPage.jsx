@@ -91,9 +91,10 @@ const BROWSE_REGION_GROUPS = [
   ]],
 ];
 const TYPES = [
-  ["dish", "Dish worth ordering"], ["drink", "Drink worth trying"], ["restaurant_find", "Hidden food spot"],
+  ["dish", "Meal worth ordering"], ["drink", "Drink worth trying"], ["snack", "Snack worth sharing"], ["restaurant_find", "Hidden food spot"],
   ["market", "Food market"], ["cafe", "Cafe find"], ["dessert", "Sweet find"], ["deal", "Budget find"], ["other", "Food moment"],
 ];
+const TYPE_FILTERS = [["all", "All"], ["meal", "Meals"], ["drink", "Drinks"], ["snack", "Snacks"]];
 const VIBES = ["study-friendly", "quick-grab", "group-friendly", "quiet", "lively", "late-night", "takeaway-friendly", "solo-friendly"];
 const DRAFT_KEY = "uq-food-shout-draft-v1";
 const RECENT_LOCATIONS_KEY = "uq-food-recent-locations-v1";
@@ -125,8 +126,12 @@ export default function FoodShoutPage({ onHome }) {
   const [activityLoading, setActivityLoading] = useState(false);
   const [activity, setActivity] = useState({ unreadCount: 0, notifications: [] });
   const [query, setQuery] = useState("");
-  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [placeResults, setPlaceResults] = useState([]);
+  const [placeSearching, setPlaceSearching] = useState(false);
+  const [searchedPlace, setSearchedPlace] = useState(null);
+  const [composerLocation, setComposerLocation] = useState(null);
   const [cuisine, setCuisine] = useState("All");
+  const [foodType, setFoodType] = useState("all");
   const [budget, setBudget] = useState(false);
   const [mine, setMine] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -163,7 +168,7 @@ export default function FoodShoutPage({ onHome }) {
       const payload = await listFoodShouts({
         bounds: nextBounds,
         cuisine,
-        query: submittedQuery,
+        type: foodType,
         budget,
         mine,
         saved,
@@ -177,14 +182,14 @@ export default function FoodShoutPage({ onHome }) {
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
-  }, [bounds, budget, cuisine, mine, saved, submittedQuery]);
+  }, [bounds, budget, cuisine, foodType, mine, saved]);
 
   useEffect(() => {
     if (!bounds) return undefined;
     const controller = new AbortController();
     fetchVisible(bounds, controller.signal);
     return () => controller.abort();
-  }, [budget, cuisine, mine, saved, submittedQuery]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [budget, cuisine, foodType, mine, saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return undefined;
@@ -210,10 +215,12 @@ export default function FoodShoutPage({ onHome }) {
         Object.entries({
           "food-icon-default": ["🍜", "#fff7ee", "#f26442"],
           "food-icon-drink": ["🧋", "#eef9fb", "#2c94b5"],
+          "food-icon-snack": ["🥟", "#fff8dc", "#d58b20"],
           "food-icon-dessert": ["🍰", "#fff1fb", "#c466d8"],
           "food-icon-market": ["🥕", "#f3f8eb", "#6b8e42"],
         }).forEach(([name, values]) => map.addImage(name, makeMapFoodIcon(...values), { pixelRatio: 2 }));
         map.addSource("food-shouts", { type: "geojson", data: emptyGeoJson(), cluster: true, clusterRadius: 62, clusterMaxZoom: 16 });
+        map.addSource("food-place-result", { type: "geojson", data: emptyGeoJson() });
         map.addLayer({
           id: "food-clusters", type: "circle", source: "food-shouts", filter: ["has", "point_count"],
           paint: { "circle-color": "#ff7043", "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 30, 26], "circle-stroke-width": 3, "circle-stroke-color": "#fff" },
@@ -230,20 +237,22 @@ export default function FoodShoutPage({ onHome }) {
           id: "food-pins", type: "circle", source: "food-shouts", filter: ["!", ["has", "point_count"]],
           paint: {
             "circle-color": ["case", ["==", ["get", "selected"], 1], "#ff7043", "#fff8ef"],
-            "circle-radius": ["case", ["==", ["get", "selected"], 1], 13, 9],
+            "circle-radius": ["case", ["==", ["get", "selected"], 1], 20, 16],
             "circle-stroke-width": ["case", ["==", ["get", "selected"], 1], 4, 3],
-            "circle-stroke-color": ["match", ["get", "type"], "dessert", "#c466d8", "drink", "#2c94b5", "market", "#6b8e42", "#ff7043"],
+            "circle-stroke-color": ["match", ["get", "type"], "dessert", "#c466d8", "snack", "#d58b20", "drink", "#2c94b5", "market", "#6b8e42", "#ff7043"],
           },
         });
         map.addLayer({
           id: "food-pin-glyphs", type: "symbol", source: "food-shouts", filter: ["!", ["has", "point_count"]],
           layout: {
-            "icon-image": ["match", ["get", "type"], "drink", "food-icon-drink", "cafe", "food-icon-drink", "dessert", "food-icon-dessert", "market", "food-icon-market", "food-icon-default"],
-            "icon-size": ["case", ["==", ["get", "selected"], 1], 1.12, .82],
+            "icon-image": ["get", "icon"],
+            "icon-size": ["case", ["==", ["get", "selected"], 1], 1.15, .96],
             "icon-allow-overlap": true,
             "icon-ignore-placement": true,
           },
         });
+        map.addLayer({ id: "food-place-result-pulse", type: "circle", source: "food-place-result", paint: { "circle-color": "#28735e", "circle-radius": 22, "circle-opacity": .14, "circle-stroke-width": 2, "circle-stroke-color": "#fff" } });
+        map.addLayer({ id: "food-place-result-pin", type: "symbol", source: "food-place-result", layout: { "icon-image": "food-icon-market", "icon-size": 1.08, "icon-allow-overlap": true } });
         map.on("click", "food-clusters", async (event) => {
           const feature = map.queryRenderedFeatures(event.point, { layers: ["food-clusters"] })[0];
           if (!feature) return;
@@ -287,17 +296,31 @@ export default function FoodShoutPage({ onHome }) {
   const shoutsRef = useRef(shouts);
   shoutsRef.current = shouts;
   useEffect(() => {
-    const source = mapRef.current?.getSource("food-shouts");
+    const map = mapRef.current;
+    const source = map?.getSource("food-shouts");
     if (!source) return;
-    source.setData({
-      type: "FeatureCollection",
-      features: shouts.map((shout) => ({
+    let cancelled = false;
+    const setMapData = () => source.setData({
+      type: "FeatureCollection", features: shouts.map((shout) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [shout.longitude, shout.latitude] },
-        properties: { id: shout.id, type: shout.shoutType, selected: shout.id === selected?.id ? 1 : 0, active: Date.now() - new Date(shout.createdAt).getTime() < 24 * 60 * 60 * 1000 ? 1 : 0 },
+        properties: { id: shout.id, type: shout.shoutType, icon: map.hasImage(photoIconName(shout.id)) ? photoIconName(shout.id) : fallbackFoodIcon(shout.shoutType), selected: shout.id === selected?.id ? 1 : 0, active: Date.now() - new Date(shout.createdAt).getTime() < 24 * 60 * 60 * 1000 ? 1 : 0 },
       })),
     });
+    setMapData();
+    Promise.all(shouts.map(async (shout) => {
+      const name = photoIconName(shout.id);
+      if (!shout.imageUrl || map.hasImage(name)) return;
+      try { map.addImage(name, await makeMapPhotoIcon(shout.imageUrl), { pixelRatio: 2 }); } catch { /* keep the food-type fallback */ }
+    })).then(() => { if (!cancelled && map.getSource("food-shouts")) setMapData(); });
+    return () => { cancelled = true; };
   }, [selected?.id, shouts]);
+
+  useEffect(() => {
+    const source = mapRef.current?.getSource("food-place-result");
+    if (!source) return;
+    source.setData(searchedPlace ? { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [searchedPlace.longitude, searchedPlace.latitude] }, properties: {} }] } : emptyGeoJson());
+  }, [mapReady, searchedPlace]);
 
   const locate = () => {
     if (!navigator.geolocation) return setToast({ text: "Location is not supported by this browser." });
@@ -318,10 +341,32 @@ export default function FoodShoutPage({ onHome }) {
     );
   };
 
-  const submitSearch = (event) => {
+  const submitSearch = async (event) => {
     event.preventDefault();
-    setSubmittedQuery(query.trim());
+    const cleanQuery = query.trim();
+    if (cleanQuery.length < 2) return;
     releaseMobileFocus();
+    setPlaceSearching(true);
+    const center = mapRef.current?.getCenter();
+    const visible = mapRef.current?.getBounds();
+    try {
+      const payload = await searchFoodPlaces(cleanQuery, { latitude: center?.lat, longitude: center?.lng, west: visible?.getWest(), south: visible?.getSouth(), east: visible?.getEast(), north: visible?.getNorth(), unbounded: true });
+      setPlaceResults(payload.results || []);
+      if (payload.results?.length === 1) selectMapPlace(payload.results[0]);
+    } catch (error) { setToast({ text: error.message }); }
+    finally { setPlaceSearching(false); }
+  };
+
+  const selectMapPlace = (place) => {
+    setSearchedPlace(place);
+    setPlaceResults([]);
+    setQuery(place.name || place.label);
+    mapRef.current?.easeTo({ center: [place.longitude, place.latitude], zoom: 17, duration: 520 });
+  };
+
+  const postAtPlace = (place) => {
+    setComposerLocation(place);
+    setComposerOpen(true);
   };
 
   const selectBrowseRegion = (region) => {
@@ -365,6 +410,7 @@ export default function FoodShoutPage({ onHome }) {
 
   const refreshAfterCreate = async (shout) => {
     setComposerOpen(false);
+    setComposerLocation(null);
     setSelected(shout);
     mapRef.current?.easeTo({ center: [shout.longitude, shout.latitude], zoom: 15, duration: 420 });
     const next = readBounds(mapRef.current);
@@ -382,14 +428,15 @@ export default function FoodShoutPage({ onHome }) {
 
       <div className="food-map-shell">
         <div ref={mapContainerRef} className="food-map" aria-label="Interactive food discovery map" />
-        <form className={`food-search ${submittedQuery ? "active" : ""}`} onSubmit={submitSearch}>
+        <form className={`food-search ${searchedPlace ? "active" : ""}`} onSubmit={submitSearch}>
           <Search size={18} aria-hidden="true" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search food finds" aria-label="Search Foodie Finds" inputMode="search" enterKeyHint="search" autoComplete="off" />
-          {query && <button type="button" onClick={() => { setQuery(""); setSubmittedQuery(""); }} aria-label="Clear search"><X size={17} /></button>}
-          <button className="food-search-submit" type="submit" disabled={!query.trim()} aria-label="Run search"><Search size={16} /></button>
+          <input value={query} onChange={(event) => { setQuery(event.target.value); setPlaceResults([]); setSearchedPlace(null); }} placeholder="Find a store or address" aria-label="Find a store or address" inputMode="search" enterKeyHint="search" autoComplete="street-address" />
+          {query && <button type="button" onClick={() => { setQuery(""); setPlaceResults([]); setSearchedPlace(null); }} aria-label="Clear search"><X size={17} /></button>}
+          <button className="food-search-submit" type="submit" disabled={!query.trim() || placeSearching} aria-label="Search stores">{placeSearching ? <span className="food-mini-spinner" /> : <Search size={16} />}</button>
         </form>
 
         <div className="food-filter-row" aria-label="Food filters">
+          {TYPE_FILTERS.map(([value, label]) => <button className={foodType === value ? "active" : ""} onClick={() => setFoodType(value)} type="button" key={value}>{label}</button>)}
           <button className="active" onClick={() => setRegionOpen(true)} type="button"><Globe2 size={15} /> {browseRegion.label}</button>
           <button className={cuisine !== "All" ? "active" : ""} onClick={() => setFilterOpen(true)} type="button"><SlidersHorizontal size={15} /> {cuisine === "All" ? "Cuisine" : cuisine}</button>
           <button className={budget ? "active" : ""} onClick={() => setBudget((value) => !value)} type="button"><CircleDollarSign size={15} /> Budget</button>
@@ -397,20 +444,23 @@ export default function FoodShoutPage({ onHome }) {
           <button onClick={() => setTopOpen(true)} type="button"><Trophy size={15} /> Top picks</button>
         </div>
 
+        {placeResults.length > 0 && <div className="food-map-place-results" aria-live="polite">{placeResults.slice(0, 5).map((place) => <button type="button" onClick={() => selectMapPlace(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{place.name}</strong><small>{place.label}</small></span><ChevronRight size={15} /></button>)}</div>}
+        {!placeSearching && query.trim().length > 1 && !searchedPlace && placeResults.length === 0 && <a className="food-google-search-link" href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer"><Navigation size={15} /> Try in Google Maps</a>}
+        {searchedPlace && <div className="food-searched-place"><span><strong>{searchedPlace.name}</strong><small>{searchedPlace.label}</small></span><a href={googleMapsSearchUrl(searchedPlace)} target="_blank" rel="noreferrer" aria-label="Open in Google Maps"><Navigation size={16} /></a><button type="button" onClick={() => postAtPlace(searchedPlace)}><Plus size={16} /> Post here</button></div>}
+
         {pendingBounds && mapReady && <button className="food-area-search" type="button" onClick={() => fetchVisible(pendingBounds)}><Search size={15} /> Search this area</button>}
         <div className="food-map-actions">
           <button type="button" onClick={locate} aria-label="Find my location" className={locating ? "loading" : ""}><LocateFixed size={21} /></button>
-          <button type="button" onClick={() => setComposerOpen(true)} className="food-post-fab"><Plus size={23} /> Post</button>
+          <button type="button" onClick={() => { setComposerLocation(null); setComposerOpen(true); }} className="food-post-fab"><Plus size={23} /> Post</button>
         </div>
 
         {loading && <div className="food-map-status">Finding good food…</div>}
         {(mapError || loadError) && <div className="food-map-error"><span>{mapError || loadError}</span><button type="button" onClick={() => fetchVisible(pendingBounds || bounds)}>Try again</button></div>}
-        {!loading && !loadError && shouts.length === 0 && <div className="food-empty-map"><Camera size={24} /><strong>No finds here yet</strong><span>Be the first to share what you ate.</span></div>}
       </div>
 
       <AnimatePresence>
         {selected && <FoodDetail key={selected.id} shout={selected} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); }} />}
-        {composerOpen && <FoodComposer map={mapRef.current} onClose={() => setComposerOpen(false)} onCreated={refreshAfterCreate} />}
+        {composerOpen && <FoodComposer map={mapRef.current} initialLocation={composerLocation} onClose={() => { setComposerOpen(false); setComposerLocation(null); }} onCreated={refreshAfterCreate} />}
         {filterOpen && <FilterSheet cuisine={cuisine} onCuisine={(value) => { setCuisine(value); setFilterOpen(false); }} onClose={() => setFilterOpen(false)} />}
         {regionOpen && <RegionSheet selected={browseRegion} onSelect={selectBrowseRegion} onClose={() => setRegionOpen(false)} />}
         {activityOpen && <ActivitySheet activity={activity} enabled={activityEnabled} loading={activityLoading} onToggle={toggleActivity} onSelect={openActivityItem} onClose={() => setActivityOpen(false)} />}
@@ -423,12 +473,12 @@ export default function FoodShoutPage({ onHome }) {
   );
 }
 
-function FoodComposer({ map, onClose, onCreated }) {
+function FoodComposer({ map, initialLocation = null, onClose, onCreated }) {
   const fileRef = useRef(null);
   const [step, setStep] = useState(1);
   const [photos, setPhotos] = useState([]);
-  const [location, setLocation] = useState(null);
-  const [locationMode, setLocationMode] = useState("");
+  const [location, setLocation] = useState(initialLocation);
+  const [locationMode, setLocationMode] = useState(initialLocation ? "search" : "");
   const [locationSearch, setLocationSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -500,6 +550,7 @@ function FoodComposer({ map, onClose, onCreated }) {
         south: visible?.getSouth(),
         east: visible?.getEast(),
         north: visible?.getNorth(),
+        unbounded: true,
       })).results || []);
     }
     catch (nextError) { setError(nextError.message); }
@@ -562,16 +613,17 @@ function FoodComposer({ map, onClose, onCreated }) {
           <span>{preparing ? <span className="food-photo-spinner" /> : <Camera size={28} />}</span><strong>{preparing ? "Preparing your photo…" : photos.length ? "Add another photo" : "Take or choose photos"}</strong><small>{preparing ? "Keep this screen open" : "At least 1 · maximum 3"}</small>
         </button>}
         <input ref={fileRef} hidden multiple type="file" accept="image/*,.heic,.heif" onChange={(event) => choosePhotos(event.target.files)} />
-        {photos.length > 0 && <button className="food-primary" type="button" onClick={() => setStep(2)}>Continue <ChevronRight size={18} /></button>}
+        {photos.length > 0 && <button className="food-primary" type="button" onClick={() => setStep(initialLocation ? 3 : 2)}>Continue <ChevronRight size={18} /></button>}
       </div>}
       {step === 2 && <div className="food-location-step">
         <div className="food-place-panel">
           <label htmlFor="food-place-query">Find the store</label>
           <form className="food-place-search" onSubmit={searchLocation}><Search size={18} /><input id="food-place-query" value={locationSearch} onChange={(event) => { setLocationSearch(event.target.value); setSearchAttempted(false); }} placeholder="Store name or address" aria-label="Store name or address" inputMode="search" enterKeyHint="search" autoComplete="off" /><button type="submit" disabled={searching} aria-label="Search stores">{searching ? <span className="food-mini-spinner" /> : <Search size={17} />}</button></form>
-          <small>Results are prioritised around the map area.</small>
+          <small>Search any store or full address. Nearby matches appear first.</small>
         </div>
         {searchResults.length > 0 && <div className="food-place-results" aria-live="polite">{searchResults.map((place) => <button type="button" key={place.providerPlaceId} onClick={() => { releaseMobileFocus(); setLocation(place); setLocationMode("search"); setStep(3); saveRecentLocation(place); }}><MapPin size={17} /><span><strong>{place.name}</strong><small>{place.label}</small></span><ChevronRight size={16} /></button>)}</div>}
-        {searchAttempted && !searching && searchResults.length === 0 && <div className="food-place-empty"><strong>Store not listed</strong><span>Drop an exact pin instead.</span></div>}
+        {searchAttempted && !searching && searchResults.length === 0 && <div className="food-place-empty"><strong>Store not listed</strong><span>Try Google or drop a pin.</span></div>}
+        {locationSearch.trim().length > 1 && <a className="food-composer-google" href={googleMapsSearchUrl(locationSearch)} target="_blank" rel="noreferrer"><Navigation size={15} /> Search Google Maps</a>}
         <div className="food-location-options">
           <button type="button" onClick={currentLocation}><LocateFixed /><span><strong>I'm here</strong><small>Use GPS</small></span></button>
           <button type="button" onClick={() => { releaseMobileFocus(); setManualPicking(true); }}><Navigation /><span><strong>Drop a pin</strong><small>Exact spot</small></span></button>
@@ -581,6 +633,7 @@ function FoodComposer({ map, onClose, onCreated }) {
       </div>}
       {step === 3 && <div className="food-details-step">
         <div className="food-compose-summary"><img src={photos[0]?.previewUrl} alt="" /><div><strong>{location?.name || location?.label}</strong><small><MapPin size={13} /> {photos.length} photo{photos.length === 1 ? "" : "s"} · {locationMode === "current" ? "Current location" : locationMode === "manual" ? "Map pin" : "Chosen place"}</small></div><button type="button" onClick={() => setStep(2)}>Change</button></div>
+        {!location?.providerPlaceId && <label>Store name <input maxLength={100} value={location?.name || ""} onChange={(event) => setLocation((current) => ({ ...current, name: event.target.value }))} placeholder="Optional — add a new store name" enterKeyHint="next" /></label>}
         <label>What did you find? <input maxLength={80} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Amazing beef noodles" enterKeyHint="next" /></label>
         <label>Quick note <textarea maxLength={280} rows={2} value={form.caption} onChange={(event) => setForm({ ...form, caption: event.target.value })} placeholder="Why is it worth trying?" /></label>
         <details className="food-more-fields">
@@ -599,6 +652,7 @@ function FoodComposer({ map, onClose, onCreated }) {
 
 function FoodDetail({ shout, onClose, onChange, onDeleted }) {
   const gallery = shout.images?.length ? shout.images : [{ url: shout.imageUrl }];
+  const [activePhoto, setActivePhoto] = useState(0);
   const [failedImages, setFailedImages] = useState([]);
   const [comments, setComments] = useState([]);
   const [comment, setComment] = useState("");
@@ -675,10 +729,12 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
     window.setTimeout(() => document.getElementById(`comment-${shout.id}`)?.focus(), 220);
   };
   const readablePlace = foodPlaceLabel(shout);
+  const activeImage = gallery[activePhoto];
   return <Sheet className="food-detail" onClose={onClose} label={shout.title}>
-    <div className={`food-detail-media food-detail-media-${Math.min(3, gallery.length)}`}>
-      {gallery.slice(0, 3).map((image, index) => <figure key={image.objectKey || index}>{failedImages.includes(index) || !(image.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <img src={image.url || shout.imageUrl} alt={`${shout.title}, photo ${index + 1}`} onError={() => setFailedImages((items) => items.includes(index) ? items : [...items, index])} />}</figure>)}
+    <div className="food-detail-media food-detail-player">
+      <figure>{failedImages.includes(activePhoto) || !(activeImage?.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <motion.img key={activePhoto} initial={{ opacity: .35, scale: 1.025 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .22 }} src={activeImage?.url || shout.imageUrl} alt={`${shout.title}, photo ${activePhoto + 1}`} onError={() => setFailedImages((items) => items.includes(activePhoto) ? items : [...items, activePhoto])} />}</figure>
       <button type="button" onClick={onClose} aria-label="Close"><X /></button><span>{typeLabel(shout.shoutType)}</span>
+      {gallery.length > 1 && <div className="food-detail-thumbnails" aria-label="Choose food photo">{gallery.slice(0, 3).map((image, index) => <button type="button" className={activePhoto === index ? "active" : ""} onClick={() => setActivePhoto(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activePhoto === index} key={image.objectKey || index}>{failedImages.includes(index) || !(image.url || shout.imageUrl) ? <Utensils size={15} /> : <img src={image.url || shout.imageUrl} alt="" onError={() => setFailedImages((items) => items.includes(index) ? items : [...items, index])} />}</button>)}</div>}
     </div>
     <div className="food-detail-body">
       {editing ? <div className="food-inline-edit">
@@ -688,7 +744,7 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
         <label>Kind<select value={editForm.shoutType} onChange={(event) => setEditForm({ ...editForm, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <div className="food-inline-edit-actions"><button type="button" onClick={() => setEditing(false)}>Cancel</button><button type="button" disabled={editBusy} onClick={saveEdit}>{editBusy ? "Saving…" : "Save changes"}</button></div>
       </div> : <><h2>{shout.title}</h2>{shout.caption && <p className="food-caption">{shout.caption}</p>}</>}
-      {readablePlace && <div className="food-location-line"><MapPin size={17} /><span><strong>{readablePlace}</strong></span></div>}
+      {readablePlace && <div className="food-location-line"><MapPin size={17} /><span><strong>{readablePlace}</strong></span><a href={googleMapsSearchUrl(shout)} target="_blank" rel="noreferrer" aria-label="Open this place in Google Maps"><Navigation size={14} /> Google</a></div>}
       <div className="food-meta-row"><span>{shout.cuisine}</span><span><Clock3 size={13} /> {relativeTime(shout.createdAt)}</span>{shout.priceText && <span><CircleDollarSign size={15} /> {shout.priceText}</span>}{shout.vibeTags.map((tag) => <span key={tag}>{tag.replaceAll("-", " ")}</span>)}</div>
       <div className="food-engagement-bar" aria-label="Food feedback">
         <button type="button" className={feedbackMode === "rating" ? "active" : ""} onClick={() => setFeedbackMode((mode) => mode === "rating" ? null : "rating")} aria-expanded={feedbackMode === "rating"}><Star size={19} fill={shout.rating?.count ? "currentColor" : "none"} /><span><strong>{shout.rating?.count ? shout.rating.average : "Rate"}</strong><small>{shout.rating?.count ? `${shout.rating.count} rating${shout.rating.count === 1 ? "" : "s"}` : "Your taste"}</small></span></button>
@@ -749,7 +805,7 @@ function RegionSheet({ selected, onSelect, onClose }) {
   </Sheet>;
 }
 
-function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My finds</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length === 0 ? <div className="food-feed-empty"><Utensils /><strong>No food finds here yet</strong><span>Move the map or share the first one.</span></div> : <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={12} /> {foodPlaceLabel(shout)}</em>}</span><ChevronRight /></button>)}</div>}</Sheet>; }
+function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My finds</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length > 0 && <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={12} /> {foodPlaceLabel(shout)}</em>}</span><ChevronRight /></button>)}</div>}</Sheet>; }
 
 function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose }) {
   return <Sheet className="food-activity" onClose={onClose} label="Foodie Finds notifications">
@@ -807,6 +863,25 @@ function releaseMobileFocus() {
   window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
 }
 
+async function makeMapPhotoIcon(url) {
+  const response = await fetch(url, { mode: "cors" });
+  if (!response.ok) throw new Error("Photo unavailable");
+  const bitmap = await createImageBitmap(await response.blob());
+  const canvas = document.createElement("canvas");
+  const size = 72;
+  canvas.width = size; canvas.height = size;
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, size, size);
+  context.save(); context.beginPath(); context.arc(size / 2, size / 2, 31, 0, Math.PI * 2); context.clip();
+  const scale = Math.max(62 / bitmap.width, 62 / bitmap.height);
+  const width = bitmap.width * scale; const height = bitmap.height * scale;
+  context.drawImage(bitmap, (size - width) / 2, (size - height) / 2, width, height); context.restore();
+  context.beginPath(); context.arc(size / 2, size / 2, 32, 0, Math.PI * 2); context.lineWidth = 6; context.strokeStyle = "#ffffff"; context.stroke();
+  context.beginPath(); context.arc(size / 2, size / 2, 34.5, 0, Math.PI * 2); context.lineWidth = 2; context.strokeStyle = "rgba(47,33,29,.28)"; context.stroke();
+  bitmap.close?.();
+  return context.getImageData(0, 0, size, size);
+}
+
 function makeMapFoodIcon(emoji, background, border) {
   const canvas = document.createElement("canvas");
   canvas.width = 48; canvas.height = 48;
@@ -826,6 +901,9 @@ function makeMapFoodIcon(emoji, background, border) {
 function emptyGeoJson() { return { type: "FeatureCollection", features: [] }; }
 function readBounds(map) { const value = map.getBounds(); return { west: round(value.getWest()), south: round(value.getSouth()), east: round(value.getEast()), north: round(value.getNorth()) }; }
 function round(value) { return Math.round(value * 100000) / 100000; }
+function photoIconName(id) { return `food-photo-${String(id).replace(/[^a-z0-9-]/gi, "")}`; }
+function fallbackFoodIcon(type) { return type === "drink" || type === "cafe" ? "food-icon-drink" : type === "snack" ? "food-icon-snack" : type === "dessert" ? "food-icon-dessert" : type === "market" ? "food-icon-market" : "food-icon-default"; }
+function googleMapsSearchUrl(place) { const query = typeof place === "string" ? place.trim() : place?.placeName || place?.name ? `${place.placeName || place.name}${place.locationLabel || place.label ? `, ${place.locationLabel || place.label}` : ""}` : Number.isFinite(place?.latitude) && Number.isFinite(place?.longitude) ? `${place.latitude},${place.longitude}` : "restaurants"; return `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query })}`; }
 function typeLabel(value) { return TYPES.find(([key]) => key === value)?.[1] || "Food find"; }
 function coordinateLabel(latitude, longitude) { return `${Math.abs(latitude).toFixed(6)}° ${latitude < 0 ? "S" : "N"}, ${Math.abs(longitude).toFixed(6)}° ${longitude < 0 ? "W" : "E"}`; }
 function foodPlaceLabel(shout) { const value = String(shout.placeName || "").trim(); if (!value || /^(current|chosen|pinned|dropped) location$/i.test(value) || /^[-+]?\d+(?:\.\d+)?(?:°|\s*,)/.test(value) || /\d+(?:\.\d+)?°\s*[NS].*\d+(?:\.\d+)?°\s*[EW]/i.test(value)) return ""; return value; }

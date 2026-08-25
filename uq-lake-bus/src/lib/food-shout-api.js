@@ -39,6 +39,7 @@ export function searchFoodPlaces(query, center = {}, signal) {
   ["west", "south", "east", "north"].forEach((key) => {
     if (Number.isFinite(center[key])) params.set(key, String(center[key]));
   });
+  if (center.unbounded) params.set("unbounded", "1");
   return request(`/api/places/search?${params}`, { signal });
 }
 

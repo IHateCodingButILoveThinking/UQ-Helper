@@ -1,6 +1,7 @@
 const FOOD_TYPES = new Set([
   "dish",
   "drink",
+  "snack",
   "restaurant_find",
   "market",
   "cafe",
@@ -50,7 +51,7 @@ const MAX_NETWORK_UPLOADS_PER_DAY = 900;
 const MAX_NETWORK_UPLOAD_BYTES_PER_DAY = 750 * 1024 * 1024;
 const MAX_NETWORK_WRITES_PER_DAY = 600;
 const DEFAULT_STORAGE_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
-const ASIA_PACIFIC_BOUNDS = { south: -45, north: 82, west: 25, east: 180 };
+const ASIA_PACIFIC_BOUNDS = { south: -90, north: 90, west: -180, east: 180 };
 const FORMAT_CONTROL_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
 const LINK_PATTERN = /\b(?:https?|hxxps?|ftp):\/\/|\bwww\s*\.|\b[a-z0-9][a-z0-9-]*\s*\.\s*(?:com|net|org|io|app|dev|xyz|info|co|me|gg|ai|site|online|link)\b/i;
 const EMAIL_PATTERN = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
@@ -365,7 +366,11 @@ async function listFoodShouts(request, env, url, respond) {
     clauses.push("s.cuisine = ?");
     bindings.push(cuisine);
   }
-  if (type && FOOD_TYPES.has(type)) {
+  if (type === "meal") {
+    clauses.push("s.shout_type IN ('dish', 'restaurant_find')");
+  } else if (type === "snack") {
+    clauses.push("s.shout_type IN ('snack', 'dessert', 'cafe')");
+  } else if (type && FOOD_TYPES.has(type)) {
     clauses.push("s.shout_type = ?");
     bindings.push(type);
   }
@@ -752,7 +757,8 @@ async function searchFoodPlaces(request, env, url, respond) {
   const east = optionalSearchCoordinate(url.searchParams.get("east"), -180, 180);
   const north = optionalSearchCoordinate(url.searchParams.get("north"), -90, 90);
   const hasViewbox = west !== null && south !== null && east !== null && north !== null && west < east && south < north;
-  const areaKey = hasMapBias ? `${latitude.toFixed(2)}:${longitude.toFixed(2)}` : "global";
+  const unbounded = url.searchParams.get("unbounded") === "1";
+  const areaKey = `${unbounded ? "free" : "bounded"}:${hasMapBias ? `${latitude.toFixed(2)}:${longitude.toFixed(2)}` : "global"}`;
   const cacheKey = `nominatim:${areaKey}:${query.toLowerCase()}`;
   const now = unixNow();
   const cached = await env.DB.prepare(
@@ -784,10 +790,10 @@ async function searchFoodPlaces(request, env, url, respond) {
     const longitudePadding = Math.max(.01, (east - west) * .35);
     const latitudePadding = Math.max(.01, (north - south) * .35);
     searchUrl.searchParams.set("viewbox", `${west - longitudePadding},${north + latitudePadding},${east + longitudePadding},${south - latitudePadding}`);
-    searchUrl.searchParams.set("bounded", "1");
+    if (!unbounded) searchUrl.searchParams.set("bounded", "1");
   } else if (hasMapBias) {
     searchUrl.searchParams.set("viewbox", `${longitude - .15},${latitude + .12},${longitude + .15},${latitude - .12}`);
-    searchUrl.searchParams.set("bounded", "1");
+    if (!unbounded) searchUrl.searchParams.set("bounded", "1");
   }
   const response = await fetch(searchUrl, {
     headers: {
@@ -819,7 +825,7 @@ async function searchFoodPlaces(request, env, url, respond) {
         SELECT cache_key FROM food_place_cache ORDER BY created_at DESC LIMIT 1500
       )`,
   ).run();
-  return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, mapBiasApplied: hasMapBias, boundedToMap: hasViewbox, results });
+  return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, mapBiasApplied: hasMapBias, boundedToMap: hasViewbox && !unbounded, results });
 }
 
 function optionalSearchCoordinate(value, min, max) {

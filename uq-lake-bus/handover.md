@@ -217,6 +217,20 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Mobile QA was completed at the current 430 px in-app viewport for the collapsed detail, half-star rating panel, comments panel, and tap-to-open comment editor. No live rating, comment, deletion, or upload was submitted during QA.
 - `npm run build` passes. The only output is the existing Vite large-chunk warning.
 
+### Store discovery and photo-map update (completed locally, Worker deploy pending)
+
+- The main map search now finds stores and full addresses instead of filtering only existing posts. Choosing a result moves the map to it and exposes compact Google Maps and **Post here** actions.
+- Composer place search is no longer hard-bounded to the current viewport. Map position is still used as a ranking hint, while global matches remain eligible.
+- Added key-free Google Maps URL handoffs for a typed query, selected place, and a post with a verified place name. This does not add Google Places billing or import Google listings into the database.
+- Exact manual pin selection remains available worldwide. The Worker coordinate validation now accepts world coordinates instead of the earlier Asia-Pacific bounds.
+- When a new business is absent from OpenStreetMap, the user can hand off the query to Google Maps, return to drop the exact pin, and enter a custom store name before publishing.
+- Added top-level **All / Meals / Drinks / Snacks** filters. Snack is also a valid post type; the snack filter includes snack, dessert and cafe entries, while Meals includes dishes and food-spot finds.
+- Map pins now attempt to use the post's first real food photo as a small circular image marker. Existing category artwork remains a fallback when an image is missing or cannot be decoded. The breathing ring still identifies recent posts and clustering remains enabled.
+- Replaced the static detail collage with one efficient hero photo plus up to three attached, tap-select thumbnails; it never requires horizontal image scrolling.
+- Removed both versions of the “No finds here yet” empty-state notification from the map and Nearby feed.
+- Local mobile UI and store-search results were checked read-only. `npm run build` and `git diff --check` pass; the existing Vite large-chunk warning remains.
+- Cloudflare deployment is pending because the saved Wrangler authentication expired on 2026-08-25. Run `npx wrangler login`, then deploy the existing `cloudflare/shoutouts` Worker. No schema migration is required for this update.
+
 ### Data and product questions not fully resolved
 
 - The tram tracker now uses a full-screen subview under `?page=gold-coast`; Back returns to the journey without adding another home tile.
