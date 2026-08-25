@@ -400,7 +400,7 @@ export default function App() {
                 : currentPage === AIRPORT_PAGE_ID
                   ? "Brisbane Airport Train Times"
                   : currentPage === SHOUTOUT_PAGE_ID
-                    ? "UQ Campus Shout Outs"
+                    ? "Foodie Finds"
                   : currentPage === FOOD_PAGE_ID
                 ? "UQ Food & Drink"
                 : currentPage === EXAMS_PAGE_ID
@@ -2011,9 +2011,9 @@ function CampusHomePage({
     },
     {
       accentClass: "community",
-      description: "Posts on the map",
+      description: "Good food on the map",
       Icon: MessageCircle,
-      label: "Shout Out",
+      label: "Foodie Finds",
       onClick: onOpenShoutOut,
       status: "Recent",
     },

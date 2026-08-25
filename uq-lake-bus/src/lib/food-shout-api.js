@@ -128,7 +128,7 @@ async function request(path, options = {}) {
     });
     const payload = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(payload.error || "Food Shout is unavailable right now.");
+      const error = new Error(payload.error || "Foodie Finds is unavailable right now.");
       error.status = response.status;
       error.code = payload.code;
       throw error;

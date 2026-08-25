@@ -8,16 +8,16 @@ The active work is at **Stage 7: frontend publication and production QA**. Do no
 
 | Stage | Status | Completed and verified | Still required |
 | --- | --- | --- | --- |
-| 1. Product logic | Done | Food-first map, exact chosen pin, permanent food/drink posts, 1–3 images per post, comments/replies, rankings, reactions and owner editing | Do not reintroduce the legacy seven-day/1 km Shout Out rules into Food Shout |
+| 1. Product logic | Done | Food-first map, exact chosen pin, permanent food/drink posts, 1–3 images per post, comments/replies, rankings, reactions and owner editing | The user-facing name is **Foodie Finds**. Do not reintroduce the legacy seven-day/1 km Shout Out rules |
 | 2. Database | Done and live | Remote D1 migrations `0006`, `0007`, `0008` applied to `uq-helper-shoutouts` | Only add a new numbered migration for future schema changes |
 | 3. Image storage | Done and live | Private Standard R2 bucket `uq-helper-food-images`; binding `FOOD_IMAGES`; user billing limit; 8 GB application ceiling | Monitor real usage after launch |
 | 4. Worker API | Done and live | Worker `d813461a-4aa3-48c5-9249-03dc9825fa45`; health and read-only viewport smoke tests passed | Production end-to-end upload/delete test without leaving junk content |
 | 5. Abuse protection | Done and live | Parameterised SQL, field/request limits, image signatures, storage reservation, device/network counters, duplicate detection, privacy-safe event log and temporary block list | Review thresholds after real usage; no system can permanently identify or disable a physical phone |
 | 6. Frontend implementation | Done locally | Multi-photo picker, red 3-photo boundary, aggregate upload progress, gallery, 1400 px resize, 1.5 MB limit, smaller phone photo panels; production build passed | Publish local commit to GitHub/Vercel |
 | 7. GitHub/Vercel publication | Blocked | The local HEAD commit `tighten mobile food photo uploads` contains the final phone-image changes and this crash-safe handover | Push failed because the terminal has no GitHub credentials. Push `main` from GitHub Desktop or a signed-in terminal |
-| 8. Mobile visual QA | Partial | Food map and empty 1–3 photo composer visually checked; layout is compact and readable | Test 1, 2 and 3 real photos, gallery swiping/buttons, slow upload, denied location and small iPhone viewport on the deployed site |
+| 8. Mobile visual QA | Partial | Foodie Finds map, renamed header/home card, Near me radar control, and empty 1–3 photo composer visually checked at 390 × 844; layout is compact and readable | Test 1, 2 and 3 real photos, gallery swiping/buttons, slow upload, denied location and small iPhone viewport on the deployed site |
 | 9. Social end-to-end QA | Not done | Local API coverage exists | Test post, reply, reaction, notification, report, owner edit/delete and automatic cleanup across two devices |
-| 10. Gold Coast QA | Partial | Journey order, reverse control, tram tracker and high-contrast CSS implemented | Run local transport server on port `8787`, then verify outbound, return and Tram Times at phone size |
+| 10. Gold Coast QA | Done locally | Outbound, return, reverse control, Tram Times, Back to journey, later services, and high-contrast text verified at 390 × 844 with the local transport server | Repeat a short production smoke test after the frontend deploy |
 | 11. PWA/device QA | Not done | Manifest and service worker exist | Verify Android install prompt and iPhone Add to Home Screen after frontend deployment |
 
 ### Confirmed crash/tester record
@@ -31,11 +31,12 @@ The active work is at **Stage 7: frontend publication and production QA**. Do no
 
 1. Push the local `main` branch to `origin/main` from an authenticated Git client.
 2. Wait for the connected Vercel deployment.
-3. Open the deployed Food Shout page on the affected phone and test one photo first, then three photos.
+3. Open the deployed Foodie Finds page on the affected phone and test one photo first, then three photos.
 4. If Safari still crashes, record the iPhone model, iOS version, browser/PWA mode, selected image count and the exact screen/action immediately before the crash.
 
-## Food Shout implementation (current)
+## Foodie Finds implementation (current)
 
+- Renamed the active user-facing feature to **Foodie Finds** and replaced the Nearby sparkle with a clearer radar icon labelled **Near me**. The stable `?page=shout-outs` route and backend API/database names remain unchanged for compatibility.
 - Replaced the active Shout Out page with a mobile-first, photo-first food discovery map while preserving the legacy page source for rollback/reference.
 - Added D1 migrations `0006_food_shouts.sql`, `0007_food_identity_tone.sql`, and `0008_food_image_limits.sql` for uploads, permanent food posts, 1–3 ordered images, comments/replies, like/save, reports, freshness checks, tried votes, venue anchors, cached place search, custom display names, explicit comment meaning, storage accounting, abuse signals, and temporary blocks.
 - Added an R2 binding named `FOOD_IMAGES` and a Worker Food API for image upload/serving, map queries, place search, create/detail/delete, comments/replies, reactions, reports, freshness, and tried votes.
@@ -43,6 +44,7 @@ The active work is at **Stage 7: frontend publication and production QA**. Do no
 - Food pins preserve the exact user-confirmed six-decimal coordinate. Manual posting now enters a dedicated pin mode with a breathing centre marker and an explicit **Use exact pin** action.
 - Food and drink posts do not expire (`expires_at` stays `NULL`). Unclaimed uploads still expire for storage hygiene.
 - Added custom or stable random nicknames, plus commenter-selected `Loved it`, `Helpful`, and `Needs update` labels. This replaces unreliable hidden sentiment guessing.
+- The top-right profile badge now shows the saved nickname's initials and opens a compact profile editor. A user can change the device-local nickname or jump to My finds without creating an account; the new name applies to future posts and comments.
 - Owners can edit title, caption, nickname, price, cuisine, and category without replacing the photo or moving the exact pin. Comments can be individually reported as well as deleted by their author.
 - The Worker now verifies JPEG/PNG/WebP file signatures instead of trusting the browser-provided MIME label; a mismatched local upload is rejected with HTTP 415.
 - Each post accepts 1–3 photos. The composer has a visible red three-photo boundary and aggregate upload progress; the Worker independently rejects zero or four-plus photos.

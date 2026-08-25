@@ -18,10 +18,10 @@ import {
   Navigation,
   Pencil,
   Plus,
+  Radar,
   Search,
   Send,
   SlidersHorizontal,
-  Sparkles,
   Trash2,
   Trophy,
   Utensils,
@@ -74,6 +74,8 @@ export default function FoodShoutPage({ onHome }) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileName, setProfileName] = useState(() => readDisplayName());
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [cuisine, setCuisine] = useState("All");
@@ -244,29 +246,29 @@ export default function FoodShoutPage({ onHome }) {
     mapRef.current?.easeTo({ center: [shout.longitude, shout.latitude], zoom: 15, duration: 420 });
     const next = readBounds(mapRef.current);
     await fetchVisible(next);
-    setToast({ text: "Food Shout posted", action: "Undo", onAction: async () => { await deleteFoodShout(shout.id); setSelected(null); fetchVisible(next); } });
+    setToast({ text: "Food find posted", action: "Undo", onAction: async () => { await deleteFoodShout(shout.id); setSelected(null); fetchVisible(next); } });
   };
 
   return (
-    <section className="food-page" aria-label="Food Shout map">
+    <section className="food-page" aria-label="Foodie Finds map">
       <header className="food-topbar">
         <button className="food-icon-button" type="button" onClick={onHome} aria-label="Back to home"><ArrowLeft size={21} /></button>
-        <div className="food-title"><span className="food-title-mark"><Utensils size={20} /></span><div><h1>Food Shout</h1><p>What people actually ate</p></div></div>
-        <button className="food-avatar-button" type="button" onClick={() => { setMine(true); setSaved(false); setFeedOpen(true); }} aria-label="Open my food journal">ME</button>
+        <div className="food-title"><span className="food-title-mark"><Utensils size={20} /></span><div><h1>Foodie Finds</h1><p>What people actually ate</p></div></div>
+        <button className="food-avatar-button" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}>{displayInitials(profileName)}</button>
       </header>
 
       <div className="food-map-shell">
         <div ref={mapContainerRef} className="food-map" aria-label="Interactive food discovery map" />
         <form className="food-search" onSubmit={submitSearch}>
           <Search size={18} aria-hidden="true" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dishes, markets, cheap eats" aria-label="Search Food Shouts" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dishes, markets, cheap eats" aria-label="Search Foodie Finds" />
           {query && <button type="button" onClick={() => { setQuery(""); setSubmittedQuery(""); }} aria-label="Clear search"><X size={17} /></button>}
         </form>
 
         <div className="food-filter-row" aria-label="Food filters">
           <button className={cuisine !== "All" ? "active" : ""} onClick={() => setFilterOpen(true)} type="button"><SlidersHorizontal size={15} /> {cuisine === "All" ? "Cuisine" : cuisine}</button>
           <button className={budget ? "active" : ""} onClick={() => setBudget((value) => !value)} type="button"><CircleDollarSign size={15} /> Budget</button>
-          <button onClick={() => setFeedOpen(true)} type="button"><Sparkles size={15} /> Nearby</button>
+          <button onClick={() => setFeedOpen(true)} type="button"><Radar size={15} strokeWidth={2.2} /> Near me</button>
           <button onClick={() => setTopOpen(true)} type="button"><Trophy size={15} /> Top picks</button>
         </div>
 
@@ -287,6 +289,7 @@ export default function FoodShoutPage({ onHome }) {
         {filterOpen && <FilterSheet cuisine={cuisine} onCuisine={(value) => { setCuisine(value); setFilterOpen(false); }} onClose={() => setFilterOpen(false)} />}
         {feedOpen && <FoodFeed shouts={shouts} mine={mine} saved={saved} onMode={(mode) => { setMine(mode === "mine"); setSaved(mode === "saved"); }} onClose={() => { setFeedOpen(false); setMine(false); setSaved(false); }} onSelect={(shout) => { setSelected(shout); setFeedOpen(false); }} />}
         {topOpen && <TopPicks shouts={shouts} onClose={() => setTopOpen(false)} onSelect={(shout) => { setSelected(shout); setTopOpen(false); }} />}
+        {profileOpen && <ProfileSheet displayName={profileName} onClose={() => setProfileOpen(false)} onSaved={(name) => { setProfileName(name); setProfileOpen(false); setToast({ text: "Nickname saved" }); }} onOpenFinds={() => { setProfileOpen(false); setMine(true); setSaved(false); setFeedOpen(true); }} />}
       </AnimatePresence>
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
     </section>
@@ -403,7 +406,7 @@ function FoodComposer({ map, onClose, onCreated }) {
   </>;
 
   return (
-    <Sheet className="food-composer" onClose={onClose} label="Create Food Shout">
+    <Sheet className="food-composer" onClose={onClose} label="Create a food find">
       <div className="food-sheet-head"><div><span>STEP {step} OF 3</span><h2>{step === 1 ? "Share a food find" : step === 2 ? "Where was it?" : "Make it useful"}</h2></div><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
       <div className="food-progress"><i style={{ width: `${step / 3 * 100}%` }} /></div>
       {step === 1 && <div className="food-photo-step">
@@ -432,7 +435,7 @@ function FoodComposer({ map, onClose, onCreated }) {
         <div className="food-field-grid"><label>Price <input maxLength={40} value={form.priceText} onChange={(event) => setForm({ ...form, priceText: event.target.value })} placeholder="$12" /></label><label>Cuisine <select value={form.cuisine} onChange={(event) => setForm({ ...form, cuisine: event.target.value })}>{CUISINES.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label></div>
         <label>Type <select value={form.shoutType} onChange={(event) => setForm({ ...form, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <fieldset><legend>Good for <small>up to 3</small></legend><div className="food-vibes">{VIBES.map((vibe) => <button type="button" className={form.vibeTags.includes(vibe) ? "active" : ""} onClick={() => setForm({ ...form, vibeTags: toggleVibe(form.vibeTags, vibe) })} key={vibe}>{vibe.replaceAll("-", " ")}</button>)}</div></fieldset>
-        <button className="food-primary" disabled={posting || !form.title.trim()} type="button" onClick={publish}>{posting ? `Uploading ${progress}%` : "Post Shout"} <Send size={18} /></button>
+        <button className="food-primary" disabled={posting || !form.title.trim()} type="button" onClick={publish}>{posting ? `Uploading ${progress}%` : "Share find"} <Send size={18} /></button>
         {posting && <div className="food-upload-progress" role="progressbar" aria-label="Photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div>}
       </div>}
       {error && <p className="food-form-error" role="alert">{error}</p>}
@@ -475,7 +478,7 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
   };
   const roots = comments.filter((item) => !item.parentCommentId);
   const saveEdit = async () => {
-    if (!editForm.title.trim()) return setError("Keep a short title for this Food Shout.");
+    if (!editForm.title.trim()) return setError("Keep a short title for this food find.");
     setEditBusy(true); setError("");
     try {
       const payload = await updateFoodShout(shout.id, editForm);
@@ -525,7 +528,28 @@ function TopPickGroup({ title, icon, items, onSelect }) {
 
 function FilterSheet({ cuisine, onCuisine, onClose }) { return <Sheet className="food-filter-sheet" onClose={onClose} label="Cuisine filter"><div className="food-sheet-head"><div><span>FILTER</span><h2>What sounds good?</h2></div><button onClick={onClose}><X /></button></div><div className="food-cuisine-grid">{CUISINES.map((item) => <button className={cuisine === item ? "active" : ""} onClick={() => onCuisine(item)} key={item}>{item === "All" ? "Everything" : item}</button>)}</div></Sheet>; }
 
-function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Food feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Food finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Nearby</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My Shouts</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length === 0 ? <div className="food-feed-empty"><Utensils /><strong>No food finds here yet</strong><span>Move the map or share the first one.</span></div> : <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong><em><MapPin size={12} /> {shout.placeName || shout.locationLabel}</em></span><ChevronRight /></button>)}</div>}</Sheet>; }
+function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My finds</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length === 0 ? <div className="food-feed-empty"><Utensils /><strong>No food finds here yet</strong><span>Move the map or share the first one.</span></div> : <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong><em><MapPin size={12} /> {shout.placeName || shout.locationLabel}</em></span><ChevronRight /></button>)}</div>}</Sheet>; }
+
+function ProfileSheet({ displayName, onClose, onSaved, onOpenFinds }) {
+  const [name, setName] = useState(displayName);
+  const cleanName = name.trim().slice(0, 24);
+  const save = () => {
+    if (!cleanName) return;
+    saveDisplayName(cleanName);
+    onSaved(cleanName);
+  };
+
+  return <Sheet className="food-profile" onClose={onClose} label="Edit Foodie Finds profile">
+    <div className="food-sheet-head"><div><span>YOUR PROFILE</span><h2>Pick a fun name</h2></div><button type="button" onClick={onClose} aria-label="Close profile"><X /></button></div>
+    <div className="food-profile-card">
+      <span className="food-profile-avatar" aria-hidden="true">{displayInitials(cleanName || displayName)}</span>
+      <label><span>Display name</span><div><Pencil size={16} /><input maxLength={24} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Noodle Fox" /></div></label>
+      <small>This name appears on new finds and comments. No account needed.</small>
+    </div>
+    <button className="food-primary" disabled={!cleanName} type="button" onClick={save}>Save nickname <Check size={18} /></button>
+    <button className="food-profile-finds" type="button" onClick={onOpenFinds}><Utensils size={18} /><span><strong>My finds</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
+  </Sheet>;
+}
 
 function RecentLocations({ onSelect }) { const places = readRecentLocations(); if (!places.length) return null; return <div className="food-recent-locations"><span>RECENT PLACES</span>{places.map((place, index) => <button type="button" key={`${place.latitude}-${place.longitude}-${index}`} onClick={() => onSelect(place)}><Clock3 size={15} /> {place.name || place.label}</button>)}</div>; }
 
@@ -545,6 +569,7 @@ function rankShouts(items) { return [...items].sort((a, b) => communityScore(b) 
 function toneLabel(tone) { return tone === "loved_it" ? "Loved it" : tone === "needs_update" ? "Needs update" : "Helpful"; }
 function readDisplayName() { try { const saved = localStorage.getItem(DISPLAY_NAME_KEY); if (saved) return saved; const first = ["Noodle", "Mango", "Chilli", "Bento", "Mochi"][Math.floor(Math.random() * 5)]; const second = ["Fox", "Otter", "Koala", "Panda", "Gecko"][Math.floor(Math.random() * 5)]; const value = `${first} ${second}`; localStorage.setItem(DISPLAY_NAME_KEY, value); return value; } catch { return "Food explorer"; } }
 function saveDisplayName(value) { try { const clean = value.trim().slice(0, 24); if (clean) localStorage.setItem(DISPLAY_NAME_KEY, clean); } catch { /* optional */ } }
+function displayInitials(value) { const parts = String(value || "ME").trim().split(/\s+/).filter(Boolean); return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "ME"; }
 function readDraft() { try { return { title: "", caption: "", priceText: "", cuisine: "Other", shoutType: "dish", vibeTags: [], ...JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return { title: "", caption: "", priceText: "", cuisine: "Other", shoutType: "dish", vibeTags: [] }; } }
 function toggleVibe(current, vibe) { if (current.includes(vibe)) return current.filter((item) => item !== vibe); if (current.length >= 3) return current; return [...current, vibe]; }
 function readRecentLocations() { try { return JSON.parse(localStorage.getItem(RECENT_LOCATIONS_KEY) || "[]").slice(0, 4); } catch { return []; } }
