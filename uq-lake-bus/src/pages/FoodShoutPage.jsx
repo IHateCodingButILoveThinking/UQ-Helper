@@ -429,7 +429,7 @@ export default function FoodShoutPage({ onHome }) {
     if (!item.parentMessageId) return;
     try {
       const payload = await getFoodShout(item.parentMessageId);
-      setSelected(payload.shout);
+      setSelected({ ...payload.shout, openComments: true });
       setActivityOpen(false);
     } catch {
       setToast({ text: "That food find is no longer available." });
@@ -741,7 +741,7 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
   const [editBusy, setEditBusy] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [feedbackMode, setFeedbackMode] = useState(null);
+  const [feedbackMode, setFeedbackMode] = useState(shout.openComments ? "comments" : null);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
   const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue || 5);
   const [ratingBusy, setRatingBusy] = useState(false);
@@ -976,7 +976,7 @@ function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose
     {!enabled && <div className="food-activity-empty"><Bell /><strong>Alerts off</strong></div>}
     {enabled && loading && <div className="food-activity-empty"><span className="food-photo-spinner" /><strong>Checking activity…</strong></div>}
     {enabled && !loading && activity.notifications.length === 0 && <div className="food-activity-empty"><Bell /><strong>No new replies</strong></div>}
-    {enabled && !loading && activity.notifications.length > 0 && <div className="food-activity-list">{activity.notifications.map((item) => <button type="button" className={item.read ? "" : "unread"} onClick={() => onSelect(item)} key={item.id}><span className="food-activity-icon">{item.type === "reaction" ? <Heart size={17} /> : <MessageCircle size={17} />}</span><span><strong>{item.type === "reaction" ? "New reaction" : "New reply"}</strong><small>{item.message || relativeTime(item.createdAt)}</small></span><ChevronRight size={17} /></button>)}</div>}
+    {enabled && !loading && activity.notifications.length > 0 && <div className="food-activity-list">{activity.notifications.map((item) => <button type="button" className={item.read ? "" : "unread"} onClick={() => onSelect(item)} key={item.id}><span className="food-activity-icon">{item.type === "reaction" ? <Heart size={17} /> : <MessageCircle size={17} />}</span><span><strong>{item.type === "reaction" ? "New reaction" : "New reply"}</strong><small>{item.message ? `${item.contextTitle ? `${item.contextTitle}: ` : ""}${item.message}` : relativeTime(item.createdAt)}</small></span><ChevronRight size={17} /></button>)}</div>}
     <p className="food-activity-note">In-app only</p>
   </Sheet>;
 }

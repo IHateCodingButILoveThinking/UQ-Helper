@@ -272,6 +272,14 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - OpenStreetMap search results now carry their country code so mismatch warnings are exact for searched stores. GPS/photo/manual coordinates use a local best-effort region estimate only for the warning and never block posting.
 - Mobile browser QA confirmed the compact `🇦🇺 AUS` header and the Top/Not recommended sheet. The build, Worker syntax check, and `git diff --check` pass.
 
+### Food reply notifications (completed locally; Worker deploy pending)
+
+- Fixed the shared notification reader so Foodie Finds notifications join `food_comments` and `food_shouts`, not only the older map-message tables. The bell now receives the actual reply text plus the food-post title.
+- A reply to a comment now notifies that comment's author. A new top-level comment notifies the post author. Self-replies do not create notifications.
+- Selecting a food reply notification opens the original food post with its Comments panel already expanded and loaded.
+- The existing in-app badge loads on page entry and refreshes periodically while alerts are enabled. This is still in-app activity, not operating-system Web Push when the PWA is closed.
+- Verified the SQL path in an isolated temporary SQLite database: a sample reply returned `I loved this too | Great noodles | post-owner`. No Cloudflare data or public comment was created. The frontend build and both Worker syntax checks pass.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.

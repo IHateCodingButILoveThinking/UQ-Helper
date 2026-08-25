@@ -512,11 +512,16 @@ async function listNotifications(request, env) {
   const now = unixNow();
   const { results = [] } = await env.DB.prepare(
     `SELECT n.id, n.type, n.message_id, n.parent_message_id, n.created_at,
-            n.read_at, m.body, m.emoji, m.place_id, l.label AS place_label,
-            l.latitude_e6, l.longitude_e6, l.kind AS place_kind
+            n.read_at, COALESCE(m.body, fc.body) AS body, m.emoji, m.place_id,
+            COALESCE(l.label, fs.place_name, fs.location_label) AS place_label,
+            COALESCE(l.latitude_e6, fs.latitude_e6) AS latitude_e6,
+            COALESCE(l.longitude_e6, fs.longitude_e6) AS longitude_e6,
+            l.kind AS place_kind, fs.title AS context_title
        FROM notifications AS n
        LEFT JOIN messages AS m ON m.id = n.message_id
        LEFT JOIN shout_locations AS l ON l.id = m.place_id
+       LEFT JOIN food_comments AS fc ON fc.id = n.message_id AND fc.status = 'active'
+       LEFT JOIN food_shouts AS fs ON fs.id = n.parent_message_id AND fs.status = 'active'
       WHERE n.recipient_hash = ? AND n.expires_at > ?
       ORDER BY n.created_at DESC
       LIMIT 20`,
@@ -531,6 +536,7 @@ async function listNotifications(request, env) {
       messageId: item.message_id,
       parentMessageId: item.parent_message_id,
       message: item.body || "",
+      contextTitle: item.context_title || "",
       emoji: item.emoji || "",
       placeId: item.place_id,
       placeLabel: item.place_label || "Pinned spot",

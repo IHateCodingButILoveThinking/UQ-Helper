@@ -550,14 +550,16 @@ async function createFoodComment(request, env, shoutId, respond) {
   const tone = COMMENT_TONES.has(payload.tone) ? payload.tone : "helpful";
   const parentId = payload.parentCommentId ? String(payload.parentCommentId) : null;
   const shout = await requireActiveShout(env.DB, shoutId);
+  let notificationRecipient = shout.author_hash;
   if (parentId) {
     const parent = await env.DB.prepare(
-      "SELECT id, parent_comment_id FROM food_comments WHERE id = ? AND shout_id = ? AND status = 'active'",
+      "SELECT id, author_hash, parent_comment_id FROM food_comments WHERE id = ? AND shout_id = ? AND status = 'active'",
     )
       .bind(parentId, shoutId)
       .first();
     if (!parent) throw new FoodError(404, "Comment not found.");
     if (parent.parent_comment_id) throw new FoodError(400, "Reply to the main comment instead.");
+    notificationRecipient = parent.author_hash;
   }
   const now = unixNow();
   await enforceNetworkWriteLimit(env.DB, networkHash, clientHash, now);
@@ -573,13 +575,13 @@ async function createFoodComment(request, env, shoutId, respond) {
       .bind(now, shoutId),
   ]);
 
-  if (shout.author_hash && shout.author_hash !== clientHash) {
+  if (notificationRecipient && notificationRecipient !== clientHash) {
     await env.DB.prepare(
       `INSERT INTO notifications
          (id, recipient_hash, actor_hash, type, message_id, parent_message_id, created_at, expires_at)
        VALUES (?, ?, ?, 'reply', ?, ?, ?, ?)`,
     )
-      .bind(crypto.randomUUID(), shout.author_hash, clientHash, id, shoutId, now, shout.expires_at ?? now + 30 * 24 * 60 * 60)
+      .bind(crypto.randomUUID(), notificationRecipient, clientHash, id, shoutId, now, shout.expires_at ?? now + 30 * 24 * 60 * 60)
       .run();
   }
   return respond({ comment: serializeFoodComment({ id, shout_id: shoutId, display_name: displayName, tone, parent_comment_id: parentId, body, created_at: now, viewer_owned: 1 }) }, 201);
