@@ -435,12 +435,8 @@ export default function FoodShoutPage({ onHome }) {
     setActivityOpen(true);
     if (!activityEnabled) return;
     setActivityLoading(true);
-    const latest = await loadActivity();
+    await loadActivity();
     setActivityLoading(false);
-    if (latest?.unreadCount) {
-      markFoodActivityRead().catch(() => {});
-      setActivity((current) => ({ ...current, unreadCount: 0, notifications: current.notifications.map((item) => ({ ...item, read: true })) }));
-    }
   };
 
   const toggleActivity = (enabled) => {
@@ -452,6 +448,13 @@ export default function FoodShoutPage({ onHome }) {
   const openActivityItem = async (item) => {
     if (!item.parentMessageId) return;
     try {
+      if (!item.read) {
+        await markFoodActivityRead(item.id);
+        setActivity((current) => ({
+          unreadCount: Math.max(0, current.unreadCount - 1),
+          notifications: current.notifications.map((notification) => notification.id === item.id ? { ...notification, read: true } : notification),
+        }));
+      }
       const payload = await getFoodShout(item.parentMessageId);
       setSelected({ ...payload.shout, openComments: true });
       setActivityOpen(false);
@@ -513,7 +516,7 @@ export default function FoodShoutPage({ onHome }) {
           <button className={`food-topbar-refresh ${loading ? "loading" : ""}`} type="button" onClick={refreshMap} disabled={loading || !bounds} aria-label={loading ? "Refreshing food posts" : "Refresh food posts"}><RefreshCw size={15} aria-hidden="true" /></button>
           <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><span className="food-country-flag" aria-hidden="true">{regionFlag(browseRegion.id)}</span><strong>{regionShortCode(browseRegion)}</strong><ChevronDown size={13} aria-hidden="true" /></button>
         </div>
-        <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span>{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
+        <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span className="food-notification-badge" aria-hidden="true">{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
       </header>
 
       <div className={`food-map-shell ${searchedPlace ? "has-place-selection" : ""}`}>
@@ -773,6 +776,7 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
   const [tone, setTone] = useState("helpful");
   const [editing, setEditing] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
+  const [locationDirty, setLocationDirty] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(false);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [feedbackMode, setFeedbackMode] = useState(shout.openComments ? "comments" : null);
@@ -829,11 +833,51 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
         provider: editLocation.provider || null,
         providerPlaceId: editLocation.providerPlaceId || null,
       });
+      const saved = payload.shout;
+      const coordinatesSaved = Number.isFinite(saved?.latitude) && Number.isFinite(saved?.longitude)
+        && Math.abs(saved.latitude - editLocation.latitude) <= .000002
+        && Math.abs(saved.longitude - editLocation.longitude) <= .000002;
+      const expectedPlaceName = String(editLocation.name || "").trim();
+      const placeNameSaved = !expectedPlaceName || String(saved?.placeName || "").trim() === expectedPlaceName;
+      if (!coordinatesSaved || !placeNameSaved) throw new Error("The address was not saved by the server. Please try again.");
+      setEditLocation({
+        latitude: saved.latitude,
+        longitude: saved.longitude,
+        label: saved.locationLabel,
+        name: saved.placeName,
+        provider: saved.provider,
+        providerPlaceId: saved.providerPlaceId,
+      });
+      saveRecentLocation({ latitude: saved.latitude, longitude: saved.longitude, label: saved.locationLabel, name: saved.placeName });
       onChange(payload.shout);
       saveDisplayName(editForm.displayName);
+      setLocationDirty(false);
       setEditing(false);
+      map?.easeTo({ center: [saved.longitude, saved.latitude], zoom: Math.max(map.getZoom(), 15), duration: 420 });
     } catch (nextError) { setError(nextError.message); }
     finally { setEditBusy(false); }
+  };
+  const cancelEdit = () => {
+    setEditForm({
+      title: shout.title,
+      caption: shout.caption,
+      displayName: shout.displayName || readDisplayName(),
+      priceText: shout.priceText || "",
+      cuisine: shout.cuisine,
+      shoutType: shout.shoutType,
+      vibeTags: shout.vibeTags || [],
+    });
+    setEditLocation({
+      latitude: shout.latitude,
+      longitude: shout.longitude,
+      label: shout.locationLabel,
+      name: shout.placeName,
+      provider: shout.provider,
+      providerPlaceId: shout.providerPlaceId,
+    });
+    setLocationEditorOpen(false);
+    setLocationDirty(false);
+    setEditing(false);
   };
   const removePost = async () => {
     setDeleteBusy(true); setError("");
@@ -883,10 +927,11 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
         <label>Title<input maxLength={80} value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></label>
         <label>Caption<textarea rows={3} maxLength={280} value={editForm.caption} onChange={(event) => setEditForm({ ...editForm, caption: event.target.value })} /></label>
         <button className="food-edit-location-button" type="button" onClick={() => setLocationEditorOpen((value) => !value)}><MapPin size={16} /><span><strong>Location</strong><small>{editLocation.name || editLocation.label}</small></span><ChevronRight size={16} /></button>
-        {locationEditorOpen && <FoodLocationEditor map={map} countryCode={countryCode} value={editLocation} onChange={(next) => { setEditLocation(next); setLocationEditorOpen(false); }} />}
+        {locationEditorOpen && <FoodLocationEditor map={map} countryCode={countryCode} value={editLocation} onChange={(next) => { setEditLocation(next); setLocationDirty(true); setLocationEditorOpen(false); }} />}
+        {locationDirty && <div className="food-location-pending" role="status"><Check size={16} /><span><strong>New address selected</strong><small>Review it above, then save the post.</small></span></div>}
         <div className="food-field-grid"><label>Price<input maxLength={40} value={editForm.priceText} onChange={(event) => setEditForm({ ...editForm, priceText: event.target.value })} /></label><label>Cuisine<select value={editForm.cuisine} onChange={(event) => setEditForm({ ...editForm, cuisine: event.target.value })}>{CUISINES.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label></div>
         <label>Kind<select value={editForm.shoutType} onChange={(event) => setEditForm({ ...editForm, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-        <div className="food-inline-edit-actions"><button type="button" onClick={() => setEditing(false)}>Cancel</button><button type="button" disabled={editBusy} onClick={saveEdit}>{editBusy ? "Saving…" : "Save changes"}</button></div>
+        <div className="food-inline-edit-actions"><button type="button" onClick={cancelEdit}>Cancel</button><button type="button" disabled={editBusy} onClick={saveEdit}>{editBusy ? "Saving…" : locationDirty ? "Save new address" : "Save changes"}</button></div>
       </div> : <><h2>{shout.title}</h2>{shout.caption && <p className="food-caption">{shout.caption}</p>}</>}
       {readablePlace && <div className="food-location-line"><MapPin size={17} /><span><strong>{readablePlace}</strong></span><a href={googleMapsSearchUrl(shout)} target="_blank" rel="noreferrer" aria-label="Open this place in Google Maps"><Navigation size={14} /> Google</a></div>}
       <div className="food-meta-row"><span>{shout.cuisine}</span><span><Clock3 size={13} /> {relativeTime(shout.createdAt)}</span>{shout.priceText && <span><CircleDollarSign size={15} /> {shout.priceText}</span>}{shout.vibeTags.map((tag) => <span key={tag}>{tag.replaceAll("-", " ")}</span>)}</div>
@@ -937,7 +982,9 @@ function FoodLocationEditor({ map, countryCode, value, onChange }) {
         country: countryCode,
         unbounded: true,
       });
-      setResults(payload.results || []);
+      const nextResults = payload.results || [];
+      setResults(nextResults);
+      if (!nextResults.length) setError("No confident match. Add the suburb or city and state, then search again.");
     } catch (nextError) { setError(nextError.message); }
     finally { setBusy(false); }
   };
@@ -958,7 +1005,8 @@ function FoodLocationEditor({ map, countryCode, value, onChange }) {
   return <section className="food-location-editor">
     <div className="food-location-editor-current"><MapPin size={16} /><span><strong>{value.name || "Exact map point"}</strong><small>{value.label}</small></span></div>
     {mismatch && <div className="food-country-warning"><Globe2 size={17} /><span><strong>Outside {regionShortCode(regionById(countryCode))}</strong><small>Updating is allowed. Select {mismatch.actual.toUpperCase()} in the map header to view it there.</small></span></div>}
-    <form className="food-place-search" onSubmit={search}><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search a new store or address" aria-label="Search a new store or address" /><button disabled={busy || query.trim().length < 2} aria-label="Search locations">{busy ? <span className="food-mini-spinner" /> : <Search size={16} />}</button></form>
+    <form className="food-place-search" onSubmit={search}><Search size={17} /><input value={query} onChange={(event) => { setQuery(event.target.value); setError(""); }} placeholder="Store + suburb or city" aria-label="Search a new store or address" /><button disabled={busy || query.trim().length < 2} aria-label="Search locations">{busy ? <span className="food-mini-spinner" /> : <Search size={16} />}</button></form>
+    <small className="food-location-search-hint">For the correct branch, include suburb/city and state.</small>
     {results.length > 0 && <div className="food-place-results">{results.map((place) => <button type="button" onClick={() => onChange(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{placeResultName(place)}</strong><small>{placeResultLabel(place)}</small></span><ChevronRight size={15} /></button>)}</div>}
     <div className="food-location-editor-actions"><button type="button" onClick={useCurrentLocation}><LocateFixed size={16} /> I'm here</button><button type="button" onClick={useMapCentre}><Navigation size={16} /> Map centre</button>{query.trim().length > 1 && <a href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer"><Search size={15} /> Google</a>}</div>
     {error && <p className="food-form-error">{error}</p>}
@@ -1010,7 +1058,7 @@ function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose
     {!enabled && <div className="food-activity-empty"><Bell /><strong>Alerts off</strong></div>}
     {enabled && loading && <div className="food-activity-empty"><span className="food-photo-spinner" /><strong>Checking activity…</strong></div>}
     {enabled && !loading && activity.notifications.length === 0 && <div className="food-activity-empty"><Bell /><strong>No new replies</strong></div>}
-    {enabled && !loading && activity.notifications.length > 0 && <div className="food-activity-list">{activity.notifications.map((item) => <button type="button" className={item.read ? "" : "unread"} onClick={() => onSelect(item)} key={item.id}><span className="food-activity-icon">{item.type === "reaction" ? <Heart size={17} /> : <MessageCircle size={17} />}</span><span><strong>{item.type === "reaction" ? "New reaction" : "New reply"}</strong><small>{item.message ? `${item.contextTitle ? `${item.contextTitle}: ` : ""}${item.message}` : relativeTime(item.createdAt)}</small></span><ChevronRight size={17} /></button>)}</div>}
+    {enabled && !loading && activity.notifications.length > 0 && <div className="food-activity-list">{activity.notifications.map((item) => <button type="button" className={item.read ? "" : "unread"} onClick={() => onSelect(item)} aria-label={`${item.read ? "Read" : "Unread"} ${item.type === "reaction" ? "reaction" : "reply"}`} key={item.id}><span className="food-activity-icon">{item.type === "reaction" ? <Heart size={17} /> : <MessageCircle size={17} />}</span><span><strong>{item.type === "reaction" ? "New reaction" : "New reply"}{!item.read && <i className="food-unread-dot" aria-hidden="true" />}</strong><small>{item.message ? `${item.contextTitle ? `${item.contextTitle}: ` : ""}${item.message}` : relativeTime(item.createdAt)}</small></span><ChevronRight size={17} /></button>)}</div>}
     <p className="food-activity-note">In-app only</p>
   </Sheet>;
 }
@@ -1117,7 +1165,11 @@ function parseSharedMapLocation(value) { const raw = String(value || "").trim();
 function typeLabel(value) { return TYPES.find(([key]) => key === value)?.[1] || "Food find"; }
 function coordinateLabel(latitude, longitude) { return `${Math.abs(latitude).toFixed(6)}° ${latitude < 0 ? "S" : "N"}, ${Math.abs(longitude).toFixed(6)}° ${longitude < 0 ? "W" : "E"}`; }
 function placeResultName(place) { return [place?.name, place?.secondaryName].filter(Boolean).join(" · "); }
-function placeResultLabel(place) { return Number.isFinite(place?.distanceKm) ? `${place.distanceKm < 1 ? `${Math.max(1, Math.round(place.distanceKm * 1000))} m` : `${place.distanceKm.toFixed(1)} km`} · ${place.label}` : place?.label; }
+function placeResultLabel(place) {
+  const distance = Number.isFinite(place?.distanceKm) ? place.distanceKm < 1 ? `${Math.max(1, Math.round(place.distanceKm * 1000))} m` : `${place.distanceKm.toFixed(1)} km` : "";
+  const quality = Number(place?.confidence) >= .8 ? "Strong match" : Number(place?.confidence) >= .65 ? "Good match" : Number.isFinite(Number(place?.confidence)) ? "Possible match" : "";
+  return [quality, distance, place?.label].filter(Boolean).join(" · ");
+}
 function foodShareUrl(id) { const url = new URL(window.location.href); url.searchParams.set("page", "shout-outs"); url.searchParams.set("find", id); return url.toString(); }
 function regionById(id) { return ALL_BROWSE_REGIONS.find((region) => region.id === id) || ALL_BROWSE_REGIONS[0]; }
 function regionShortCode(region) { return region?.id === "au" ? "AUS" : String(region?.id || "").toUpperCase(); }

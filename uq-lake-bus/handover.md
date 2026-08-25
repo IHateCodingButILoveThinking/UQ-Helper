@@ -309,6 +309,35 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Confirmed the existing Cloudflare R2 upload guard reserves space before `put()` and rejects the image before storage when the hard ceiling is reached. The configured ceiling remains 8 GiB, below Cloudflare Standard R2's current 10 GB-month free storage allowance; the requested red line was not increased.
 - `npm run build`, Worker syntax validation, and `git diff --check` pass.
 
+### Persisted address edits and confidence-ranked place lookup (completed and Worker deployed)
+
+- Root cause: the public Cloudflare Worker predated the coordinate/location portion of the PATCH handler. The frontend could submit a new address, but the deployed API still returned the old location. The corrected Worker is live as version `4aa91c1c-037c-45e5-86e9-b3c27839f3c8`.
+- Fixed a second failure where OpenStreetMap labels could be 160 characters while D1 enforces a 120-character `location_label`. New geocoding results are now safely capped before create/edit submission.
+- Food-detail editing verifies that Cloudflare returned the exact requested coordinates and venue name before closing the editor. After a successful save, the local pin moves immediately, the map centres on the corrected store, and the location is added to recent places.
+- Kept OpenFreeMap as the map layer and did not add Geoapify because it requires an API key, has soft free-plan limits, and requires additional attribution. This preserves the no-paid-services constraint.
+- Upgraded the existing OpenStreetMap/Nominatim lookup instead: Australia searches add country context, request multiple candidates, score name/address/locality coverage plus map proximity, reject country mismatches and results below 0.52 confidence, cache only successful matches for 30 days, and never place an uncertain marker.
+- Live smoke test: `Haidilao Sunnybank` returned the correct `341 Mains Road, Sunnybank, Queensland, Australia` branch at `-27.5729978, 153.0643288`, 0.5 km from the test bias, confidence `0.829`.
+- Added an ownership check before venue resolution so unauthorised PATCH requests cannot create stray venue anchors. Frontend build, Worker syntax checks, and both deployments passed.
+
+### Clear selected-versus-saved address state (completed locally)
+
+- Reviewed open-source place-picker patterns and kept the refinement focused: selection confirmation, match quality, and an explicit final save instead of adding more controls or decoration.
+- Location search results now label candidates as **Strong match**, **Good match**, or **Possible match**, alongside distance and address, so users can compare branches before moving a pin.
+- After choosing a new store/address, the editor shows **New address selected** and changes the primary action to **Save new address**. This makes it clear that choosing a result is not the same as persisting it.
+- Cancel now fully restores the saved post fields and saved coordinates, closes the location picker, and removes any pending-location state. Reopening Edit can no longer show an abandoned address from the previous attempt.
+- An empty confident search explains how to retry with store + suburb/city + state. No new API, subscription, storage, or paid service was added.
+- `npm run build` and `git diff --check` pass.
+
+### Per-reply unread notification badge (completed and Worker deployed)
+
+- Fixed the bell behavior that previously marked every notification as read as soon as the Activity sheet opened.
+- The coral number badge now remains on the bell while replies are unread. Opening the bell only refreshes the list; it does not clear the number.
+- Tapping an individual reply marks only that notification as read, decreases the badge by one, and opens the matching food post with Comments expanded. Other unread replies remain counted after closing or refreshing.
+- Unread rows now have a compact coral dot, and the floating badge has stronger top-right positioning, contrast, shadow, and a short appearance animation.
+- The notification read endpoint remains backward compatible: Foodie Finds sends a notification ID for per-item reads, while older callers without an ID can still mark all notifications read.
+- Deployed Cloudflare Worker version `99d68961-e393-4801-8e49-4284a034ce96`. A live no-op smoke request against a nonexistent UUID returned `{ accepted: true, updated: 0 }`; no user data was created or changed.
+- No paid Cloudflare feature or new storage was introduced. Frontend production build, Worker syntax validation, and `git diff --check` pass.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.

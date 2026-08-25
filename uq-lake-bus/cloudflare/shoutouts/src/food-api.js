@@ -450,6 +450,10 @@ async function deleteFoodShout(request, env, id, respond) {
 async function updateFoodShout(request, env, id, respond) {
   const payload = await readJson(request);
   const clientHash = await getClientHash(request);
+  const owned = await env.DB.prepare(
+    "SELECT id FROM food_shouts WHERE id = ? AND author_hash = ? AND status = 'active'",
+  ).bind(id, clientHash).first();
+  if (!owned) throw new FoodError(404, "Food Shout not found or not owned by this device.");
   const title = normalizeFoodText(payload.title, "title", 80, true);
   const caption = normalizeFoodText(payload.caption, "caption", 280, false);
   const displayName = normalizeFoodText(payload.displayName, "display name", 24, false) || "Food explorer";
@@ -791,7 +795,7 @@ async function searchFoodPlaces(request, env, url, respond) {
   const requestedCountry = String(url.searchParams.get("country") || "").toLowerCase();
   const country = /^[a-z]{2}$/.test(requestedCountry) ? requestedCountry : "";
   const areaKey = `${unbounded ? "free" : "bounded"}:${hasMapBias ? `${latitude.toFixed(2)}:${longitude.toFixed(2)}` : "global"}`;
-  const cacheKey = `nominatim:v5:${country || "any"}:${areaKey}:${query.toLowerCase()}`;
+  const cacheKey = `nominatim:v6:${country || "any"}:${areaKey}:${query.toLowerCase()}`;
   const now = unixNow();
   const cached = await env.DB.prepare(
     "SELECT response_json FROM food_place_cache WHERE cache_key = ? AND expires_at > ?",
@@ -812,7 +816,8 @@ async function searchFoodPlaces(request, env, url, respond) {
 
   const endpoint = String(env.GEOCODER_URL || "https://nominatim.openstreetmap.org").replace(/\/$/, "");
   const searchUrl = new URL(`${endpoint}/search`);
-  searchUrl.searchParams.set("q", query);
+  const contextualQuery = country === "au" && !/\baustralia\b/i.test(query) ? `${query}, Australia` : query;
+  searchUrl.searchParams.set("q", contextualQuery);
   searchUrl.searchParams.set("format", "jsonv2");
   searchUrl.searchParams.set("limit", "12");
   searchUrl.searchParams.set("addressdetails", "1");
@@ -837,7 +842,7 @@ async function searchFoodPlaces(request, env, url, respond) {
   });
   if (!response.ok) throw new FoodError(502, "Place search is unavailable right now.");
   const raw = await response.json();
-  const normalizedQuery = query.toLowerCase();
+  const normalizedQuery = normalizePlaceMatchText(query);
   const results = raw.map((item) => {
     const details = item.namedetails || {};
     const englishName = String(details["name:en"] || "").trim();
@@ -845,34 +850,44 @@ async function searchFoodPlaces(request, env, url, respond) {
     const baseName = String(details.name || item.name || item.display_name?.split(",")[0] || "Pinned place").trim();
     const preferredName = prefersChinese ? chineseName || baseName || englishName : englishName || baseName || chineseName;
     const secondaryName = (prefersChinese ? englishName : chineseName) || (baseName !== preferredName ? baseName : "");
+    const countryCode = String(item.address?.country_code || "").toLowerCase();
+    const city = String(item.address?.city || item.address?.town || item.address?.village || item.address?.municipality || "").trim();
+    const suburb = String(item.address?.suburb || item.address?.city_district || item.address?.neighbourhood || "").trim();
+    const state = String(item.address?.state || item.address?.region || "").trim();
     return {
       provider: "osm",
       providerPlaceId: `${item.osm_type}:${item.osm_id}`,
-      label: String(item.display_name || "").slice(0, 160),
+      label: String(item.display_name || "").slice(0, 120),
       name: preferredName.slice(0, 100),
       secondaryName: secondaryName && secondaryName !== preferredName ? secondaryName.slice(0, 100) : "",
-      countryCode: String(item.address?.country_code || "").toLowerCase(),
+      countryCode,
       latitude: Number(item.lat),
       longitude: Number(item.lon),
       category: item.type || item.category || "place",
+      city,
+      suburb,
+      state,
+      importance: Number(item.importance || 0),
     };
   }).filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude)).map((item) => ({
     ...item,
     distanceKm: hasMapBias ? Math.round(distanceInKm(latitude, longitude, item.latitude, item.longitude) * 10) / 10 : null,
-  })).sort((left, right) => {
-    const leftName = left.name.toLowerCase();
-    const rightName = right.name.toLowerCase();
-    const leftMatch = leftName === normalizedQuery ? 0 : leftName.startsWith(normalizedQuery) ? 1 : leftName.includes(normalizedQuery) ? 2 : 3;
-    const rightMatch = rightName === normalizedQuery ? 0 : rightName.startsWith(normalizedQuery) ? 1 : rightName.includes(normalizedQuery) ? 2 : 3;
-    if (leftMatch !== rightMatch) return leftMatch - rightMatch;
-    return (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY);
-  });
-  await env.DB.prepare(
-    `INSERT INTO food_place_cache (cache_key, response_json, created_at, expires_at)
-     VALUES (?, ?, ?, ?)
-     ON CONFLICT(cache_key) DO UPDATE SET response_json = excluded.response_json,
-       created_at = excluded.created_at, expires_at = excluded.expires_at`,
-  ).bind(cacheKey, JSON.stringify(results), now, now + 30 * 24 * 60 * 60).run();
+  })).map((item) => ({
+    ...item,
+    confidence: foodPlaceMatchConfidence(item, normalizedQuery, country),
+  })).filter((item) => (!country || item.countryCode === country) && item.confidence >= .52)
+    .sort((left, right) => right.confidence - left.confidence
+      || (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY))
+    .slice(0, 8)
+    .map(({ importance: _importance, ...item }) => item);
+  if (results.length) {
+    await env.DB.prepare(
+      `INSERT INTO food_place_cache (cache_key, response_json, created_at, expires_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(cache_key) DO UPDATE SET response_json = excluded.response_json,
+         created_at = excluded.created_at, expires_at = excluded.expires_at`,
+    ).bind(cacheKey, JSON.stringify(results), now, now + 30 * 24 * 60 * 60).run();
+  }
   await env.DB.prepare(
     `DELETE FROM food_place_cache
       WHERE cache_key NOT IN (
@@ -886,6 +901,30 @@ function optionalSearchCoordinate(value, min, max) {
   if (value === null || value === "") return null;
   const coordinate = Number(value);
   return Number.isFinite(coordinate) && coordinate >= min && coordinate <= max ? coordinate : null;
+}
+
+function normalizePlaceMatchText(value) {
+  return String(value || "").normalize("NFKC").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+function foodPlaceMatchConfidence(item, normalizedQuery, expectedCountry) {
+  if (expectedCountry && item.countryCode !== expectedCountry) return 0;
+  const queryTokens = normalizedQuery.split(" ").filter((token) => token.length > 1);
+  if (!queryTokens.length) return 0;
+  const name = normalizePlaceMatchText([item.name, item.secondaryName].filter(Boolean).join(" "));
+  const locality = normalizePlaceMatchText([item.suburb, item.city, item.state].filter(Boolean).join(" "));
+  const full = normalizePlaceMatchText([item.name, item.secondaryName, item.label, locality].filter(Boolean).join(" "));
+  const tokenCoverage = queryTokens.filter((token) => full.includes(token)).length / queryTokens.length;
+  const localityCoverage = queryTokens.filter((token) => locality.includes(token)).length / queryTokens.length;
+  const exactName = name === normalizedQuery ? 1 : name.startsWith(normalizedQuery) || name.includes(normalizedQuery) ? .92 : 0;
+  const nameCoverage = queryTokens.filter((token) => name.includes(token)).length / queryTokens.length;
+  const nameConfidence = Math.max(exactName, nameCoverage, tokenCoverage * .82);
+  const distanceConfidence = item.distanceKm === null ? .5 : item.distanceKm <= 5 ? 1 : item.distanceKm <= 25 ? .82 : item.distanceKm <= 100 ? .5 : .2;
+  const venueConfidence = /^(restaurant|cafe|fast_food|food_court|bar|pub|marketplace|supermarket|bakery|shop|amenity|building)$/.test(String(item.category || "")) ? 1 : .55;
+  const importance = Math.min(1, Math.max(0, Number(item.importance || 0) * 2));
+  const confidence = nameConfidence * .56 + tokenCoverage * .18 + localityCoverage * .08
+    + distanceConfidence * .1 + venueConfidence * .05 + importance * .03;
+  return Math.round(confidence * 1000) / 1000;
 }
 
 function distanceInKm(fromLatitude, fromLongitude, toLatitude, toLongitude) {

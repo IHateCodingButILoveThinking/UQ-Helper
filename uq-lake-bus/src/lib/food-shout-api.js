@@ -52,8 +52,8 @@ export function listFoodActivity(signal) {
   return request("/api/notifications", { signal });
 }
 
-export function markFoodActivityRead() {
-  return request("/api/notifications/read", { method: "POST", body: {} });
+export function markFoodActivityRead(notificationId) {
+  return request("/api/notifications/read", { method: "POST", body: { notificationId } });
 }
 
 export function createFoodComment(id, body, parentCommentId = null, displayName = "Food explorer", tone = "helpful") {

@@ -558,12 +558,16 @@ async function listNotifications(request, env) {
 async function markNotificationsRead(request, env) {
   ensureJsonRequest(request);
   const clientHash = await getClientHash(request);
-  await env.DB.prepare(
-    "UPDATE notifications SET read_at = ? WHERE recipient_hash = ? AND read_at IS NULL",
-  )
-    .bind(unixNow(), clientHash)
-    .run();
-  return jsonResponse(request, env, { accepted: true });
+  const payload = await readJson(request);
+  const notificationId = String(payload.notificationId ?? "").trim();
+  if (notificationId && !/^[0-9a-f-]{36}$/i.test(notificationId)) {
+    throw new HTTPError(400, "Choose a valid notification.");
+  }
+  const statement = notificationId
+    ? env.DB.prepare("UPDATE notifications SET read_at = ? WHERE id = ? AND recipient_hash = ? AND read_at IS NULL").bind(unixNow(), notificationId, clientHash)
+    : env.DB.prepare("UPDATE notifications SET read_at = ? WHERE recipient_hash = ? AND read_at IS NULL").bind(unixNow(), clientHash);
+  const result = await statement.run();
+  return jsonResponse(request, env, { accepted: true, updated: Number(result.meta?.changes ?? 0) });
 }
 
 async function reactToMessage(request, env, messageId) {
