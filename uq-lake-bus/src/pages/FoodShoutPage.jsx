@@ -22,6 +22,7 @@ import {
   Pencil,
   Plus,
   Radar,
+  RefreshCw,
   Search,
   Send,
   Share2,
@@ -179,7 +180,7 @@ export default function FoodShoutPage({ onHome }) {
     return () => { controller.abort(); window.clearInterval(timer); };
   }, [activityEnabled, loadActivity]);
 
-  const fetchVisible = useCallback(async (nextBounds = bounds, signal) => {
+  const fetchVisible = useCallback(async (nextBounds = bounds, signal, { replace = false } = {}) => {
     if (!nextBounds) return;
     const requestId = ++fetchSequenceRef.current;
     setLoading(true);
@@ -195,7 +196,9 @@ export default function FoodShoutPage({ onHome }) {
         signal,
       });
       if (requestId === fetchSequenceRef.current) {
-        setShouts(payload.shouts || []);
+        setShouts((current) => replace
+          ? uniqueFoodShouts(payload.shouts || [])
+          : mergeFoodShouts(current, payload.shouts || []));
         setBounds(nextBounds);
         setPendingBounds(null);
       }
@@ -210,7 +213,7 @@ export default function FoodShoutPage({ onHome }) {
   useEffect(() => {
     if (!bounds) return undefined;
     const controller = new AbortController();
-    fetchVisible(bounds, controller.signal);
+    fetchVisible(bounds, controller.signal, { replace: true });
     return () => controller.abort();
   }, [budget, cuisine, foodType, mine, saved]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -356,8 +359,21 @@ export default function FoodShoutPage({ onHome }) {
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        mapRef.current?.easeTo({ center: [coords.longitude, coords.latitude], zoom: 15, duration: 500 });
-        setLocating(false);
+        const map = mapRef.current;
+        if (map) {
+          let fetched = false;
+          let fallbackTimer;
+          const fetchLocatedArea = async () => {
+            if (fetched) return;
+            fetched = true;
+            window.clearTimeout(fallbackTimer);
+            await fetchVisibleRef.current?.(readBounds(map));
+            setLocating(false);
+          };
+          map.once("moveend", fetchLocatedArea);
+          map.easeTo({ center: [coords.longitude, coords.latitude], zoom: 15, duration: 500 });
+          fallbackTimer = window.setTimeout(fetchLocatedArea, 1000);
+        } else setLocating(false);
       },
       (error) => {
         const message = error.code === 1
@@ -482,18 +498,25 @@ export default function FoodShoutPage({ onHome }) {
     } });
   };
 
+  const refreshMap = () => {
+    const map = mapRef.current;
+    const next = map ? readBounds(map) : bounds;
+    if (next) fetchVisible(next);
+  };
+
   return (
     <section className="food-page" aria-label="Foodie Finds map">
       <header className="food-topbar">
         <button className="food-icon-button" type="button" onClick={onHome} aria-label="Back to home"><ArrowLeft size={21} /></button>
         <div className="food-topbar-context">
           <button className="food-profile-summary" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}><span>{displayInitials(profileName)}</span><strong>{profileName}</strong></button>
+          <button className={`food-topbar-refresh ${loading ? "loading" : ""}`} type="button" onClick={refreshMap} disabled={loading || !bounds} aria-label={loading ? "Refreshing food posts" : "Refresh food posts"}><RefreshCw size={15} aria-hidden="true" /></button>
           <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><span className="food-country-flag" aria-hidden="true">{regionFlag(browseRegion.id)}</span><strong>{regionShortCode(browseRegion)}</strong><ChevronDown size={13} aria-hidden="true" /></button>
         </div>
         <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span>{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
       </header>
 
-      <div className="food-map-shell">
+      <div className={`food-map-shell ${searchedPlace ? "has-place-selection" : ""}`}>
         <div ref={mapContainerRef} className="food-map" aria-label="Interactive food discovery map" />
         <form className={`food-search ${searchedPlace ? "active" : ""}`} onSubmit={submitSearch}>
           <Search size={18} aria-hidden="true" />
@@ -1072,6 +1095,19 @@ function makeMapFoodIcon(emoji, background, border) {
 }
 
 function emptyGeoJson() { return { type: "FeatureCollection", features: [] }; }
+function uniqueFoodShouts(items) {
+  const seen = new Set();
+  return items.filter((item) => {
+    if (!item?.id || seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
+}
+function mergeFoodShouts(current, incoming) {
+  const fresh = uniqueFoodShouts(incoming);
+  const freshIds = new Set(fresh.map((item) => item.id));
+  return [...fresh, ...current.filter((item) => !freshIds.has(item.id))].slice(0, 500);
+}
 function readBounds(map) { const value = map.getBounds(); return { west: round(value.getWest()), south: round(value.getSouth()), east: round(value.getEast()), north: round(value.getNorth()) }; }
 function round(value) { return Math.round(value * 100000) / 100000; }
 function photoIconName(id) { return `food-photo-${String(id).replace(/[^a-z0-9-]/gi, "")}`; }

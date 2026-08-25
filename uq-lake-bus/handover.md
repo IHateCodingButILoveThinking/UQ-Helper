@@ -294,6 +294,21 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Reduced the header and edge controls from 68/44 px to 64/40 px while preserving accessible tap areas and clearer separation. The map height now accounts for the shorter header.
 - Verified the layout at 390 px and 320 px widths; no overlap or horizontal overflow was found. The production build and `git diff --check` pass.
 
+### Header refresh and floating-action collision fix (completed locally)
+
+- Added a compact refresh icon directly after the full profile name in the shared top-bar capsule. It reloads food posts for the current visible map area and spins while loading.
+- Locate and Post now share a shorter horizontal bottom dock instead of stacking vertically, reducing the amount of map content they cover.
+- A selected store already has its own **Post here** action, so the global Post button now hides in that state and Locate rises above the selected-place card. This removes the previous overlap between all three controls.
+- Verified the complete header at 390 px and 320 px widths. `npm run build` and `git diff --check` pass.
+
+### Locate fetch and persistent in-session pins (completed locally)
+
+- Fixed Locate so it fetches the newly visible GPS area automatically after the map finishes moving. The locate spinner now stays active until the nearby-post request completes.
+- Normal area fetches now merge fresh results into up to 500 already loaded pins instead of replacing the whole map collection. Travelling or locating to another area therefore no longer erases previously loaded posts; panning back shows those cached pins immediately.
+- Changing Meals/Drinks/Snacks, cuisine, budget, My finds, or Saved still deliberately replaces the collection so pins always respect the active filter.
+- Confirmed the existing Cloudflare R2 upload guard reserves space before `put()` and rejects the image before storage when the hard ceiling is reached. The configured ceiling remains 8 GiB, below Cloudflare Standard R2's current 10 GB-month free storage allowance; the requested red line was not increased.
+- `npm run build`, Worker syntax validation, and `git diff --check` pass.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.
