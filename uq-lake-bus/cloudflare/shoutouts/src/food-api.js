@@ -759,7 +759,7 @@ async function searchFoodPlaces(request, env, url, respond) {
   const hasViewbox = west !== null && south !== null && east !== null && north !== null && west < east && south < north;
   const unbounded = url.searchParams.get("unbounded") === "1";
   const areaKey = `${unbounded ? "free" : "bounded"}:${hasMapBias ? `${latitude.toFixed(2)}:${longitude.toFixed(2)}` : "global"}`;
-  const cacheKey = `nominatim:${areaKey}:${query.toLowerCase()}`;
+  const cacheKey = `nominatim:v2:${areaKey}:${query.toLowerCase()}`;
   const now = unixNow();
   const cached = await env.DB.prepare(
     "SELECT response_json FROM food_place_cache WHERE cache_key = ? AND expires_at > ?",
@@ -782,7 +782,7 @@ async function searchFoodPlaces(request, env, url, respond) {
   const searchUrl = new URL(`${endpoint}/search`);
   searchUrl.searchParams.set("q", query);
   searchUrl.searchParams.set("format", "jsonv2");
-  searchUrl.searchParams.set("limit", "6");
+  searchUrl.searchParams.set("limit", "12");
   searchUrl.searchParams.set("addressdetails", "1");
   searchUrl.searchParams.set("namedetails", "1");
   searchUrl.searchParams.set("accept-language", "en");

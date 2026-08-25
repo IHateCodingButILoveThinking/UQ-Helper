@@ -129,6 +129,8 @@ export default function FoodShoutPage({ onHome }) {
   const [placeResults, setPlaceResults] = useState([]);
   const [placeSearching, setPlaceSearching] = useState(false);
   const [searchedPlace, setSearchedPlace] = useState(null);
+  const [googleReturnOpen, setGoogleReturnOpen] = useState(false);
+  const [googleReturnValue, setGoogleReturnValue] = useState("");
   const [composerLocation, setComposerLocation] = useState(null);
   const [cuisine, setCuisine] = useState("All");
   const [foodType, setFoodType] = useState("all");
@@ -369,6 +371,13 @@ export default function FoodShoutPage({ onHome }) {
     setComposerOpen(true);
   };
 
+  const importGoogleMapPlace = (event) => {
+    event.preventDefault();
+    const imported = parseSharedMapLocation(googleReturnValue);
+    if (!imported) return setToast({ text: "Paste a full Maps link containing coordinates, or latitude and longitude." });
+    setGoogleReturnOpen(false); setGoogleReturnValue(""); selectMapPlace(imported);
+  };
+
   const selectBrowseRegion = (region) => {
     setBrowseRegion(region);
     setRegionOpen(false);
@@ -423,6 +432,7 @@ export default function FoodShoutPage({ onHome }) {
       <header className="food-topbar">
         <button className="food-icon-button" type="button" onClick={onHome} aria-label="Back to home"><ArrowLeft size={21} /></button>
         <button className="food-profile-summary" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}><span>{displayInitials(profileName)}</span><strong>{profileName}</strong></button>
+        <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><Globe2 size={15} /><span>{browseRegion.label}</span></button>
         <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span>{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
       </header>
 
@@ -430,23 +440,23 @@ export default function FoodShoutPage({ onHome }) {
         <div ref={mapContainerRef} className="food-map" aria-label="Interactive food discovery map" />
         <form className={`food-search ${searchedPlace ? "active" : ""}`} onSubmit={submitSearch}>
           <Search size={18} aria-hidden="true" />
-          <input value={query} onChange={(event) => { setQuery(event.target.value); setPlaceResults([]); setSearchedPlace(null); }} placeholder="Find a store or address" aria-label="Find a store or address" inputMode="search" enterKeyHint="search" autoComplete="street-address" />
-          {query && <button type="button" onClick={() => { setQuery(""); setPlaceResults([]); setSearchedPlace(null); }} aria-label="Clear search"><X size={17} /></button>}
+          <input value={query} onChange={(event) => { setQuery(event.target.value); setPlaceResults([]); setSearchedPlace(null); setGoogleReturnOpen(false); }} placeholder="Find a store or address" aria-label="Find a store or address" inputMode="search" enterKeyHint="search" autoComplete="street-address" />
+          {query && <button type="button" onClick={() => { setQuery(""); setPlaceResults([]); setSearchedPlace(null); setGoogleReturnOpen(false); }} aria-label="Clear search"><X size={17} /></button>}
           <button className="food-search-submit" type="submit" disabled={!query.trim() || placeSearching} aria-label="Search stores">{placeSearching ? <span className="food-mini-spinner" /> : <Search size={16} />}</button>
         </form>
 
         <div className="food-filter-row" aria-label="Food filters">
           {TYPE_FILTERS.map(([value, label]) => <button className={foodType === value ? "active" : ""} onClick={() => setFoodType(value)} type="button" key={value}>{label}</button>)}
-          <button className="active" onClick={() => setRegionOpen(true)} type="button"><Globe2 size={15} /> {browseRegion.label}</button>
           <button className={cuisine !== "All" ? "active" : ""} onClick={() => setFilterOpen(true)} type="button"><SlidersHorizontal size={15} /> {cuisine === "All" ? "Cuisine" : cuisine}</button>
           <button className={budget ? "active" : ""} onClick={() => setBudget((value) => !value)} type="button"><CircleDollarSign size={15} /> Budget</button>
           <button onClick={() => setFeedOpen(true)} type="button"><Radar size={15} strokeWidth={2.2} /> Near me</button>
           <button onClick={() => setTopOpen(true)} type="button"><Trophy size={15} /> Top picks</button>
         </div>
 
-        {placeResults.length > 0 && <div className="food-map-place-results" aria-live="polite">{placeResults.slice(0, 5).map((place) => <button type="button" onClick={() => selectMapPlace(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{place.name}</strong><small>{place.label}</small></span><ChevronRight size={15} /></button>)}</div>}
-        {!placeSearching && query.trim().length > 1 && !searchedPlace && placeResults.length === 0 && <a className="food-google-search-link" href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer"><Navigation size={15} /> Try in Google Maps</a>}
-        {searchedPlace && <div className="food-searched-place"><span><strong>{searchedPlace.name}</strong><small>{searchedPlace.label}</small></span><a href={googleMapsSearchUrl(searchedPlace)} target="_blank" rel="noreferrer" aria-label="Open in Google Maps"><Navigation size={16} /></a><button type="button" onClick={() => postAtPlace(searchedPlace)}><Plus size={16} /> Post here</button></div>}
+        {placeResults.length > 0 && <div className="food-map-place-results" aria-live="polite"><div className="food-place-results-count">{placeResults.length} matching location{placeResults.length === 1 ? "" : "s"}</div>{placeResults.map((place) => <button type="button" onClick={() => selectMapPlace(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{place.name}</strong><small>{place.label}</small></span><ChevronRight size={15} /></button>)}</div>}
+        {!placeSearching && query.trim().length > 1 && !searchedPlace && placeResults.length === 0 && <div className="food-google-search-actions"><a className="food-google-search-link" href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer" onClick={() => setGoogleReturnOpen(true)}><Navigation size={15} /> Open Google Maps</a><button type="button" onClick={() => setGoogleReturnOpen((value) => !value)}>Paste location</button></div>}
+        {googleReturnOpen && !searchedPlace && <form className="food-map-google-return" onSubmit={importGoogleMapPlace}><input value={googleReturnValue} onChange={(event) => setGoogleReturnValue(event.target.value)} placeholder="Full Maps link or -27.47, 153.02" aria-label="Return a Google Maps location" autoCapitalize="off" autoCorrect="off" /><button type="submit">Use</button><button type="button" onClick={() => setGoogleReturnOpen(false)} aria-label="Close Google location field"><X size={15} /></button></form>}
+        {searchedPlace && <div className="food-searched-place"><span><strong>{searchedPlace.name || "Chosen location"}</strong><small>{searchedPlace.label}</small></span><a href={googleMapsSearchUrl(searchedPlace)} target="_blank" rel="noreferrer" aria-label="Open in Google Maps"><Navigation size={16} /></a><button type="button" onClick={() => postAtPlace(searchedPlace)}><Plus size={16} /> Post here</button></div>}
 
         {pendingBounds && mapReady && <button className="food-area-search" type="button" onClick={() => fetchVisible(pendingBounds)}><Search size={15} /> Search this area</button>}
         <div className="food-map-actions">
@@ -483,6 +493,7 @@ function FoodComposer({ map, initialLocation = null, onClose, onCreated }) {
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [searchAttempted, setSearchAttempted] = useState(false);
+  const [sharedMapValue, setSharedMapValue] = useState("");
   const [form, setForm] = useState(() => readDraft());
   const [error, setError] = useState("");
   const [posting, setPosting] = useState(false);
@@ -565,6 +576,13 @@ function FoodComposer({ map, initialLocation = null, onClose, onCreated }) {
     setLocationMode("manual"); setManualPicking(false); setStep(3);
   };
 
+  const importSharedLocation = (event) => {
+    event.preventDefault();
+    const imported = parseSharedMapLocation(sharedMapValue);
+    if (!imported) return setError("Paste a full Google Maps link containing coordinates, or latitude and longitude.");
+    releaseMobileFocus(); setError(""); setLocation(imported); setLocationMode("google"); setStep(3); saveRecentLocation(imported);
+  };
+
   const publish = async () => {
     if (photos.length < 1 || photos.length > 3 || !location || !form.title.trim()) return setError("Add 1–3 photos, a title, and a location.");
     setPosting(true); setError("");
@@ -624,6 +642,7 @@ function FoodComposer({ map, initialLocation = null, onClose, onCreated }) {
         {searchResults.length > 0 && <div className="food-place-results" aria-live="polite">{searchResults.map((place) => <button type="button" key={place.providerPlaceId} onClick={() => { releaseMobileFocus(); setLocation(place); setLocationMode("search"); setStep(3); saveRecentLocation(place); }}><MapPin size={17} /><span><strong>{place.name}</strong><small>{place.label}</small></span><ChevronRight size={16} /></button>)}</div>}
         {searchAttempted && !searching && searchResults.length === 0 && <div className="food-place-empty"><strong>Store not listed</strong><span>Try Google or drop a pin.</span></div>}
         {locationSearch.trim().length > 1 && <a className="food-composer-google" href={googleMapsSearchUrl(locationSearch)} target="_blank" rel="noreferrer"><Navigation size={15} /> Search Google Maps</a>}
+        <details className="food-google-import"><summary><Navigation size={15} /> Bring a Google location back</summary><form onSubmit={importSharedLocation}><input value={sharedMapValue} onChange={(event) => setSharedMapValue(event.target.value)} placeholder="Paste full Maps link or -27.47, 153.02" aria-label="Google Maps link or coordinates" autoCapitalize="off" autoCorrect="off" /><button type="submit">Use</button></form><small>Google cannot return it automatically. This is parsed on your phone and is not stored until you post.</small></details>
         <div className="food-location-options">
           <button type="button" onClick={currentLocation}><LocateFixed /><span><strong>I'm here</strong><small>Use GPS</small></span></button>
           <button type="button" onClick={() => { releaseMobileFocus(); setManualPicking(true); }}><Navigation /><span><strong>Drop a pin</strong><small>Exact spot</small></span></button>
@@ -632,7 +651,7 @@ function FoodComposer({ map, initialLocation = null, onClose, onCreated }) {
         <p className="food-attribution">Place search © OpenStreetMap contributors</p>
       </div>}
       {step === 3 && <div className="food-details-step">
-        <div className="food-compose-summary"><img src={photos[0]?.previewUrl} alt="" /><div><strong>{location?.name || location?.label}</strong><small><MapPin size={13} /> {photos.length} photo{photos.length === 1 ? "" : "s"} · {locationMode === "current" ? "Current location" : locationMode === "manual" ? "Map pin" : "Chosen place"}</small></div><button type="button" onClick={() => setStep(2)}>Change</button></div>
+        <div className="food-compose-summary"><img src={photos[0]?.previewUrl} alt="" /><div><strong>{location?.name || location?.label}</strong><small><MapPin size={13} /> {photos.length} photo{photos.length === 1 ? "" : "s"} · {locationMode === "current" ? "Current location" : locationMode === "manual" ? "Map pin" : locationMode === "google" ? "Google location" : "Chosen place"}</small></div><button type="button" onClick={() => setStep(2)}>Change</button></div>
         {!location?.providerPlaceId && <label>Store name <input maxLength={100} value={location?.name || ""} onChange={(event) => setLocation((current) => ({ ...current, name: event.target.value }))} placeholder="Optional — add a new store name" enterKeyHint="next" /></label>}
         <label>What did you find? <input maxLength={80} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Amazing beef noodles" enterKeyHint="next" /></label>
         <label>Quick note <textarea maxLength={280} rows={2} value={form.caption} onChange={(event) => setForm({ ...form, caption: event.target.value })} placeholder="Why is it worth trying?" /></label>
@@ -904,6 +923,7 @@ function round(value) { return Math.round(value * 100000) / 100000; }
 function photoIconName(id) { return `food-photo-${String(id).replace(/[^a-z0-9-]/gi, "")}`; }
 function fallbackFoodIcon(type) { return type === "drink" || type === "cafe" ? "food-icon-drink" : type === "snack" ? "food-icon-snack" : type === "dessert" ? "food-icon-dessert" : type === "market" ? "food-icon-market" : "food-icon-default"; }
 function googleMapsSearchUrl(place) { const query = typeof place === "string" ? place.trim() : place?.placeName || place?.name ? `${place.placeName || place.name}${place.locationLabel || place.label ? `, ${place.locationLabel || place.label}` : ""}` : Number.isFinite(place?.latitude) && Number.isFinite(place?.longitude) ? `${place.latitude},${place.longitude}` : "restaurants"; return `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query })}`; }
+function parseSharedMapLocation(value) { const raw = String(value || "").trim(); if (!raw) return null; let text = raw; try { text = decodeURIComponent(raw); } catch { /* keep the original text */ } const dataMatch = text.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i); const atMatch = text.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/); const queryMatch = text.match(/[?&](?:query|q|ll)=(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/i); const rawMatch = text.match(/^\s*(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*$/); const match = dataMatch || atMatch || queryMatch || rawMatch; if (!match) return null; const latitude = Number(match[1]); const longitude = Number(match[2]); if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null; const placeMatch = text.match(/\/place\/([^/@?]+)/i); const name = placeMatch ? placeMatch[1].replaceAll("+", " ").trim() : ""; return { latitude, longitude, name, label: coordinateLabel(latitude, longitude) }; }
 function typeLabel(value) { return TYPES.find(([key]) => key === value)?.[1] || "Food find"; }
 function coordinateLabel(latitude, longitude) { return `${Math.abs(latitude).toFixed(6)}° ${latitude < 0 ? "S" : "N"}, ${Math.abs(longitude).toFixed(6)}° ${longitude < 0 ? "W" : "E"}`; }
 function foodPlaceLabel(shout) { const value = String(shout.placeName || "").trim(); if (!value || /^(current|chosen|pinned|dropped) location$/i.test(value) || /^[-+]?\d+(?:\.\d+)?(?:°|\s*,)/.test(value) || /\d+(?:\.\d+)?°\s*[NS].*\d+(?:\.\d+)?°\s*[EW]/i.test(value)) return ""; return value; }

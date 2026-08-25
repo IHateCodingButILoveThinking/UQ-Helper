@@ -230,6 +230,12 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Removed both versions of the “No finds here yet” empty-state notification from the map and Nearby feed.
 - Local mobile UI and store-search results were checked read-only. `npm run build` and `git diff --check` pass; the existing Vite large-chunk warning remains.
 - Cloudflare deployment is pending because the saved Wrangler authentication expired on 2026-08-25. Run `npx wrangler login`, then deploy the existing `cloudflare/shoutouts` Worker. No schema migration is required for this update.
+- Branch search now requests and displays up to 12 address-labelled matches instead of silently truncating the list to five/six. The cache key was versioned so an older one-branch response is not reused after deployment.
+- The country/region selector moved from the horizontally scrolling food filters into the fixed header. It remains readable at the mobile breakpoint and collapses to a globe-only control at 320 px.
+- Standard Google Maps URLs cannot call back into this PWA. The composer therefore has a compact **Bring a Google location back** field that locally parses full Google Maps URLs containing coordinates, `!3d…!4d…` place links, `@lat,lng` links, or plain `lat,lng`. Short `maps.app.goo.gl` links are not resolved automatically.
+- The same Google-return parser is now accessible directly under the main map search. A valid pasted link/coordinate moves the map and creates the normal Google Maps + **Post here** card without requiring the user to start the composer first.
+- At phone widths the header uses the profile avatar without the display-name text, leaving a stable centred country selector and preventing overlap with the notification button.
+- The refreshed header and category row were visually checked in the in-app mobile viewport on 2026-08-25. The build still passes.
 
 ### Data and product questions not fully resolved
 
