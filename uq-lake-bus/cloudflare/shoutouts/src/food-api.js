@@ -42,7 +42,7 @@ const COMMENT_TONES = new Set(["loved_it", "helpful", "needs_update"]);
 const IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const CLIENT_TOKEN_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const MAX_IMAGE_BYTES = 2_500_000;
+const MAX_IMAGE_BYTES = 1_500_000;
 const MAX_IMAGES_PER_SHOUT = 3;
 const MAX_UPLOADS_PER_DAY = 300;
 const MAX_UPLOAD_BYTES_PER_DAY = 250 * 1024 * 1024;
@@ -151,7 +151,7 @@ async function uploadFoodImage(request, env, respond) {
     throw new FoodError(415, "Upload a JPEG, PNG, or WebP image.");
   }
   if (!Number.isFinite(file.size) || file.size < 1 || file.size > MAX_IMAGE_BYTES) {
-    throw new FoodError(413, "Keep the compressed photo under 2.5 MB.");
+    throw new FoodError(413, "Keep the compressed photo under 1.5 MB.");
   }
   await enforceFoodUploadLimit(env.DB, clientHash, networkHash, file.size, unixNow());
   const width = optionalInteger(form.get("width"), 1, 4096);

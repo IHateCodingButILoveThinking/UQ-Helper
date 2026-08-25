@@ -2,6 +2,38 @@
 
 Last updated: 25 August 2026
 
+## Resume checkpoint — read this first after a crash
+
+The active work is at **Stage 7: frontend publication and production QA**. Do not recreate the R2 bucket, rerun migrations `0006`–`0008`, or redeploy an older Worker. The backend is already live. The current local branch is one commit ahead of GitHub because terminal GitHub authentication is missing.
+
+| Stage | Status | Completed and verified | Still required |
+| --- | --- | --- | --- |
+| 1. Product logic | Done | Food-first map, exact chosen pin, permanent food/drink posts, 1–3 images per post, comments/replies, rankings, reactions and owner editing | Do not reintroduce the legacy seven-day/1 km Shout Out rules into Food Shout |
+| 2. Database | Done and live | Remote D1 migrations `0006`, `0007`, `0008` applied to `uq-helper-shoutouts` | Only add a new numbered migration for future schema changes |
+| 3. Image storage | Done and live | Private Standard R2 bucket `uq-helper-food-images`; binding `FOOD_IMAGES`; user billing limit; 8 GB application ceiling | Monitor real usage after launch |
+| 4. Worker API | Done and live | Worker `d813461a-4aa3-48c5-9249-03dc9825fa45`; health and read-only viewport smoke tests passed | Production end-to-end upload/delete test without leaving junk content |
+| 5. Abuse protection | Done and live | Parameterised SQL, field/request limits, image signatures, storage reservation, device/network counters, duplicate detection, privacy-safe event log and temporary block list | Review thresholds after real usage; no system can permanently identify or disable a physical phone |
+| 6. Frontend implementation | Done locally | Multi-photo picker, red 3-photo boundary, aggregate upload progress, gallery, 1400 px resize, 1.5 MB limit, smaller phone photo panels; production build passed | Publish local commit to GitHub/Vercel |
+| 7. GitHub/Vercel publication | Blocked | The local HEAD commit `tighten mobile food photo uploads` contains the final phone-image changes and this crash-safe handover | Push failed because the terminal has no GitHub credentials. Push `main` from GitHub Desktop or a signed-in terminal |
+| 8. Mobile visual QA | Partial | Food map and empty 1–3 photo composer visually checked; layout is compact and readable | Test 1, 2 and 3 real photos, gallery swiping/buttons, slow upload, denied location and small iPhone viewport on the deployed site |
+| 9. Social end-to-end QA | Not done | Local API coverage exists | Test post, reply, reaction, notification, report, owner edit/delete and automatic cleanup across two devices |
+| 10. Gold Coast QA | Partial | Journey order, reverse control, tram tracker and high-contrast CSS implemented | Run local transport server on port `8787`, then verify outbound, return and Tram Times at phone size |
+| 11. PWA/device QA | Not done | Manifest and service worker exist | Verify Android install prompt and iPhone Add to Home Screen after frontend deployment |
+
+### Confirmed crash/tester record
+
+- The embedded browser repeatedly timed out or reset while reconnecting to `localhost`. This is a tester/session crash; the Vite production build and Worker syntax checks passed.
+- The Gold Coast empty error during the last local screenshot was caused by the Vite proxy receiving `ECONNREFUSED` because the transport server on port `8787` was not running. It was not evidence that the production transport feed failed.
+- A real iPhone/Safari application crash has **not yet been reproduced**. To reduce the most likely photo-memory pressure, phone images now resize to a 1400 px maximum edge, stop at 1.5 MB, and use smaller previews. Device testing is still required before calling that issue closed.
+- No local development servers should be assumed to survive a crash. Restart only the server needed for the next QA step.
+
+### Exact next action
+
+1. Push the local `main` branch to `origin/main` from an authenticated Git client.
+2. Wait for the connected Vercel deployment.
+3. Open the deployed Food Shout page on the affected phone and test one photo first, then three photos.
+4. If Safari still crashes, record the iPhone model, iOS version, browser/PWA mode, selected image count and the exact screen/action immediately before the crash.
+
 ## Food Shout implementation (current)
 
 - Replaced the active Shout Out page with a mobile-first, photo-first food discovery map while preserving the legacy page source for rollback/reference.
@@ -14,7 +46,7 @@ Last updated: 25 August 2026
 - Owners can edit title, caption, nickname, price, cuisine, and category without replacing the photo or moving the exact pin. Comments can be individually reported as well as deleted by their author.
 - The Worker now verifies JPEG/PNG/WebP file signatures instead of trusting the browser-provided MIME label; a mismatched local upload is rejected with HTTP 415.
 - Each post accepts 1–3 photos. The composer has a visible red three-photo boundary and aggregate upload progress; the Worker independently rejects zero or four-plus photos.
-- R2 is protected by an 8 GB application ceiling beneath the 10 GB free allowance, 2.5 MB per-image validation, one-hour expiry for abandoned uploads, daily device/network upload budgets, and storage reservations made before an object write.
+- R2 is protected by an 8 GB application ceiling beneath the 10 GB free allowance, 1.5 MB per-image validation, one-hour expiry for abandoned uploads, daily device/network upload budgets, and storage reservations made before an object write. Phone images are resized to a 1400 px maximum edge before upload.
 - Added a privacy-safe abuse shield. It measures write velocity for the anonymous client hash and a one-way network hash, detects same-device near-identical same-location posts within 24 hours, logs only rejection metadata, and temporarily blocks automated bursts. It does not store raw IP addresses or claim to identify a physical phone.
 - Added viewport clustering, Search this area, dish/caption search, Cuisine and Budget filters, Nearby/My Shouts/Saved sheets, Top 3 food and Top 3 drink community rankings, detail sheets, one-level replies, report/delete, Still Good, and I Tried This.
 - Category labels are now user-facing concepts such as `Dish worth ordering`, `Drink worth trying`, `Hidden food spot`, `Sweet find`, and `Budget find`. UI icons use Lucide rather than generated artwork.
@@ -24,15 +56,15 @@ Last updated: 25 August 2026
 
 - R2 was enabled with a user-configured billing limit and the private Standard bucket `uq-helper-food-images` was created.
 - Remote D1 migrations `0006`, `0007`, and `0008` were applied successfully.
-- Worker version `7161ba3c-c4a4-42ee-8dcc-9694b7657f14` is deployed with `DB`, `FOOD_IMAGES`, and the 8 GB application safety ceiling. Production health and a read-only Food Shout viewport query both passed.
+- Worker version `d813461a-4aa3-48c5-9249-03dc9825fa45` is deployed with `DB`, `FOOD_IMAGES`, the 8 GB application safety ceiling, and the final 1.5 MB image limit. Production health and a read-only Food Shout viewport query both passed.
 - The production frontend still needs to be deployed after final browser QA.
 
 ## Current task
 
 Continue the mobile-first redesign and finish the two active feature areas:
 
-1. Make the Gold Coast journey flow immediately understandable: outbound is train to Helensvale, then tram; return is tram to Helensvale, then train to Brisbane. Keep the reverse-direction control between the two journey cards and keep text compact and high contrast.
-2. Finish the Shout Out map as a simple Asia–Pacific browsing experience. Publishing requires current-location permission and the confirmed public pin must remain within 1 km of that location.
+1. Finish Gold Coast phone QA: outbound is train to Helensvale then tram; return is tram to Helensvale then train to Brisbane. Keep the reverse-direction control between the journey cards and text compact and high contrast.
+2. Publish and verify Food Shout. The current Food Shout implementation uses the exact user-confirmed pin and permanent food/drink posts. The older general Shout Out page's approximate-pin, seven-day expiry and 1 km presence rules are legacy behaviour and must not be mixed into this feature.
 
 The immediate work in progress is final mobile visual QA and frontend deployment. The D1 migrations, R2 bucket, Worker API, multi-photo validation, and abuse shield are deployed.
 
@@ -144,7 +176,7 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Complete the remaining Food Shout detail/gallery browser testing with real user-selected photos. The map and empty composer were visually verified; automated browser upload was intentionally not used to avoid publishing test content.
 - Visually verify the new focused tram-times subview and its Back-to-journey behavior on a phone viewport.
 - Run mobile visual QA at approximately 390 × 844 for Home, Gold Coast outbound, Gold Coast return, Airport, and Shout Out.
-- Investigate the live Gold Coast transport-data error observed during the latest visual QA; the shell remains readable but currently reports that departures are unavailable.
+- Repeat Gold Coast data QA with the local transport API on port 8787 running. The last empty state was caused by the Vite proxy receiving `ECONNREFUSED` from the stopped local API, not evidence of a production feed failure.
 
 ### Shout Out follow-up
 
