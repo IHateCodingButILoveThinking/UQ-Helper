@@ -246,6 +246,22 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Whether to add third-party automated moderation. The present requirement is free-only, so the current design uses Worker validation, rate limits, reports, auto-hide, and expiry.
 - The Worker validates that the submitted pin and submitted current location are within 1 km, but a normal web app cannot prove that client-provided GPS has not been spoofed. This is a useful safety/UX boundary, not tamper-proof presence verification.
 
+### Exact store search, photo GPS, and post refresh (completed locally; Worker deploy pending)
+
+- Store/address queries now include the selected country code, use a versioned search cache, and sort equivalent branch matches by distance from the current map position. Search results show their distance when available. The free provider remains OpenStreetMap/Nominatim, so a business that exists only in Google Maps still cannot be imported automatically without a paid Places integration.
+- Verified that the free provider currently returns **Haidilao Hot Pot, 341 Mains Road, Sunnybank** for an Australia-constrained Haidilao search near Brisbane. The Worker update must be deployed before the production app receives the new country filter/ranking response.
+- Added local EXIF GPS reading for selected food photos using the open-source `exifr` package. When a photo contains GPS metadata, Step 1 shows its exact latitude/longitude and a compact **Use it** action. Metadata is read on-device and kept in the current composer state; it is not copied into browser localStorage.
+- If iPhone privacy or another app strips photo GPS, the UI does not guess a location and the existing store search, GPS, and exact-pin choices remain available.
+- A successful post is inserted into the current map state immediately. The map then moves to the post and revalidates once after `moveend`, fixing the old race where the app fetched the previous viewport and appeared not to refresh.
+- `npm run build` and `git diff --check` pass. The existing large-chunk warning remains.
+
+### Latest-post signal, bilingual search, and sharing (completed locally; Worker deploy pending)
+
+- Only the newest visible food post now receives the breathing map halo. The previous implementation pulsed every post from the last 24 hours, which made the signal ambiguous. The new halo is slower, softer, and remains static when reduced motion is enabled.
+- English and Chinese place searches now request bilingual OpenStreetMap names. Results prefer the language used in the query and show the alternate English/Chinese name when OpenStreetMap provides one.
+- Food detail has a compact native Share action. Shared URLs include `?page=shout-outs&find=<post-id>` and open the referenced post directly; browsers without the native share sheet copy the link instead.
+- Photo GPS, exact pin, current GPS, recent locations, and store/address search remain the compact location choices. No paid map or sharing service was added.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.

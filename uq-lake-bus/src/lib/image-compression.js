@@ -3,6 +3,21 @@ const MAX_SOURCE_BYTES = 18 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 600_000;
 const ACCEPTED_FILE_PATTERN = /\.(?:jpe?g|png|webp|heic|heif)$/i;
 
+export async function readFoodPhotoLocation(file) {
+  if (!file) return null;
+  try {
+    const { default: exifr } = await import("exifr");
+    const gps = await exifr.gps(file);
+    const latitude = Number(gps?.latitude);
+    const longitude = Number(gps?.longitude);
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null;
+    return { latitude, longitude };
+  } catch {
+    // Photos shared by iOS and social apps often have location metadata removed.
+    return null;
+  }
+}
+
 export async function compressFoodImage(file) {
   if (!file || (!file.type?.startsWith("image/") && !ACCEPTED_FILE_PATTERN.test(file.name || ""))) {
     throw new Error("Choose a photo from your phone.");

@@ -750,6 +750,7 @@ async function searchFoodPlaces(request, env, url, respond) {
   if (!query || query.length < 2) throw new FoodError(400, "Enter at least two characters and submit the search.");
   if (query.length > 80) throw new FoodError(400, "Keep the place search short.");
   const latitude = optionalSearchCoordinate(url.searchParams.get("lat"), -90, 90);
+  const prefersChinese = /[\u3400-\u9fff]/u.test(query);
   const longitude = optionalSearchCoordinate(url.searchParams.get("lon"), -180, 180);
   const hasMapBias = latitude !== null && longitude !== null;
   const west = optionalSearchCoordinate(url.searchParams.get("west"), -180, 180);
@@ -758,8 +759,10 @@ async function searchFoodPlaces(request, env, url, respond) {
   const north = optionalSearchCoordinate(url.searchParams.get("north"), -90, 90);
   const hasViewbox = west !== null && south !== null && east !== null && north !== null && west < east && south < north;
   const unbounded = url.searchParams.get("unbounded") === "1";
+  const requestedCountry = String(url.searchParams.get("country") || "").toLowerCase();
+  const country = /^[a-z]{2}$/.test(requestedCountry) ? requestedCountry : "";
   const areaKey = `${unbounded ? "free" : "bounded"}:${hasMapBias ? `${latitude.toFixed(2)}:${longitude.toFixed(2)}` : "global"}`;
-  const cacheKey = `nominatim:v2:${areaKey}:${query.toLowerCase()}`;
+  const cacheKey = `nominatim:v4:${country || "any"}:${areaKey}:${query.toLowerCase()}`;
   const now = unixNow();
   const cached = await env.DB.prepare(
     "SELECT response_json FROM food_place_cache WHERE cache_key = ? AND expires_at > ?",
@@ -785,7 +788,8 @@ async function searchFoodPlaces(request, env, url, respond) {
   searchUrl.searchParams.set("limit", "12");
   searchUrl.searchParams.set("addressdetails", "1");
   searchUrl.searchParams.set("namedetails", "1");
-  searchUrl.searchParams.set("accept-language", "en");
+  searchUrl.searchParams.set("accept-language", prefersChinese ? "zh-CN,zh,en" : "en,zh-CN,zh");
+  if (country) searchUrl.searchParams.set("countrycodes", country);
   if (hasViewbox) {
     const longitudePadding = Math.max(.01, (east - west) * .35);
     const latitudePadding = Math.max(.01, (north - south) * .35);
@@ -804,15 +808,35 @@ async function searchFoodPlaces(request, env, url, respond) {
   });
   if (!response.ok) throw new FoodError(502, "Place search is unavailable right now.");
   const raw = await response.json();
-  const results = raw.map((item) => ({
-    provider: "osm",
-    providerPlaceId: `${item.osm_type}:${item.osm_id}`,
-    label: String(item.display_name || "").slice(0, 160),
-    name: String(item.namedetails?.name || item.name || item.display_name?.split(",")[0] || "Pinned place").slice(0, 100),
-    latitude: Number(item.lat),
-    longitude: Number(item.lon),
-    category: item.type || item.category || "place",
-  })).filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude));
+  const normalizedQuery = query.toLowerCase();
+  const results = raw.map((item) => {
+    const details = item.namedetails || {};
+    const englishName = String(details["name:en"] || "").trim();
+    const chineseName = String(details["name:zh-Hans"] || details["name:zh"] || "").trim();
+    const baseName = String(details.name || item.name || item.display_name?.split(",")[0] || "Pinned place").trim();
+    const preferredName = prefersChinese ? chineseName || baseName || englishName : englishName || baseName || chineseName;
+    const secondaryName = (prefersChinese ? englishName : chineseName) || (baseName !== preferredName ? baseName : "");
+    return {
+      provider: "osm",
+      providerPlaceId: `${item.osm_type}:${item.osm_id}`,
+      label: String(item.display_name || "").slice(0, 160),
+      name: preferredName.slice(0, 100),
+      secondaryName: secondaryName && secondaryName !== preferredName ? secondaryName.slice(0, 100) : "",
+      latitude: Number(item.lat),
+      longitude: Number(item.lon),
+      category: item.type || item.category || "place",
+    };
+  }).filter((item) => Number.isFinite(item.latitude) && Number.isFinite(item.longitude)).map((item) => ({
+    ...item,
+    distanceKm: hasMapBias ? Math.round(distanceInKm(latitude, longitude, item.latitude, item.longitude) * 10) / 10 : null,
+  })).sort((left, right) => {
+    const leftName = left.name.toLowerCase();
+    const rightName = right.name.toLowerCase();
+    const leftMatch = leftName === normalizedQuery ? 0 : leftName.startsWith(normalizedQuery) ? 1 : leftName.includes(normalizedQuery) ? 2 : 3;
+    const rightMatch = rightName === normalizedQuery ? 0 : rightName.startsWith(normalizedQuery) ? 1 : rightName.includes(normalizedQuery) ? 2 : 3;
+    if (leftMatch !== rightMatch) return leftMatch - rightMatch;
+    return (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY);
+  });
   await env.DB.prepare(
     `INSERT INTO food_place_cache (cache_key, response_json, created_at, expires_at)
      VALUES (?, ?, ?, ?)
@@ -832,6 +856,15 @@ function optionalSearchCoordinate(value, min, max) {
   if (value === null || value === "") return null;
   const coordinate = Number(value);
   return Number.isFinite(coordinate) && coordinate >= min && coordinate <= max ? coordinate : null;
+}
+
+function distanceInKm(fromLatitude, fromLongitude, toLatitude, toLongitude) {
+  const radians = (degrees) => degrees * Math.PI / 180;
+  const latitudeDelta = radians(toLatitude - fromLatitude);
+  const longitudeDelta = radians(toLongitude - fromLongitude);
+  const a = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(radians(fromLatitude)) * Math.cos(radians(toLatitude)) * Math.sin(longitudeDelta / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 async function requireActiveShout(database, id) {

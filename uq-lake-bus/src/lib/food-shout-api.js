@@ -40,6 +40,7 @@ export function searchFoodPlaces(query, center = {}, signal) {
     if (Number.isFinite(center[key])) params.set(key, String(center[key]));
   });
   if (center.unbounded) params.set("unbounded", "1");
+  if (/^[a-z]{2}$/i.test(center.country || "")) params.set("country", center.country.toLowerCase());
   return request(`/api/places/search?${params}`, { signal });
 }
 
