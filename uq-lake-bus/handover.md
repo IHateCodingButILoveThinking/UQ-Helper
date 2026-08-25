@@ -1,6 +1,31 @@
 # UQ Helper project handover
 
-Last updated: 21 August 2026
+Last updated: 25 August 2026
+
+## Food Shout implementation (current)
+
+- Replaced the active Shout Out page with a mobile-first, photo-first food discovery map while preserving the legacy page source for rollback/reference.
+- Added D1 migrations `0006_food_shouts.sql`, `0007_food_identity_tone.sql`, and `0008_food_image_limits.sql` for uploads, permanent food posts, 1–3 ordered images, comments/replies, like/save, reports, freshness checks, tried votes, venue anchors, cached place search, custom display names, explicit comment meaning, storage accounting, abuse signals, and temporary blocks.
+- Added an R2 binding named `FOOD_IMAGES` and a Worker Food API for image upload/serving, map queries, place search, create/detail/delete, comments/replies, reactions, reports, freshness, and tried votes.
+- Added browser-side image resizing/WebP compression; re-encoding removes EXIF metadata and the selected map location is never read from the photo.
+- Food pins preserve the exact user-confirmed six-decimal coordinate. Manual posting now enters a dedicated pin mode with a breathing centre marker and an explicit **Use exact pin** action.
+- Food and drink posts do not expire (`expires_at` stays `NULL`). Unclaimed uploads still expire for storage hygiene.
+- Added custom or stable random nicknames, plus commenter-selected `Loved it`, `Helpful`, and `Needs update` labels. This replaces unreliable hidden sentiment guessing.
+- Owners can edit title, caption, nickname, price, cuisine, and category without replacing the photo or moving the exact pin. Comments can be individually reported as well as deleted by their author.
+- The Worker now verifies JPEG/PNG/WebP file signatures instead of trusting the browser-provided MIME label; a mismatched local upload is rejected with HTTP 415.
+- Each post accepts 1–3 photos. The composer has a visible red three-photo boundary and aggregate upload progress; the Worker independently rejects zero or four-plus photos.
+- R2 is protected by an 8 GB application ceiling beneath the 10 GB free allowance, 2.5 MB per-image validation, one-hour expiry for abandoned uploads, daily device/network upload budgets, and storage reservations made before an object write.
+- Added a privacy-safe abuse shield. It measures write velocity for the anonymous client hash and a one-way network hash, detects same-device near-identical same-location posts within 24 hours, logs only rejection metadata, and temporarily blocks automated bursts. It does not store raw IP addresses or claim to identify a physical phone.
+- Added viewport clustering, Search this area, dish/caption search, Cuisine and Budget filters, Nearby/My Shouts/Saved sheets, Top 3 food and Top 3 drink community rankings, detail sheets, one-level replies, report/delete, Still Good, and I Tried This.
+- Category labels are now user-facing concepts such as `Dish worth ordering`, `Drink worth trying`, `Hidden food spot`, `Sweet find`, and `Budget find`. UI icons use Lucide rather than generated artwork.
+- Local D1 migrations, Worker syntax, exact-coordinate API round-trip, permanent-post response, owned-post editing without location movement, custom name/comment tone, image upload/signature rejection, reactions, freshness, tried vote, comments/replies, and the production frontend build have been tested successfully.
+
+### Deployment status
+
+- R2 was enabled with a user-configured billing limit and the private Standard bucket `uq-helper-food-images` was created.
+- Remote D1 migrations `0006`, `0007`, and `0008` were applied successfully.
+- Worker version `7161ba3c-c4a4-42ee-8dcc-9694b7657f14` is deployed with `DB`, `FOOD_IMAGES`, and the 8 GB application safety ceiling. Production health and a read-only Food Shout viewport query both passed.
+- The production frontend still needs to be deployed after final browser QA.
 
 ## Current task
 
@@ -9,7 +34,7 @@ Continue the mobile-first redesign and finish the two active feature areas:
 1. Make the Gold Coast journey flow immediately understandable: outbound is train to Helensvale, then tram; return is tram to Helensvale, then train to Brisbane. Keep the reverse-direction control between the two journey cards and keep text compact and high contrast.
 2. Finish the Shout Out map as a simple Asia–Pacific browsing experience. Publishing requires current-location permission and the confirmed public pin must remain within 1 km of that location.
 
-The immediate work in progress is mobile visual QA and frontend deployment. The D1 migrations and Worker API are already deployed.
+The immediate work in progress is final mobile visual QA and frontend deployment. The D1 migrations, R2 bucket, Worker API, multi-photo validation, and abuse shield are deployed.
 
 ## Completed work
 
@@ -87,9 +112,12 @@ The immediate work in progress is mobile visual QA and frontend deployment. The 
 - Cloudflare Worker URL: <https://uq-helper-api.zeyi-yang.workers.dev/>
 - Added one-level anonymous replies below map posts. Replies reuse the same 160-character limit, safety moderation, cooldown, daily limit, reports, reactions, and parent-post expiry.
 - Added a compact in-app Activity inbox for reply and reaction notifications. Notifications are tied to the anonymous device token, contain no email/account data, and expire with the post.
+- Added a 6.5-second tappable in-app notification popup. It can open the correct post thread even when the post is outside the current country viewport; the Activity inbox remains as the durable in-app history.
+- Clarified and repaired replies: the action always reads `Reply` with an optional count, scrolls the composer into view, shows visible submission errors, and uses a five-second reply cooldown instead of the normal 30-second new-post cooldown.
 - Added and deployed D1 migration `0004_replies_notifications.sql`; deployed Worker version `67a521d8-70a3-4750-a255-5a566957876a`.
 - Added and deployed D1 migration `0005_asia_pacific_locations.sql`; deployed Worker version `da60a0a5-4b4e-479a-a683-be7bf4903920` and verified a Singapore viewport query.
 - Added and deployed the read-only `/api/recent` endpoint in Worker version `697a2bf2-0d1e-4983-a1c7-b3a35f9730f5`; verified Brisbane results are ordered by descending creation time.
+- Deployed cross-country notification locations and the reply-specific cooldown in Worker version `d554e469-75d7-485f-baaf-4968b98f2cf9`; smoke-tested notifications and the reply route without creating public content.
 
 ## Work completed in the current session
 
@@ -113,13 +141,14 @@ The immediate work in progress is mobile visual QA and frontend deployment. The 
 
 ### Highest priority
 
-- Complete visual browser testing of the Shout Out map. The local server, OpenFreeMap style URL, live Worker, and D1 map endpoint have been verified; the embedded tester could not reconnect to localhost after an earlier connection-error page.
+- Complete the remaining Food Shout detail/gallery browser testing with real user-selected photos. The map and empty composer were visually verified; automated browser upload was intentionally not used to avoid publishing test content.
 - Visually verify the new focused tram-times subview and its Back-to-journey behavior on a phone viewport.
 - Run mobile visual QA at approximately 390 × 844 for Home, Gold Coast outbound, Gold Coast return, Airport, and Shout Out.
+- Investigate the live Gold Coast transport-data error observed during the latest visual QA; the shell remains readable but currently reports that departures are unavailable.
 
 ### Shout Out follow-up
 
-- Deploy the frontend containing the new reply/activity UI. The compatible Worker and D1 schema are already live.
+- Deploy the frontend containing the Food Shout map, 1–3 photo composer, reply/activity UI, and gallery. The compatible Worker, D1 schema, and R2 bucket are live.
 - Confirm map marker counts and latest previews update after posting without a full reload.
 - Add/verify accessible 44 px map controls, focus return from the composer sheet, Escape handling, and reduced-motion behaviour.
 - Verify the vector-label lookup produces useful names across Australian cities and regional areas. Some places may still fall back to coordinates when the tile has no nearby label.

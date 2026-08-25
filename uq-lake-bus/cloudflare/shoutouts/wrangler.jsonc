@@ -5,7 +5,8 @@
   "compatibility_date": "2026-08-20",
   "workers_dev": true,
   "vars": {
-    "ALLOWED_ORIGINS": "http://127.0.0.1:4173,http://localhost:4173"
+    "ALLOWED_ORIGINS": "http://127.0.0.1:4173,http://localhost:4173",
+    "FOOD_STORAGE_LIMIT_BYTES": "8589934592"
   },
   "d1_databases": [
     {
@@ -13,6 +14,12 @@
       "database_name": "uq-helper-shoutouts",
       "database_id": "81b2ae18-0412-4b28-87d8-51e4f91d053c",
       "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "FOOD_IMAGES",
+      "bucket_name": "uq-helper-food-images"
     }
   ],
   "triggers": {

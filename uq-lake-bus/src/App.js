@@ -20,7 +20,7 @@ import LibrarySpacesPage from "./pages/LibrarySpacesPage";
 import TrainTimesPage from "./pages/TrainTimesPage";
 import GoldCoastTravelPage from "./pages/GoldCoastTravelPage";
 import AirportTravelPage from "./pages/AirportTravelPage";
-import ShoutOutPage from "./pages/ShoutOutPage";
+import ShoutOutPage from "./pages/FoodShoutPage";
 import { HomeConditionsCard } from "./components/HomeLiveInfo";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import TransportModeTabs from "./components/TransportModeTabs";

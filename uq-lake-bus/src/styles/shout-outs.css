@@ -150,6 +150,35 @@ body[data-page="shout-outs"]::after {
 .shout-notification-panel > button strong { color: #36305f; font-size: .58rem; }
 .shout-notification-panel > button small { overflow: hidden; color: #7f7798; font-size: .49rem; text-overflow: ellipsis; white-space: nowrap; }
 
+.shout-notification-toast {
+  position: absolute;
+  top: calc(57px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 90;
+  width: min(330px, calc(100% - 22px));
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 9px;
+  border: 1px solid rgba(102, 87, 199, .18);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 18px 44px rgba(35, 37, 66, .24);
+  color: #6657c7;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  translate: -50% 0;
+  backdrop-filter: blur(16px);
+}
+.shout-notification-toast > span:first-child { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; background: #eeeafb; font-size: .9rem; }
+.shout-notification-toast > span:first-child svg { width: 17px; height: 17px; }
+.shout-notification-toast > span:last-child { min-width: 0; display: grid; gap: 3px; }
+.shout-notification-toast strong { color: #332d5e; font-size: .64rem; font-weight: 950; }
+.shout-notification-toast small { overflow: hidden; color: #7d7890; font-size: .5rem; font-weight: 760; text-overflow: ellipsis; white-space: nowrap; }
+
 .shout-title-copy {
   min-width: 0;
   display: grid;
@@ -826,6 +855,7 @@ body[data-page="shout-outs"]::after {
 .shout-reply-form textarea:focus { border-color: #8d80d2; box-shadow: 0 0 0 3px rgba(102, 87, 199, .1); }
 .shout-reply-form > span { display: flex; align-items: center; justify-content: flex-end; gap: 5px; }
 .shout-reply-form small { min-width: 0; margin-right: auto; color: #8a819c; font-size: .47rem; }
+.shout-reply-form small.error { color: #b44337; font-weight: 850; }
 .shout-reply-form button { min-height: 30px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; border: 0; border-radius: 8px; background: #ece9f7; color: #5d5297; cursor: pointer; font: inherit; font-size: .49rem; font-weight: 900; }
 .shout-reply-form button[type="submit"] { background: #6657c7; color: #fff; }
 .shout-reply-form button:disabled { opacity: .5; cursor: default; }

@@ -73,7 +73,10 @@ export default function ShoutOutPage({ onHome }) {
   const [notifications, setNotifications] = useState([]);
   const [notificationOpen, setNotificationOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [notificationToast, setNotificationToast] = useState(null);
+  const [openThreadPlaceId, setOpenThreadPlaceId] = useState("");
   const messageRequestRef = useRef(0);
+  const lastNotifiedIdRef = useRef("");
 
   const updateMapBounds = useCallback((nextBounds) => {
     setMapBounds((current) => {
@@ -153,7 +156,13 @@ export default function ShoutOutPage({ onHome }) {
     const loadNotifications = () => {
       fetchShoutOutNotifications({ signal: controller.signal })
         .then((payload) => {
-          setNotifications(payload.notifications ?? []);
+          const nextNotifications = payload.notifications ?? [];
+          const newestUnread = nextNotifications.find((item) => !item.read);
+          if (newestUnread && newestUnread.id !== lastNotifiedIdRef.current) {
+            lastNotifiedIdRef.current = newestUnread.id;
+            setNotificationToast(newestUnread);
+          }
+          setNotifications(nextNotifications);
           setUnreadCount(Number(payload.unreadCount ?? 0));
         })
         .catch((error) => {
@@ -167,6 +176,12 @@ export default function ShoutOutPage({ onHome }) {
       window.clearInterval(intervalId);
     };
   }, []);
+
+  useEffect(() => {
+    if (!notificationToast) return undefined;
+    const timerId = window.setTimeout(() => setNotificationToast(null), 6500);
+    return () => window.clearTimeout(timerId);
+  }, [notificationToast]);
 
   const createPost = async ({ location, currentLocation, message, emoji }) => {
     const payload = await createShoutOut({
@@ -231,6 +246,7 @@ export default function ShoutOutPage({ onHome }) {
   const toggleNotifications = async () => {
     const nextOpen = !notificationOpen;
     setNotificationOpen(nextOpen);
+    if (nextOpen) setNotificationToast(null);
     if (nextOpen && unreadCount) {
       setUnreadCount(0);
       setNotifications((current) => current.map((item) => ({ ...item, read: true })));
@@ -240,6 +256,30 @@ export default function ShoutOutPage({ onHome }) {
         console.error("Could not mark notifications read", error);
       }
     }
+  };
+
+  const openNotification = (item) => {
+    const existing = summaries.find((entry) => entry.placeId === item.placeId);
+    const summary = existing ?? (item.location ? {
+      ...item.location,
+      messageCount: 1,
+      latest: {
+        id: item.messageId,
+        placeId: item.placeId,
+        message: item.message,
+        emoji: item.emoji,
+        avatarColor: "#6657c7",
+        avatarVariant: 0,
+        createdAt: item.createdAt,
+        reactionCount: 0,
+        location: item.location,
+      },
+    } : null);
+    if (!summary) return;
+    setNotificationOpen(false);
+    setNotificationToast(null);
+    setSelected(summary);
+    setOpenThreadPlaceId(item.placeId);
   };
 
   return (
@@ -267,6 +307,26 @@ export default function ShoutOutPage({ onHome }) {
       </header>
 
       <AnimatePresence>
+        {notificationToast ? (
+          <motion.button
+            type="button"
+            className="shout-notification-toast"
+            onClick={() => openNotification(notificationToast)}
+            initial={{ opacity: 0, y: -12, scale: .98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8 }}
+            role="status"
+          >
+            <span>{notificationToast.type === "reply" ? <MessageCircle /> : "♥"}</span>
+            <span>
+              <strong>{notificationToast.type === "reply" ? "Someone replied" : "New reaction"}</strong>
+              <small>{notificationToast.placeLabel} · Tap to view</small>
+            </span>
+          </motion.button>
+        ) : null}
+      </AnimatePresence>
+
+      <AnimatePresence>
         {notificationOpen ? (
           <motion.aside
             className="shout-notification-panel"
@@ -279,11 +339,7 @@ export default function ShoutOutPage({ onHome }) {
               <button
                 type="button"
                 key={item.id}
-                onClick={() => {
-                  setNotificationOpen(false);
-                  const summary = summaries.find((entry) => entry.placeId === item.placeId);
-                  if (summary) setSelected(summary);
-                }}
+                onClick={() => openNotification(item)}
               >
                 <span>{item.type === "reply" ? <MessageCircle /> : "♥"}</span>
                 <span>
@@ -313,6 +369,8 @@ export default function ShoutOutPage({ onHome }) {
         onReact={react}
         onReply={reply}
         onReport={report}
+        openThreadPlaceId={openThreadPlaceId}
+        onThreadOpened={() => setOpenThreadPlaceId("")}
       />
 
       <p className="shout-privacy-note">
@@ -339,6 +397,8 @@ function ShoutMap({
   onReact,
   onReply,
   onReport,
+  openThreadPlaceId,
+  onThreadOpened,
 }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -377,6 +437,24 @@ function ShoutMap({
   onSelectRef.current = onSelect;
   onBoundsChangeRef.current = onBoundsChange;
   modeRef.current = mode;
+
+  useEffect(() => {
+    if (
+      !openThreadPlaceId ||
+      selected?.placeId !== openThreadPlaceId ||
+      !mapReady
+    ) return;
+    setMode("viewing");
+    if (Number.isFinite(selected.latitude) && Number.isFinite(selected.longitude)) {
+      mapRef.current?.easeTo({
+        center: [selected.longitude, selected.latitude],
+        zoom: Math.max(mapRef.current.getZoom(), 14),
+        duration: 420,
+        essential: true,
+      });
+    }
+    onThreadOpened();
+  }, [mapReady, onThreadOpened, openThreadPlaceId, selected]);
 
   const resolvePinLabelAt = useCallback((coordinate) => {
     const map = mapRef.current;
@@ -1390,6 +1468,15 @@ function ShoutMessageThread({
   onReplyDraftChange,
   onReplySubmit,
 }) {
+  const replyFormRef = useRef(null);
+
+  useEffect(() => {
+    if (!replyOpen) return;
+    window.setTimeout(() => {
+      replyFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 60);
+  }, [replyOpen]);
+
   const renderMessage = (item, nested = false) => (
     <article className={`shout-message ${nested ? "reply" : ""}`} key={item.id}>
       <span className="shout-avatar" style={{ backgroundColor: item.avatarColor }} aria-hidden="true">
@@ -1410,8 +1497,13 @@ function ShoutMessageThread({
             ♡ {item.reactionCount || "React"}
           </button>
           {!nested ? (
-            <button type="button" className="reply-action" onClick={onReplyToggle}>
-              <MessageCircle aria-hidden="true" />{replies.length ? `${replies.length} replies` : "Reply"}
+            <button
+              type="button"
+              className="reply-action"
+              aria-expanded={replyOpen}
+              onClick={onReplyToggle}
+            >
+              <MessageCircle aria-hidden="true" />Reply{replies.length ? ` · ${replies.length}` : ""}
             </button>
           ) : null}
           <button
@@ -1442,7 +1534,7 @@ function ShoutMessageThread({
         </div>
       ) : null}
       {replyOpen ? (
-        <form className="shout-reply-form" onSubmit={onReplySubmit}>
+        <form ref={replyFormRef} className="shout-reply-form" onSubmit={onReplySubmit}>
           <textarea
             value={replyDraft}
             onChange={(event) => onReplyDraftChange(event.target.value)}
@@ -1453,7 +1545,9 @@ function ShoutMessageThread({
             aria-label="Reply to this post"
           />
           <span>
-            <small>{replyError || `${replyDraft.length}/160`}</small>
+            <small className={replyError ? "error" : ""} role="status">
+              {replyError || `${replyDraft.length}/160`}
+            </small>
             <button type="button" onClick={onReplyToggle}>Cancel</button>
             <button type="submit" disabled={!replyDraft.trim() || replying}>
               <Send aria-hidden="true" />{replying ? "Sending" : "Reply"}

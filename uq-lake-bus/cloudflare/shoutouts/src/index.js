@@ -1,5 +1,8 @@
+import { cleanExpiredFoodData, handleFoodRequest } from "./food-api.js";
+
 const MESSAGE_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
 const POST_COOLDOWN_SECONDS = 30;
+const REPLY_COOLDOWN_SECONDS = 5;
 const DAILY_POST_LIMIT = 20;
 const HIDE_AFTER_REPORTS = 3;
 const MAX_MESSAGE_LENGTH = 160;
@@ -60,7 +63,7 @@ export default {
     try {
       return await handleRequest(request, env, ctx);
     } catch (error) {
-      if (error instanceof HTTPError) {
+      if (error instanceof HTTPError || Number.isInteger(error?.status)) {
         return jsonResponse(
           request,
           env,
@@ -80,7 +83,7 @@ export default {
   },
 
   async scheduled(_event, env, ctx) {
-    ctx.waitUntil(cleanExpiredData(env.DB));
+    ctx.waitUntil(Promise.all([cleanExpiredData(env.DB), cleanExpiredFoodData(env)]));
   },
 };
 
@@ -98,6 +101,16 @@ async function handleRequest(request, env, ctx) {
   if (!isOriginAllowed(request, env)) {
     throw new HTTPError(403, "This website is not allowed to use the API.");
   }
+
+  const foodResponse = await handleFoodRequest({
+    request,
+    env,
+    ctx,
+    url,
+    path,
+    respond: (payload, status = 200) => jsonResponse(request, env, payload, status),
+  });
+  if (foodResponse) return foodResponse;
 
   if (request.method === "GET" && (path === "/" || path === "/api/health")) {
     const database = await env.DB.prepare("SELECT 1 AS ready").first();
@@ -400,8 +413,8 @@ async function createReply(request, env, parentMessageId) {
   )
     .bind(clientHash)
     .first();
-  if (rate && now - Number(rate.last_post_at) < POST_COOLDOWN_SECONDS) {
-    const retryAfter = POST_COOLDOWN_SECONDS - (now - Number(rate.last_post_at));
+  if (rate && now - Number(rate.last_post_at) < REPLY_COOLDOWN_SECONDS) {
+    const retryAfter = REPLY_COOLDOWN_SECONDS - (now - Number(rate.last_post_at));
     throw new HTTPError(429, `Please wait ${retryAfter} seconds before replying again.`);
   }
   const dailyCount = rate?.day_key === dayKey ? Number(rate.daily_count) : 0;
@@ -499,7 +512,8 @@ async function listNotifications(request, env) {
   const now = unixNow();
   const { results = [] } = await env.DB.prepare(
     `SELECT n.id, n.type, n.message_id, n.parent_message_id, n.created_at,
-            n.read_at, m.body, m.emoji, m.place_id, l.label AS place_label
+            n.read_at, m.body, m.emoji, m.place_id, l.label AS place_label,
+            l.latitude_e6, l.longitude_e6, l.kind AS place_kind
        FROM notifications AS n
        LEFT JOIN messages AS m ON m.id = n.message_id
        LEFT JOIN shout_locations AS l ON l.id = m.place_id
@@ -520,6 +534,15 @@ async function listNotifications(request, env) {
       emoji: item.emoji || "",
       placeId: item.place_id,
       placeLabel: item.place_label || "Pinned spot",
+      location: item.place_id
+        ? {
+            placeId: item.place_id,
+            label: item.place_label || "Pinned spot",
+            kind: item.place_kind || "pin",
+            latitude: Number(item.latitude_e6) / 1_000_000,
+            longitude: Number(item.longitude_e6) / 1_000_000,
+          }
+        : null,
       createdAt: new Date(Number(item.created_at) * 1000).toISOString(),
       read: Boolean(item.read_at),
     })),
@@ -934,7 +957,7 @@ function corsHeaders(request, env) {
   const origin = request.headers.get("origin");
   const headers = new Headers({
     "Access-Control-Allow-Headers": "Content-Type, X-Shout-Client",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Methods": "GET, POST, PATCH, DELETE, OPTIONS",
     "Access-Control-Max-Age": "86400",
     "Cache-Control": "no-store",
     "Content-Type": "application/json; charset=utf-8",
