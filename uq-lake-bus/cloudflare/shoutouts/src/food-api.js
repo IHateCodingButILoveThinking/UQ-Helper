@@ -458,14 +458,41 @@ async function updateFoodShout(request, env, id, respond) {
   const shoutType = String(payload.shoutType ?? "other");
   if (!FOOD_TYPES.has(shoutType)) throw new FoodError(400, "Choose a valid food type.");
   const vibes = normalizeVibes(payload.vibeTags);
+  const hasLocationUpdate = payload.latitude !== undefined || payload.longitude !== undefined;
+  const latitude = hasLocationUpdate ? finiteCoordinate(payload.latitude, ASIA_PACIFIC_BOUNDS.south, ASIA_PACIFIC_BOUNDS.north, "latitude") : null;
+  const longitude = hasLocationUpdate ? finiteCoordinate(payload.longitude, ASIA_PACIFIC_BOUNDS.west, ASIA_PACIFIC_BOUNDS.east, "longitude") : null;
+  const locationLabel = hasLocationUpdate ? normalizeFoodText(payload.locationLabel, "location", 120, true) : null;
+  const placeName = hasLocationUpdate ? normalizeFoodText(payload.placeName, "place name", 100, false) || null : null;
+  const provider = hasLocationUpdate ? normalizeToken(payload.provider, 30) : null;
+  const providerPlaceId = hasLocationUpdate ? normalizeToken(payload.providerPlaceId, 160) : null;
+  const now = unixNow();
+  const venueAnchorId = hasLocationUpdate ? await resolveVenueAnchor(env.DB, { placeName, provider, providerPlaceId, latitude, longitude, now }) : null;
   const result = await env.DB.prepare(
     `UPDATE food_shouts
         SET title = ?, caption = ?, display_name = ?, price_text = ?, price_numeric = ?,
-            cuisine = ?, shout_type = ?, vibe_tags_json = ?, updated_at = ?
+            cuisine = ?, shout_type = ?, vibe_tags_json = ?,
+            latitude_e6 = CASE WHEN ? = 1 THEN ? ELSE latitude_e6 END,
+            longitude_e6 = CASE WHEN ? = 1 THEN ? ELSE longitude_e6 END,
+            location_label = CASE WHEN ? = 1 THEN ? ELSE location_label END,
+            place_name = CASE WHEN ? = 1 THEN ? ELSE place_name END,
+            provider = CASE WHEN ? = 1 THEN ? ELSE provider END,
+            provider_place_id = CASE WHEN ? = 1 THEN ? ELSE provider_place_id END,
+            venue_anchor_id = CASE WHEN ? = 1 THEN ? ELSE venue_anchor_id END,
+            geohash = CASE WHEN ? = 1 THEN ? ELSE geohash END,
+            updated_at = ?
       WHERE id = ? AND author_hash = ? AND status = 'active'`,
   ).bind(
     title, caption, displayName, priceText, parsePrice(priceText), cuisine,
-    shoutType, JSON.stringify(vibes), unixNow(), id, clientHash,
+    shoutType, JSON.stringify(vibes),
+    hasLocationUpdate ? 1 : 0, hasLocationUpdate ? Math.round(latitude * 1_000_000) : null,
+    hasLocationUpdate ? 1 : 0, hasLocationUpdate ? Math.round(longitude * 1_000_000) : null,
+    hasLocationUpdate ? 1 : 0, locationLabel,
+    hasLocationUpdate ? 1 : 0, placeName,
+    hasLocationUpdate ? 1 : 0, provider,
+    hasLocationUpdate ? 1 : 0, providerPlaceId,
+    hasLocationUpdate ? 1 : 0, venueAnchorId,
+    hasLocationUpdate ? 1 : 0, hasLocationUpdate ? encodeGeohash(latitude, longitude, 7) : null,
+    now, id, clientHash,
   ).run();
   if (!Number(result.meta?.changes)) {
     throw new FoodError(404, "Food Shout not found or not owned by this device.");
@@ -762,7 +789,7 @@ async function searchFoodPlaces(request, env, url, respond) {
   const requestedCountry = String(url.searchParams.get("country") || "").toLowerCase();
   const country = /^[a-z]{2}$/.test(requestedCountry) ? requestedCountry : "";
   const areaKey = `${unbounded ? "free" : "bounded"}:${hasMapBias ? `${latitude.toFixed(2)}:${longitude.toFixed(2)}` : "global"}`;
-  const cacheKey = `nominatim:v4:${country || "any"}:${areaKey}:${query.toLowerCase()}`;
+  const cacheKey = `nominatim:v5:${country || "any"}:${areaKey}:${query.toLowerCase()}`;
   const now = unixNow();
   const cached = await env.DB.prepare(
     "SELECT response_json FROM food_place_cache WHERE cache_key = ? AND expires_at > ?",
@@ -822,6 +849,7 @@ async function searchFoodPlaces(request, env, url, respond) {
       label: String(item.display_name || "").slice(0, 160),
       name: preferredName.slice(0, 100),
       secondaryName: secondaryName && secondaryName !== preferredName ? secondaryName.slice(0, 100) : "",
+      countryCode: String(item.address?.country_code || "").toLowerCase(),
       latitude: Number(item.lat),
       longitude: Number(item.lon),
       category: item.type || item.category || "place",

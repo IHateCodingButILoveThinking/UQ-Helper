@@ -59,7 +59,7 @@ const BROWSE_REGION_GROUPS = [
   ["Default", [{ id: "au", label: "Australia", center: [134.5, -25.7], zoom: 3.2 }]],
   ["East Asia", [
     { id: "cn", label: "Mainland China", aliases: ["China", "CN"], center: [104.2, 35.8], zoom: 3.6 }, { id: "hk", label: "Hong Kong SAR (China)", aliases: ["Hong Kong", "HK", "China"], center: [114.17, 22.32], zoom: 9 },
-    { id: "tw", label: "Taiwan (China)", aliases: ["Taiwan", "TW", "China"], center: [121, 23.7], zoom: 6.5 }, { id: "jp", label: "Japan", center: [138.2, 36.2], zoom: 4.6 },
+    { id: "tw", label: "Taiwan (China)", aliases: ["Taiwan", "TW", "China"], center: [121, 23.7], zoom: 6.5 }, { id: "mo", label: "Macau SAR (China)", aliases: ["Macau", "Macao", "MO", "China"], center: [113.5439, 22.1987], zoom: 11 }, { id: "jp", label: "Japan", center: [138.2, 36.2], zoom: 4.6 },
     { id: "kr", label: "South Korea", center: [127.9, 36.3], zoom: 6 }, { id: "mn", label: "Mongolia", center: [103.8, 46.8], zoom: 4.4 },
   ]],
   ["Southeast Asia", [
@@ -91,6 +91,7 @@ const BROWSE_REGION_GROUPS = [
     { id: "az", label: "Azerbaijan", center: [47.6, 40.3], zoom: 6.5 },
   ]],
 ];
+const ALL_BROWSE_REGIONS = BROWSE_REGION_GROUPS.flatMap(([, regions]) => regions);
 const TYPES = [
   ["dish", "Meal worth ordering"], ["drink", "Drink worth trying"], ["snack", "Snack worth sharing"], ["restaurant_find", "Hidden food spot"],
   ["market", "Food market"], ["cafe", "Cafe find"], ["dessert", "Sweet find"], ["deal", "Budget find"], ["other", "Food moment"],
@@ -106,6 +107,8 @@ export default function FoodShoutPage({ onHome }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const selectedRef = useRef(null);
+  const fetchSequenceRef = useRef(0);
+  const fetchVisibleRef = useRef(null);
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
   const [bounds, setBounds] = useState(null);
@@ -173,6 +176,7 @@ export default function FoodShoutPage({ onHome }) {
 
   const fetchVisible = useCallback(async (nextBounds = bounds, signal) => {
     if (!nextBounds) return;
+    const requestId = ++fetchSequenceRef.current;
     setLoading(true);
     setLoadError("");
     try {
@@ -185,15 +189,18 @@ export default function FoodShoutPage({ onHome }) {
         saved,
         signal,
       });
-      setShouts(payload.shouts || []);
-      setBounds(nextBounds);
-      setPendingBounds(null);
+      if (requestId === fetchSequenceRef.current) {
+        setShouts(payload.shouts || []);
+        setBounds(nextBounds);
+        setPendingBounds(null);
+      }
     } catch (error) {
-      if (error.name !== "AbortError") setLoadError(error.message);
+      if (error.name !== "AbortError" && requestId === fetchSequenceRef.current) setLoadError(error.message);
     } finally {
-      if (!signal?.aborted) setLoading(false);
+      if (!signal?.aborted && requestId === fetchSequenceRef.current) setLoading(false);
     }
   }, [bounds, budget, cuisine, foodType, mine, saved]);
+  fetchVisibleRef.current = fetchVisible;
 
   useEffect(() => {
     if (!bounds) return undefined;
@@ -433,6 +440,11 @@ export default function FoodShoutPage({ onHome }) {
     setComposerOpen(false);
     setComposerLocation(null);
     setSelected(shout);
+    setCuisine("All");
+    setFoodType("all");
+    setBudget(false);
+    setMine(false);
+    setSaved(false);
     setShouts((items) => [shout, ...items.filter((item) => item.id !== shout.id)]);
     const map = mapRef.current;
     let synced = false;
@@ -444,7 +456,7 @@ export default function FoodShoutPage({ onHome }) {
       if (!map) return;
       const next = readBounds(map);
       setBounds(next);
-      fetchVisible(next);
+      window.setTimeout(() => fetchVisibleRef.current?.(next), 250);
     };
     if (map) {
       map.once("moveend", syncOnce);
@@ -457,7 +469,7 @@ export default function FoodShoutPage({ onHome }) {
       setShouts((items) => items.filter((item) => item.id !== shout.id));
       setSelected(null);
       await deleteFoodShout(shout.id);
-      fetchVisible(readBounds(mapRef.current));
+      fetchVisibleRef.current?.(readBounds(mapRef.current));
     } });
   };
 
@@ -466,7 +478,7 @@ export default function FoodShoutPage({ onHome }) {
       <header className="food-topbar">
         <button className="food-icon-button" type="button" onClick={onHome} aria-label="Back to home"><ArrowLeft size={21} /></button>
         <button className="food-profile-summary" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}><span>{displayInitials(profileName)}</span><strong>{profileName}</strong></button>
-        <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><Globe2 size={15} /><span>{browseRegion.label}</span></button>
+        <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><span className="food-country-flag" aria-hidden="true">{regionFlag(browseRegion.id)}</span><strong>{regionShortCode(browseRegion)}</strong></button>
         <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span>{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
       </header>
 
@@ -484,7 +496,7 @@ export default function FoodShoutPage({ onHome }) {
           <button className={cuisine !== "All" ? "active" : ""} onClick={() => setFilterOpen(true)} type="button"><SlidersHorizontal size={15} /> {cuisine === "All" ? "Cuisine" : cuisine}</button>
           <button className={budget ? "active" : ""} onClick={() => setBudget((value) => !value)} type="button"><CircleDollarSign size={15} /> Budget</button>
           <button onClick={() => setFeedOpen(true)} type="button"><Radar size={15} strokeWidth={2.2} /> Near me</button>
-          <button onClick={() => setTopOpen(true)} type="button"><Trophy size={15} /> Top picks</button>
+          <button onClick={() => setTopOpen(true)} type="button"><Trophy size={15} /> Rated picks</button>
         </div>
 
         {placeResults.length > 0 && <div className="food-map-place-results" aria-live="polite"><div className="food-place-results-count">{placeResults.length} matching location{placeResults.length === 1 ? "" : "s"}</div>{placeResults.map((place) => <button type="button" onClick={() => selectMapPlace(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{placeResultName(place)}</strong><small>{placeResultLabel(place)}</small></span><ChevronRight size={15} /></button>)}</div>}
@@ -503,7 +515,7 @@ export default function FoodShoutPage({ onHome }) {
       </div>
 
       <AnimatePresence>
-        {selected && <FoodDetail key={selected.id} shout={selected} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); }} />}
+        {selected && <FoodDetail key={selected.id} shout={selected} map={mapRef.current} countryCode={browseRegion.id} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); }} />}
         {composerOpen && <FoodComposer map={mapRef.current} initialLocation={composerLocation} countryCode={browseRegion.id} onClose={() => { setComposerOpen(false); setComposerLocation(null); }} onCreated={refreshAfterCreate} />}
         {filterOpen && <FilterSheet cuisine={cuisine} onCuisine={(value) => { setCuisine(value); setFilterOpen(false); }} onClose={() => setFilterOpen(false)} />}
         {regionOpen && <RegionSheet selected={browseRegion} onSelect={selectBrowseRegion} onClose={() => setRegionOpen(false)} />}
@@ -624,6 +636,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
     if (!imported) return setError("Paste a full Google Maps link containing coordinates, or latitude and longitude.");
     releaseMobileFocus(); setError(""); setLocation(imported); setLocationMode("google"); setStep(3); saveRecentLocation(imported);
   };
+  const countryMismatch = locationCountryMismatch(location, countryCode);
 
   const publish = async () => {
     if (photos.length < 1 || photos.length > 3 || !location || !form.title.trim()) return setError("Add 1–3 photos, a title, and a location.");
@@ -695,6 +708,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
       </div>}
       {step === 3 && <div className="food-details-step">
         <div className="food-compose-summary"><img src={photos[0]?.previewUrl} alt="" /><div><strong>{location?.name || location?.label}</strong><small><MapPin size={13} /> {photos.length} photo{photos.length === 1 ? "" : "s"} · {locationMode === "current" ? "Current location" : locationMode === "manual" ? "Map pin" : locationMode === "google" ? "Google location" : locationMode === "photo" ? "Photo GPS" : "Chosen place"}</small></div><button type="button" onClick={() => setStep(2)}>Change</button></div>
+        {countryMismatch && <div className="food-country-warning"><Globe2 size={17} /><span><strong>This place is outside {regionShortCode(regionById(countryCode))}</strong><small>Posting is allowed. Select {countryMismatch.actual.toUpperCase()} in the map header to view posts there.</small></span></div>}
         {!location?.providerPlaceId && <label>Store name <input maxLength={100} value={location?.name || ""} onChange={(event) => setLocation((current) => ({ ...current, name: event.target.value }))} placeholder="Optional — add a new store name" enterKeyHint="next" /></label>}
         <label>What did you find? <input maxLength={80} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Amazing beef noodles" enterKeyHint="next" /></label>
         <label>Quick note <textarea maxLength={280} rows={2} value={form.caption} onChange={(event) => setForm({ ...form, caption: event.target.value })} placeholder="Why is it worth trying?" /></label>
@@ -712,7 +726,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
   );
 }
 
-function FoodDetail({ shout, onClose, onChange, onDeleted }) {
+function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
   const gallery = shout.images?.length ? shout.images : [{ url: shout.imageUrl }];
   const [activePhoto, setActivePhoto] = useState(0);
   const [failedImages, setFailedImages] = useState([]);
@@ -732,6 +746,15 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
   const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue || 5);
   const [ratingBusy, setRatingBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
+  const [editLocation, setEditLocation] = useState(() => ({
+    latitude: shout.latitude,
+    longitude: shout.longitude,
+    label: shout.locationLabel,
+    name: shout.placeName,
+    provider: shout.provider,
+    providerPlaceId: shout.providerPlaceId,
+  }));
+  const [locationEditorOpen, setLocationEditorOpen] = useState(false);
   const [editForm, setEditForm] = useState(() => ({
     title: shout.title,
     caption: shout.caption,
@@ -763,7 +786,15 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
     if (!editForm.title.trim()) return setError("Keep a short title for this food find.");
     setEditBusy(true); setError("");
     try {
-      const payload = await updateFoodShout(shout.id, editForm);
+      const payload = await updateFoodShout(shout.id, {
+        ...editForm,
+        latitude: editLocation.latitude,
+        longitude: editLocation.longitude,
+        locationLabel: editLocation.label,
+        placeName: editLocation.name || null,
+        provider: editLocation.provider || null,
+        providerPlaceId: editLocation.providerPlaceId || null,
+      });
       onChange(payload.shout);
       saveDisplayName(editForm.displayName);
       setEditing(false);
@@ -817,6 +848,8 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
       {editing ? <div className="food-inline-edit">
         <label>Title<input maxLength={80} value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></label>
         <label>Caption<textarea rows={3} maxLength={280} value={editForm.caption} onChange={(event) => setEditForm({ ...editForm, caption: event.target.value })} /></label>
+        <button className="food-edit-location-button" type="button" onClick={() => setLocationEditorOpen((value) => !value)}><MapPin size={16} /><span><strong>Location</strong><small>{editLocation.name || editLocation.label}</small></span><ChevronRight size={16} /></button>
+        {locationEditorOpen && <FoodLocationEditor map={map} countryCode={countryCode} value={editLocation} onChange={(next) => { setEditLocation(next); setLocationEditorOpen(false); }} />}
         <div className="food-field-grid"><label>Price<input maxLength={40} value={editForm.priceText} onChange={(event) => setEditForm({ ...editForm, priceText: event.target.value })} /></label><label>Cuisine<select value={editForm.cuisine} onChange={(event) => setEditForm({ ...editForm, cuisine: event.target.value })}>{CUISINES.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label></div>
         <label>Kind<select value={editForm.shoutType} onChange={(event) => setEditForm({ ...editForm, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <div className="food-inline-edit-actions"><button type="button" onClick={() => setEditing(false)}>Cancel</button><button type="button" disabled={editBusy} onClick={saveEdit}>{editBusy ? "Saving…" : "Save changes"}</button></div>
@@ -848,19 +881,71 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
   </Sheet>;
 }
 
+function FoodLocationEditor({ map, countryCode, value, onChange }) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState([]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const search = async (event) => {
+    event.preventDefault();
+    if (query.trim().length < 2) return;
+    setBusy(true); setError("");
+    const center = map?.getCenter();
+    const visible = map?.getBounds();
+    try {
+      const payload = await searchFoodPlaces(query.trim(), {
+        latitude: center?.lat,
+        longitude: center?.lng,
+        west: visible?.getWest(),
+        south: visible?.getSouth(),
+        east: visible?.getEast(),
+        north: visible?.getNorth(),
+        country: countryCode,
+        unbounded: true,
+      });
+      setResults(payload.results || []);
+    } catch (nextError) { setError(nextError.message); }
+    finally { setBusy(false); }
+  };
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) return setError("Location is unavailable. Search for the store instead.");
+    setBusy(true); setError("");
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      onChange({ latitude: coords.latitude, longitude: coords.longitude, label: coordinateLabel(coords.latitude, coords.longitude), name: "" });
+      setBusy(false);
+    }, () => { setError("Location permission is off. Search for the store instead."); setBusy(false); }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+  };
+  const useMapCentre = () => {
+    const center = map?.getCenter();
+    if (!center) return setError("Move the map first, then try again.");
+    onChange({ latitude: center.lat, longitude: center.lng, label: coordinateLabel(center.lat, center.lng), name: "" });
+  };
+  const mismatch = locationCountryMismatch(value, countryCode);
+  return <section className="food-location-editor">
+    <div className="food-location-editor-current"><MapPin size={16} /><span><strong>{value.name || "Exact map point"}</strong><small>{value.label}</small></span></div>
+    {mismatch && <div className="food-country-warning"><Globe2 size={17} /><span><strong>Outside {regionShortCode(regionById(countryCode))}</strong><small>Updating is allowed. Select {mismatch.actual.toUpperCase()} in the map header to view it there.</small></span></div>}
+    <form className="food-place-search" onSubmit={search}><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search a new store or address" aria-label="Search a new store or address" /><button disabled={busy || query.trim().length < 2} aria-label="Search locations">{busy ? <span className="food-mini-spinner" /> : <Search size={16} />}</button></form>
+    {results.length > 0 && <div className="food-place-results">{results.map((place) => <button type="button" onClick={() => onChange(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{placeResultName(place)}</strong><small>{placeResultLabel(place)}</small></span><ChevronRight size={15} /></button>)}</div>}
+    <div className="food-location-editor-actions"><button type="button" onClick={useCurrentLocation}><LocateFixed size={16} /> I'm here</button><button type="button" onClick={useMapCentre}><Navigation size={16} /> Map centre</button>{query.trim().length > 1 && <a href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer"><Search size={15} /> Google</a>}</div>
+    {error && <p className="food-form-error">{error}</p>}
+  </section>;
+}
+
 function TopPicks({ shouts, onClose, onSelect }) {
-  const rankedFood = useMemo(() => rankShouts(shouts.filter((item) => item.shoutType !== "drink")).slice(0, 3), [shouts]);
-  const rankedDrinks = useMemo(() => rankShouts(shouts.filter((item) => item.shoutType === "drink")).slice(0, 3), [shouts]);
+  const rankedFood = useMemo(() => rankRecommended(shouts.filter((item) => item.shoutType !== "drink")).slice(0, 3), [shouts]);
+  const rankedDrinks = useMemo(() => rankRecommended(shouts.filter((item) => item.shoutType === "drink")).slice(0, 3), [shouts]);
+  const notRecommended = useMemo(() => rankNotRecommended(shouts).slice(0, 3), [shouts]);
   return <Sheet className="food-top-picks" onClose={onClose} label="Top food and drink picks">
-    <div className="food-sheet-head"><div><span>COMMUNITY PICKS</span><h2>Best in this area</h2></div><button onClick={onClose} aria-label="Close"><X /></button></div>
-    <p className="food-ranking-note">Ranked from likes, comments, “tried this,” and freshness checks—not hidden AI scoring.</p>
+    <div className="food-sheet-head"><div><span>RATED NEARBY</span><h2>Worth it—or not</h2></div><button onClick={onClose} aria-label="Close"><X /></button></div>
+    <p className="food-ranking-note">Recommended requires 4.0+ stars. Below 3.0 appears under Not recommended. Unrated finds are never guessed.</p>
     <TopPickGroup title="Top food finds" icon={<Utensils size={18} />} items={rankedFood} onSelect={onSelect} />
     <TopPickGroup title="Top drinks" icon={<Coffee size={18} />} items={rankedDrinks} onSelect={onSelect} />
+    <TopPickGroup title="Not recommended" icon={<Flag size={17} />} items={notRecommended} onSelect={onSelect} variant="bad" />
   </Sheet>;
 }
 
-function TopPickGroup({ title, icon, items, onSelect }) {
-  return <section className="food-top-group"><h3>{icon}{title}</h3>{items.length === 0 ? <p>No picks in this map area yet.</p> : items.map((item, index) => <button type="button" onClick={() => onSelect(item)} key={item.id}><b>{index + 1}</b><img src={item.imageUrl} alt="" /><span><strong>{item.title}</strong>{foodPlaceLabel(item) && <small>{foodPlaceLabel(item)}</small>}<em>{communityScore(item)} community points</em></span><ChevronRight size={18} /></button>)}</section>;
+function TopPickGroup({ title, icon, items, onSelect, variant = "good" }) {
+  return <section className={`food-top-group ${variant}`}><h3>{icon}{title}</h3>{items.length === 0 ? <p>{variant === "bad" ? "No low-rated finds here." : "No 4-star picks here yet."}</p> : items.map((item, index) => <button type="button" onClick={() => onSelect(item)} key={item.id}><b>{variant === "bad" ? "!" : index + 1}</b><img src={item.imageUrl} alt="" /><span><strong>{item.title}</strong>{foodPlaceLabel(item) && <small>{foodPlaceLabel(item)}</small>}<em><Star size={12} fill="currentColor" /> {item.rating.average.toFixed(1)} · {item.rating.count} rating{item.rating.count === 1 ? "" : "s"}</em></span><ChevronRight size={18} /></button>)}</section>;
 }
 
 function FilterSheet({ cuisine, onCuisine, onClose }) { return <Sheet className="food-filter-sheet" onClose={onClose} label="Cuisine filter"><div className="food-sheet-head"><div><span>FILTER</span><h2>What sounds good?</h2></div><button onClick={onClose}><X /></button></div><div className="food-cuisine-grid">{CUISINES.map((item) => <button className={cuisine === item ? "active" : ""} onClick={() => onCuisine(item)} key={item}>{item === "All" ? "Everything" : item}</button>)}</div></Sheet>; }
@@ -987,12 +1072,34 @@ function coordinateLabel(latitude, longitude) { return `${Math.abs(latitude).toF
 function placeResultName(place) { return [place?.name, place?.secondaryName].filter(Boolean).join(" · "); }
 function placeResultLabel(place) { return Number.isFinite(place?.distanceKm) ? `${place.distanceKm < 1 ? `${Math.max(1, Math.round(place.distanceKm * 1000))} m` : `${place.distanceKm.toFixed(1)} km`} · ${place.label}` : place?.label; }
 function foodShareUrl(id) { const url = new URL(window.location.href); url.searchParams.set("page", "shout-outs"); url.searchParams.set("find", id); return url.toString(); }
+function regionById(id) { return ALL_BROWSE_REGIONS.find((region) => region.id === id) || ALL_BROWSE_REGIONS[0]; }
+function regionShortCode(region) { return region?.id === "au" ? "AUS" : String(region?.id || "").toUpperCase(); }
+function regionFlag(id) {
+  if (id === "hk") return "🇭🇰🇨🇳";
+  if (id === "tw") return "🇨🇳";
+  if (id === "mo") return "🇲🇴🇨🇳";
+  return /^[a-z]{2}$/i.test(id || "") ? String(id).toUpperCase().replace(/[A-Z]/g, (letter) => String.fromCodePoint(127397 + letter.charCodeAt(0))) : "🌏";
+}
+function locationCountryMismatch(location, selectedCountry) {
+  if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return null;
+  let actual = String(location.countryCode || "").toLowerCase();
+  if (!actual) {
+    const latitude = location.latitude;
+    const longitude = location.longitude;
+    if (latitude >= -44.5 && latitude <= -9 && longitude >= 112 && longitude <= 154.5) actual = "au";
+    else actual = ALL_BROWSE_REGIONS.reduce((closest, region) => {
+      const distance = (latitude - region.center[1]) ** 2 + ((longitude - region.center[0]) * Math.cos(latitude * Math.PI / 180)) ** 2;
+      return !closest || distance < closest.distance ? { id: region.id, distance } : closest;
+    }, null)?.id || "";
+  }
+  return actual && actual !== selectedCountry ? { actual, selected: selectedCountry } : null;
+}
 function foodPlaceLabel(shout) { const value = String(shout.placeName || "").trim(); if (!value || /^(current|chosen|pinned|dropped) location$/i.test(value) || /^[-+]?\d+(?:\.\d+)?(?:°|\s*,)/.test(value) || /\d+(?:\.\d+)?°\s*[NS].*\d+(?:\.\d+)?°\s*[EW]/i.test(value)) return ""; return value; }
 function relativeTime(value) { const seconds = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 1000)); if (seconds < 60) return "just now"; if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`; if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`; return `${Math.floor(seconds / 86400)}d ago`; }
 function formatBytes(value) { return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} KB` : `${(value / 1024 / 1024).toFixed(1)} MB`; }
 function avatarText(id) { return ["◡", "ᴗ", "•", "✦"][id.charCodeAt(0) % 4]; }
-function communityScore(shout) { return Number(shout.likeCount || 0) * 2 + Number(shout.commentCount || 0) * 3 + Number(shout.rating?.average || 0) * Math.min(10, Number(shout.rating?.count || 0)); }
-function rankShouts(items) { return [...items].sort((a, b) => communityScore(b) - communityScore(a) || new Date(b.createdAt) - new Date(a.createdAt)); }
+function rankRecommended(items) { return items.filter((item) => Number(item.rating?.count || 0) > 0 && Number(item.rating?.average || 0) >= 4).sort((a, b) => Number(b.rating.average) - Number(a.rating.average) || Number(b.rating.count) - Number(a.rating.count) || new Date(b.createdAt) - new Date(a.createdAt)); }
+function rankNotRecommended(items) { return items.filter((item) => Number(item.rating?.count || 0) > 0 && Number(item.rating?.average || 0) < 3).sort((a, b) => Number(a.rating.average) - Number(b.rating.average) || Number(b.rating.count) - Number(a.rating.count) || new Date(b.createdAt) - new Date(a.createdAt)); }
 function toneLabel(tone) { return tone === "loved_it" ? "Loved it" : tone === "needs_update" ? "Needs update" : "Helpful"; }
 function readDisplayName() { try { const saved = localStorage.getItem(DISPLAY_NAME_KEY); if (saved) return saved; const first = ["Noodle", "Mango", "Chilli", "Bento", "Mochi"][Math.floor(Math.random() * 5)]; const second = ["Fox", "Otter", "Koala", "Panda", "Gecko"][Math.floor(Math.random() * 5)]; const value = `${first} ${second}`; localStorage.setItem(DISPLAY_NAME_KEY, value); return value; } catch { return "Food explorer"; } }
 function saveDisplayName(value) { try { const clean = value.trim().slice(0, 24); if (clean) localStorage.setItem(DISPLAY_NAME_KEY, clean); } catch { /* optional */ } }

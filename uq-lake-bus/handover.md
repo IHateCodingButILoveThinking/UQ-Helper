@@ -262,6 +262,16 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Food detail has a compact native Share action. Shared URLs include `?page=shout-outs&find=<post-id>` and open the referenced post directly; browsers without the native share sheet copy the link instead.
 - Photo GPS, exact pin, current GPS, recent locations, and store/address search remain the compact location choices. No paid map or sharing service was added.
 
+### Location correction, stable map refresh, rating lists, and country header (completed locally; Worker deploy pending)
+
+- Owners can now change a published post's location from Edit using store/address search, current GPS, the current map centre, or the existing Google Maps handoff. The Worker PATCH route updates coordinates, label, provider identity, venue anchor, and geohash together.
+- Map requests now carry a monotonic request sequence so an older response cannot overwrite newer pins. Publishing inserts the post immediately, clears filters that could hide it, moves the map, and revalidates through the latest filter-aware fetch function.
+- Rated Picks uses explicit rating thresholds: 4.0+ is eligible for recommended lists, below 3.0 is eligible for Not recommended, and unrated finds appear in neither list. Ranking is by rating average, then rating count, then recency; likes/comments cannot turn a low-rated find into a recommendation.
+- The header country control now uses a real flag emoji plus a compact code (`AUS`, `CN`, `TW`, `HK`, `MO`, `SG`, `MY`, etc.) instead of the full country name. Per the requested display rule, Hong Kong uses `🇭🇰🇨🇳 HK`, Taiwan uses `🇨🇳 TW`, and Macau uses `🇲🇴🇨🇳 MO`.
+- Posting is not blocked when the selected place belongs to a different available country. The composer and location editor show a compact mismatch warning telling the user which country code to select in the header.
+- OpenStreetMap search results now carry their country code so mismatch warnings are exact for searched stores. GPS/photo/manual coordinates use a local best-effort region estimate only for the warning and never block posting.
+- Mobile browser QA confirmed the compact `🇦🇺 AUS` header and the Top/Not recommended sheet. The build, Worker syntax check, and `git diff --check` pass.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.
