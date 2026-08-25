@@ -7,6 +7,7 @@ import {
   Bookmark,
   Camera,
   Check,
+  ChevronDown,
   ChevronRight,
   CircleDollarSign,
   Clock3,
@@ -100,6 +101,7 @@ const TYPE_FILTERS = [["all", "All"], ["meal", "Meals"], ["drink", "Drinks"], ["
 const VIBES = ["study-friendly", "quick-grab", "group-friendly", "quiet", "lively", "late-night", "takeaway-friendly", "solo-friendly"];
 const DRAFT_KEY = "uq-food-shout-draft-v1";
 const RECENT_LOCATIONS_KEY = "uq-food-recent-locations-v1";
+const FOOD_MAP_VIEW_KEY = "uq-food-map-view-v1";
 const DISPLAY_NAME_KEY = "uq-food-display-name-v1";
 const ACTIVITY_ENABLED_KEY = "uq-food-activity-enabled-v1";
 
@@ -109,6 +111,7 @@ export default function FoodShoutPage({ onHome }) {
   const selectedRef = useRef(null);
   const fetchSequenceRef = useRef(0);
   const fetchVisibleRef = useRef(null);
+  const [initialMapView] = useState(() => readFoodMapView() || recentFoodMapView());
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
   const [bounds, setBounds] = useState(null);
@@ -120,7 +123,8 @@ export default function FoodShoutPage({ onHome }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [regionOpen, setRegionOpen] = useState(false);
-  const [browseRegion, setBrowseRegion] = useState(BROWSE_REGION_GROUPS[0][1][0]);
+  const [browseRegion, setBrowseRegion] = useState(() => regionById(initialMapView?.regionId || "au"));
+  const browseRegionRef = useRef(browseRegion);
   const [feedOpen, setFeedOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -145,6 +149,7 @@ export default function FoodShoutPage({ onHome }) {
   const [toast, setToast] = useState(null);
 
   selectedRef.current = selected;
+  browseRegionRef.current = browseRegion;
 
   useEffect(() => {
     const sharedId = new URLSearchParams(window.location.search).get("find");
@@ -219,8 +224,8 @@ export default function FoodShoutPage({ onHome }) {
       map = new maplibregl.Map({
         container: mapContainerRef.current,
         style: MAP_STYLE,
-        center: DEFAULT_CENTER,
-        zoom: 13,
+        center: initialMapView ? [initialMapView.longitude, initialMapView.latitude] : DEFAULT_CENTER,
+        zoom: initialMapView?.zoom ?? 13,
         minZoom: 2.4,
         maxZoom: 19,
         attributionControl: false,
@@ -297,12 +302,14 @@ export default function FoodShoutPage({ onHome }) {
           pulseFrame = requestAnimationFrame(animatePulse);
         }
         const initial = readBounds(map);
+        saveFoodMapView(map, browseRegionRef.current.id);
         setBounds(initial);
         fetchVisible(initial);
         setMapReady(true);
       });
       map.on("moveend", () => {
         if (!map.loaded()) return;
+        saveFoodMapView(map, browseRegionRef.current.id);
         const next = readBounds(map);
         setPendingBounds(next);
       });
@@ -398,6 +405,7 @@ export default function FoodShoutPage({ onHome }) {
   };
 
   const selectBrowseRegion = (region) => {
+    browseRegionRef.current = region;
     setBrowseRegion(region);
     setRegionOpen(false);
     const map = mapRef.current;
@@ -454,6 +462,7 @@ export default function FoodShoutPage({ onHome }) {
       synced = true;
       window.clearTimeout(refreshTimer);
       if (!map) return;
+      saveFoodMapView(map, browseRegionRef.current.id);
       const next = readBounds(map);
       setBounds(next);
       window.setTimeout(() => fetchVisibleRef.current?.(next), 250);
@@ -477,8 +486,10 @@ export default function FoodShoutPage({ onHome }) {
     <section className="food-page" aria-label="Foodie Finds map">
       <header className="food-topbar">
         <button className="food-icon-button" type="button" onClick={onHome} aria-label="Back to home"><ArrowLeft size={21} /></button>
-        <button className="food-profile-summary" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}><span>{displayInitials(profileName)}</span><strong>{profileName}</strong></button>
-        <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><span className="food-country-flag" aria-hidden="true">{regionFlag(browseRegion.id)}</span><strong>{regionShortCode(browseRegion)}</strong></button>
+        <div className="food-topbar-context">
+          <button className="food-profile-summary" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}><span>{displayInitials(profileName)}</span><strong>{profileName}</strong></button>
+          <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><span className="food-country-flag" aria-hidden="true">{regionFlag(browseRegion.id)}</span><strong>{regionShortCode(browseRegion)}</strong><ChevronDown size={13} aria-hidden="true" /></button>
+        </div>
         <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span>{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
       </header>
 
@@ -1080,7 +1091,7 @@ function regionFlag(id) {
   if (id === "mo") return "🇲🇴🇨🇳";
   return /^[a-z]{2}$/i.test(id || "") ? String(id).toUpperCase().replace(/[A-Z]/g, (letter) => String.fromCodePoint(127397 + letter.charCodeAt(0))) : "🌏";
 }
-function locationCountryMismatch(location, selectedCountry) {
+function inferLocationRegionId(location) {
   if (!location || !Number.isFinite(location.latitude) || !Number.isFinite(location.longitude)) return null;
   let actual = String(location.countryCode || "").toLowerCase();
   if (!actual) {
@@ -1092,6 +1103,10 @@ function locationCountryMismatch(location, selectedCountry) {
       return !closest || distance < closest.distance ? { id: region.id, distance } : closest;
     }, null)?.id || "";
   }
+  return actual;
+}
+function locationCountryMismatch(location, selectedCountry) {
+  const actual = inferLocationRegionId(location);
   return actual && actual !== selectedCountry ? { actual, selected: selectedCountry } : null;
 }
 function foodPlaceLabel(shout) { const value = String(shout.placeName || "").trim(); if (!value || /^(current|chosen|pinned|dropped) location$/i.test(value) || /^[-+]?\d+(?:\.\d+)?(?:°|\s*,)/.test(value) || /\d+(?:\.\d+)?°\s*[NS].*\d+(?:\.\d+)?°\s*[EW]/i.test(value)) return ""; return value; }
@@ -1109,3 +1124,31 @@ function readDraft() { try { return { title: "", caption: "", priceText: "", cui
 function toggleVibe(current, vibe) { if (current.includes(vibe)) return current.filter((item) => item !== vibe); if (current.length >= 3) return current; return [...current, vibe]; }
 function readRecentLocations() { try { return JSON.parse(localStorage.getItem(RECENT_LOCATIONS_KEY) || "[]").slice(0, 4); } catch { return []; } }
 function saveRecentLocation(location) { try { const current = readRecentLocations().filter((item) => Math.abs(item.latitude - location.latitude) > .00001 || Math.abs(item.longitude - location.longitude) > .00001); localStorage.setItem(RECENT_LOCATIONS_KEY, JSON.stringify([location, ...current].slice(0, 5))); } catch { /* storage is optional */ } }
+function readFoodMapView() {
+  try {
+    const view = JSON.parse(localStorage.getItem(FOOD_MAP_VIEW_KEY) || "null");
+    const longitude = Number(view?.longitude);
+    const latitude = Number(view?.latitude);
+    const zoom = Number(view?.zoom);
+    if (!Number.isFinite(longitude) || Math.abs(longitude) > 180 || !Number.isFinite(latitude) || Math.abs(latitude) > 90 || !Number.isFinite(zoom) || zoom < 2.4 || zoom > 19) return null;
+    return { longitude, latitude, zoom, regionId: regionById(view?.regionId).id };
+  } catch { return null; }
+}
+function recentFoodMapView() {
+  const location = readRecentLocations()[0];
+  if (!location || !Number.isFinite(Number(location.longitude)) || !Number.isFinite(Number(location.latitude))) return null;
+  return { longitude: Number(location.longitude), latitude: Number(location.latitude), zoom: 15, regionId: inferLocationRegionId(location) || "au" };
+}
+function saveFoodMapView(map, regionId) {
+  try {
+    const center = map?.getCenter();
+    const zoom = map?.getZoom();
+    if (!Number.isFinite(center?.lng) || !Number.isFinite(center?.lat) || !Number.isFinite(zoom)) return;
+    localStorage.setItem(FOOD_MAP_VIEW_KEY, JSON.stringify({
+      longitude: Math.round(center.lng * 10000) / 10000,
+      latitude: Math.round(center.lat * 10000) / 10000,
+      zoom: Math.round(zoom * 100) / 100,
+      regionId: regionById(regionId).id,
+    }));
+  } catch { /* storage is optional */ }
+}

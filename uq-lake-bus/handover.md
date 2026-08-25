@@ -280,6 +280,20 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - The existing in-app badge loads on page entry and refreshes periodically while alerts are enabled. This is still in-app activity, not operating-system Web Push when the PWA is closed.
 - Verified the SQL path in an isolated temporary SQLite database: a sample reply returned `I loved this too | Great noodles | post-owner`. No Cloudflare data or public comment was created. The frontend build and both Worker syntax checks pass.
 
+### Posts outside Brisbane after refresh (completed locally)
+
+- Fixed the apparent disappearing-post issue for trips such as Perth. The API intentionally loads only posts inside the visible map bounds, but the page previously reset the map to Brisbane after every refresh.
+- The food map now saves its last centre, zoom, and selected country locally and restores that viewport on the next visit.
+- On the first visit after this fix, when no saved viewport exists yet, the page uses the most recently chosen or posted food location as a recovery fallback. This should reopen near the existing Perth post instead of Brisbane.
+- The saved viewport is local-only and does not increase Cloudflare storage usage or add any paid service. `npm run build` and `git diff --check` pass.
+
+### Compact Foodie Finds header (completed locally)
+
+- Reworked the mobile top bar from four competing controls into three clear toolbar groups: Back, a shared profile/country capsule, and Notifications.
+- The display name remains visible on small phones instead of collapsing to an unexplained avatar. Long names truncate safely, while the country stays independently clickable with a compact flag, code, and disclosure chevron.
+- Reduced the header and edge controls from 68/44 px to 64/40 px while preserving accessible tap areas and clearer separation. The map height now accounts for the shorter header.
+- Verified the layout at 390 px and 320 px widths; no overlap or horizontal overflow was found. The production build and `git diff --check` pass.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.
