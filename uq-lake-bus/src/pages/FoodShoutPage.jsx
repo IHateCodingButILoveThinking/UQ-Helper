@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   ArrowLeft,
+  Bell,
   Bookmark,
   Camera,
   Check,
@@ -11,6 +12,7 @@ import {
   Clock3,
   Coffee,
   Flag,
+  Globe2,
   Heart,
   LocateFixed,
   MapPin,
@@ -34,8 +36,11 @@ import {
   createFoodShout,
   deleteFoodComment,
   deleteFoodShout,
+  getFoodShout,
+  listFoodActivity,
   listFoodComments,
   listFoodShouts,
+  markFoodActivityRead,
   markFoodTried,
   reportFoodComment,
   reportFoodShout,
@@ -49,6 +54,42 @@ import {
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
 const DEFAULT_CENTER = [153.0133, -27.4971];
 const CUISINES = ["All", "Chinese", "Singaporean", "Australian", "Japanese", "Korean", "Malaysian", "Indonesian", "Other"];
+const BROWSE_REGION_GROUPS = [
+  ["Default", [{ id: "au", label: "Australia", center: [134.5, -25.7], zoom: 3.2 }]],
+  ["East Asia", [
+    { id: "cn", label: "Mainland China", aliases: ["China", "CN"], center: [104.2, 35.8], zoom: 3.6 }, { id: "hk", label: "Hong Kong SAR (China)", aliases: ["Hong Kong", "HK", "China"], center: [114.17, 22.32], zoom: 9 },
+    { id: "tw", label: "Taiwan (China)", aliases: ["Taiwan", "TW", "China"], center: [121, 23.7], zoom: 6.5 }, { id: "jp", label: "Japan", center: [138.2, 36.2], zoom: 4.6 },
+    { id: "kr", label: "South Korea", center: [127.9, 36.3], zoom: 6 }, { id: "mn", label: "Mongolia", center: [103.8, 46.8], zoom: 4.4 },
+  ]],
+  ["Southeast Asia", [
+    { id: "sg", label: "Singapore", center: [103.82, 1.35], zoom: 10 }, { id: "my", label: "Malaysia", center: [102.2, 4.2], zoom: 5.3 },
+    { id: "id", label: "Indonesia", center: [117.3, -2.3], zoom: 3.8 }, { id: "ph", label: "Philippines", center: [122.8, 12.8], zoom: 4.8 },
+    { id: "th", label: "Thailand", center: [101, 15.4], zoom: 5.2 }, { id: "vn", label: "Vietnam", center: [108.3, 16], zoom: 5.1 },
+    { id: "kh", label: "Cambodia", center: [104.9, 12.6], zoom: 6 }, { id: "la", label: "Laos", center: [102.6, 19.9], zoom: 5.6 },
+    { id: "mm", label: "Myanmar", center: [96.5, 21.1], zoom: 5.2 }, { id: "bn", label: "Brunei", center: [114.7, 4.5], zoom: 7.5 },
+    { id: "tl", label: "Timor-Leste", center: [125.8, -8.8], zoom: 7 },
+  ]],
+  ["South & Central Asia", [
+    { id: "in", label: "India", center: [79, 22.8], zoom: 4 }, { id: "pk", label: "Pakistan", center: [69.4, 30.4], zoom: 4.8 },
+    { id: "bd", label: "Bangladesh", center: [90.3, 23.8], zoom: 6 }, { id: "lk", label: "Sri Lanka", center: [80.7, 7.8], zoom: 6.5 },
+    { id: "np", label: "Nepal", center: [84.1, 28.3], zoom: 6 }, { id: "bt", label: "Bhutan", center: [90.4, 27.5], zoom: 7 },
+    { id: "mv", label: "Maldives", center: [73.2, 3.2], zoom: 6 }, { id: "af", label: "Afghanistan", center: [66, 33.8], zoom: 5 },
+    { id: "kz", label: "Kazakhstan", center: [67.3, 48], zoom: 3.8 }, { id: "uz", label: "Uzbekistan", center: [64.6, 41.4], zoom: 5.2 },
+    { id: "kg", label: "Kyrgyzstan", center: [74.7, 41.2], zoom: 6 }, { id: "tj", label: "Tajikistan", center: [71, 38.8], zoom: 6 },
+    { id: "tm", label: "Turkmenistan", center: [59.4, 39.1], zoom: 5.2 },
+  ]],
+  ["West Asia", [
+    { id: "tr", label: "Türkiye", center: [35.2, 39], zoom: 5 }, { id: "ir", label: "Iran", center: [53.7, 32.3], zoom: 4.6 },
+    { id: "iq", label: "Iraq", center: [43.7, 33], zoom: 5.4 }, { id: "lb", label: "Lebanon", center: [35.85, 33.9], zoom: 7.5 },
+    { id: "sy", label: "Syria", center: [38.5, 35], zoom: 6 }, { id: "ps", label: "Palestine", center: [35.2, 31.9], zoom: 8 },
+    { id: "jo", label: "Jordan", center: [36.3, 31.2], zoom: 6.5 }, { id: "il", label: "Israel", center: [34.9, 31.5], zoom: 7 },
+    { id: "sa", label: "Saudi Arabia", center: [45, 24], zoom: 4.5 }, { id: "ae", label: "United Arab Emirates", center: [54.3, 24.3], zoom: 6.5 },
+    { id: "qa", label: "Qatar", center: [51.2, 25.3], zoom: 8 }, { id: "kw", label: "Kuwait", center: [47.5, 29.3], zoom: 7 },
+    { id: "om", label: "Oman", center: [56.1, 20.6], zoom: 5.5 }, { id: "ye", label: "Yemen", center: [47.5, 15.8], zoom: 5.4 },
+    { id: "ge", label: "Georgia", center: [43.4, 42.1], zoom: 6.5 }, { id: "am", label: "Armenia", center: [45, 40.2], zoom: 7 },
+    { id: "az", label: "Azerbaijan", center: [47.6, 40.3], zoom: 6.5 },
+  ]],
+];
 const TYPES = [
   ["dish", "Dish worth ordering"], ["drink", "Drink worth trying"], ["restaurant_find", "Hidden food spot"],
   ["market", "Food market"], ["cafe", "Cafe find"], ["dessert", "Sweet find"], ["deal", "Budget find"], ["other", "Food moment"],
@@ -57,6 +98,7 @@ const VIBES = ["study-friendly", "quick-grab", "group-friendly", "quiet", "livel
 const DRAFT_KEY = "uq-food-shout-draft-v1";
 const RECENT_LOCATIONS_KEY = "uq-food-recent-locations-v1";
 const DISPLAY_NAME_KEY = "uq-food-display-name-v1";
+const ACTIVITY_ENABLED_KEY = "uq-food-activity-enabled-v1";
 
 export default function FoodShoutPage({ onHome }) {
   const mapContainerRef = useRef(null);
@@ -72,10 +114,16 @@ export default function FoodShoutPage({ onHome }) {
   const [selected, setSelected] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [regionOpen, setRegionOpen] = useState(false);
+  const [browseRegion, setBrowseRegion] = useState(BROWSE_REGION_GROUPS[0][1][0]);
   const [feedOpen, setFeedOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState(() => readDisplayName());
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [activityEnabled, setActivityEnabled] = useState(() => readActivityEnabled());
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activity, setActivity] = useState({ unreadCount: 0, notifications: [] });
   const [query, setQuery] = useState("");
   const [submittedQuery, setSubmittedQuery] = useState("");
   const [cuisine, setCuisine] = useState("All");
@@ -86,6 +134,26 @@ export default function FoodShoutPage({ onHome }) {
   const [toast, setToast] = useState(null);
 
   selectedRef.current = selected;
+
+  const loadActivity = useCallback(async (signal) => {
+    try {
+      const payload = await listFoodActivity(signal);
+      const next = { unreadCount: payload.unreadCount || 0, notifications: payload.notifications || [] };
+      setActivity(next);
+      return next;
+    } catch (error) {
+      if (error.name !== "AbortError") setToast({ text: "Activity is unavailable right now." });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!activityEnabled) return undefined;
+    const controller = new AbortController();
+    setActivityLoading(true);
+    loadActivity(controller.signal).finally(() => { if (!controller.signal.aborted) setActivityLoading(false); });
+    const timer = window.setInterval(() => { if (!document.hidden) loadActivity(); }, 5 * 60_000);
+    return () => { controller.abort(); window.clearInterval(timer); };
+  }, [activityEnabled, loadActivity]);
 
   const fetchVisible = useCallback(async (nextBounds = bounds, signal) => {
     if (!nextBounds) return;
@@ -240,6 +308,45 @@ export default function FoodShoutPage({ onHome }) {
     setSubmittedQuery(query.trim());
   };
 
+  const selectBrowseRegion = (region) => {
+    setBrowseRegion(region);
+    setRegionOpen(false);
+    const map = mapRef.current;
+    if (!map) return;
+    setLoading(true);
+    map.once("moveend", () => fetchVisible(readBounds(map)));
+    map.easeTo({ center: region.center, zoom: region.zoom, duration: 650 });
+  };
+
+  const openActivity = async () => {
+    setActivityOpen(true);
+    if (!activityEnabled) return;
+    setActivityLoading(true);
+    const latest = await loadActivity();
+    setActivityLoading(false);
+    if (latest?.unreadCount) {
+      markFoodActivityRead().catch(() => {});
+      setActivity((current) => ({ ...current, unreadCount: 0, notifications: current.notifications.map((item) => ({ ...item, read: true })) }));
+    }
+  };
+
+  const toggleActivity = (enabled) => {
+    setActivityEnabled(enabled);
+    try { localStorage.setItem(ACTIVITY_ENABLED_KEY, enabled ? "1" : "0"); } catch { /* optional */ }
+    if (!enabled) { setActivityLoading(false); setActivity((current) => ({ ...current, unreadCount: 0 })); }
+  };
+
+  const openActivityItem = async (item) => {
+    if (!item.parentMessageId) return;
+    try {
+      const payload = await getFoodShout(item.parentMessageId);
+      setSelected(payload.shout);
+      setActivityOpen(false);
+    } catch {
+      setToast({ text: "That food find is no longer available." });
+    }
+  };
+
   const refreshAfterCreate = async (shout) => {
     setComposerOpen(false);
     setSelected(shout);
@@ -253,8 +360,8 @@ export default function FoodShoutPage({ onHome }) {
     <section className="food-page" aria-label="Foodie Finds map">
       <header className="food-topbar">
         <button className="food-icon-button" type="button" onClick={onHome} aria-label="Back to home"><ArrowLeft size={21} /></button>
-        <div className="food-title"><span className="food-title-mark"><Utensils size={20} /></span><div><h1>Foodie Finds</h1><p>What people actually ate</p></div></div>
-        <button className="food-avatar-button" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}>{displayInitials(profileName)}</button>
+        <button className="food-profile-summary" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}><span>{displayInitials(profileName)}</span><strong>{profileName}</strong></button>
+        <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span>{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
       </header>
 
       <div className="food-map-shell">
@@ -266,6 +373,7 @@ export default function FoodShoutPage({ onHome }) {
         </form>
 
         <div className="food-filter-row" aria-label="Food filters">
+          <button className="active" onClick={() => setRegionOpen(true)} type="button"><Globe2 size={15} /> {browseRegion.label}</button>
           <button className={cuisine !== "All" ? "active" : ""} onClick={() => setFilterOpen(true)} type="button"><SlidersHorizontal size={15} /> {cuisine === "All" ? "Cuisine" : cuisine}</button>
           <button className={budget ? "active" : ""} onClick={() => setBudget((value) => !value)} type="button"><CircleDollarSign size={15} /> Budget</button>
           <button onClick={() => setFeedOpen(true)} type="button"><Radar size={15} strokeWidth={2.2} /> Near me</button>
@@ -287,6 +395,8 @@ export default function FoodShoutPage({ onHome }) {
         {selected && <FoodDetail key={selected.id} shout={selected} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); }} />}
         {composerOpen && <FoodComposer map={mapRef.current} onClose={() => setComposerOpen(false)} onCreated={refreshAfterCreate} />}
         {filterOpen && <FilterSheet cuisine={cuisine} onCuisine={(value) => { setCuisine(value); setFilterOpen(false); }} onClose={() => setFilterOpen(false)} />}
+        {regionOpen && <RegionSheet selected={browseRegion} onSelect={selectBrowseRegion} onClose={() => setRegionOpen(false)} />}
+        {activityOpen && <ActivitySheet activity={activity} enabled={activityEnabled} loading={activityLoading} onToggle={toggleActivity} onSelect={openActivityItem} onClose={() => setActivityOpen(false)} />}
         {feedOpen && <FoodFeed shouts={shouts} mine={mine} saved={saved} onMode={(mode) => { setMine(mode === "mine"); setSaved(mode === "saved"); }} onClose={() => { setFeedOpen(false); setMine(false); setSaved(false); }} onSelect={(shout) => { setSelected(shout); setFeedOpen(false); }} />}
         {topOpen && <TopPicks shouts={shouts} onClose={() => setTopOpen(false)} onSelect={(shout) => { setSelected(shout); setTopOpen(false); }} />}
         {profileOpen && <ProfileSheet displayName={profileName} onClose={() => setProfileOpen(false)} onSaved={(name) => { setProfileName(name); setProfileOpen(false); setToast({ text: "Nickname saved" }); }} onOpenFinds={() => { setProfileOpen(false); setMine(true); setSaved(false); setFeedOpen(true); }} />}
@@ -308,6 +418,7 @@ function FoodComposer({ map, onClose, onCreated }) {
   const [form, setForm] = useState(() => readDraft());
   const [error, setError] = useState("");
   const [posting, setPosting] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [manualPicking, setManualPicking] = useState(false);
   const [displayName, setDisplayName] = useState(() => readDisplayName());
@@ -325,13 +436,14 @@ function FoodComposer({ map, onClose, onCreated }) {
     setError("");
     const available = 3 - photos.length;
     if (available <= 0 || files.length > available) return setError("Three photos is the maximum for one post.");
+    setPreparing(true);
     try {
       const prepared = [];
       for (const file of files) prepared.push(await compressFoodImage(file));
       setPhotos((current) => [...current, ...prepared]);
     }
     catch (nextError) { setError(nextError.message); }
-    finally { if (fileRef.current) fileRef.current.value = ""; }
+    finally { setPreparing(false); if (fileRef.current) fileRef.current.value = ""; }
   };
 
   const removePhoto = (index) => {
@@ -413,10 +525,10 @@ function FoodComposer({ map, onClose, onCreated }) {
         <div className="food-photo-limit-head"><strong>Photos</strong><span>{photos.length} / 3 max</span></div>
         <div className="food-photo-limit" aria-label={`${photos.length} of 3 photos selected`}><i style={{ width: `${photos.length / 3 * 100}%` }} /><b aria-hidden="true" /></div>
         {photos.length > 0 && <div className="food-photo-grid">{photos.map((photo, index) => <figure key={photo.previewUrl}><img src={photo.previewUrl} alt={`Selected food ${index + 1}`} /><button type="button" onClick={() => removePhoto(index)} aria-label={`Remove photo ${index + 1}`}><X size={16} /></button><span>{index + 1}</span></figure>)}</div>}
-        {photos.length < 3 && <button className="food-photo-picker" type="button" onClick={() => fileRef.current?.click()}>
-          <span><Camera size={28} /></span><strong>{photos.length ? "Add another photo" : "Take or choose photos"}</strong><small>At least 1 · maximum 3</small>
+        {photos.length < 3 && <button className="food-photo-picker" type="button" disabled={preparing} aria-busy={preparing} onClick={() => fileRef.current?.click()}>
+          <span>{preparing ? <span className="food-photo-spinner" /> : <Camera size={28} />}</span><strong>{preparing ? "Preparing your photo…" : photos.length ? "Add another photo" : "Take or choose photos"}</strong><small>{preparing ? "Keep this screen open" : "At least 1 · maximum 3"}</small>
         </button>}
-        <input ref={fileRef} hidden multiple type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={(event) => choosePhotos(event.target.files)} />
+        <input ref={fileRef} hidden multiple type="file" accept="image/*,.heic,.heif" onChange={(event) => choosePhotos(event.target.files)} />
         {photos.length > 0 && <button className="food-primary" type="button" onClick={() => setStep(2)}>Continue <ChevronRight size={18} /></button>}
       </div>}
       {step === 2 && <div className="food-location-step">
@@ -528,26 +640,59 @@ function TopPickGroup({ title, icon, items, onSelect }) {
 
 function FilterSheet({ cuisine, onCuisine, onClose }) { return <Sheet className="food-filter-sheet" onClose={onClose} label="Cuisine filter"><div className="food-sheet-head"><div><span>FILTER</span><h2>What sounds good?</h2></div><button onClick={onClose}><X /></button></div><div className="food-cuisine-grid">{CUISINES.map((item) => <button className={cuisine === item ? "active" : ""} onClick={() => onCuisine(item)} key={item}>{item === "All" ? "Everything" : item}</button>)}</div></Sheet>; }
 
+function RegionSheet({ selected, onSelect, onClose }) {
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const matchesRegion = (region) => region.label.toLowerCase().includes(normalizedQuery) || region.aliases?.some((alias) => alias.toLowerCase().includes(normalizedQuery));
+  const hasMatch = BROWSE_REGION_GROUPS.some(([group, regions]) => group.toLowerCase().includes(normalizedQuery) || regions.some(matchesRegion));
+  return <Sheet className="food-region-sheet" onClose={onClose} label="Choose a country or region">
+    <div className="food-sheet-head"><div><span>MAP REGION</span><h2>Find food around Asia</h2></div><button onClick={onClose} aria-label="Close regions"><X /></button></div>
+    <label className="food-region-search"><Search size={17} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search countries or regions" aria-label="Search countries or regions" />{query && <button type="button" onClick={() => setQuery("")} aria-label="Clear region search"><X size={15} /></button>}</label>
+    {BROWSE_REGION_GROUPS.map(([group, regions]) => {
+      const visible = regions.filter((region) => !normalizedQuery || matchesRegion(region) || group.toLowerCase().includes(normalizedQuery));
+      if (!visible.length) return null;
+      return <section className="food-cuisine-group" key={group}><h3>{group}</h3><div className="food-cuisine-grid">{visible.map((region) => <button className={selected.id === region.id ? "active" : ""} onClick={() => onSelect(region)} key={region.id}>{region.label}</button>)}</div></section>;
+    })}
+    {normalizedQuery && !hasMatch && <p className="food-region-empty">No matching region.</p>}
+  </Sheet>;
+}
+
 function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My finds</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length === 0 ? <div className="food-feed-empty"><Utensils /><strong>No food finds here yet</strong><span>Move the map or share the first one.</span></div> : <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong><em><MapPin size={12} /> {shout.placeName || shout.locationLabel}</em></span><ChevronRight /></button>)}</div>}</Sheet>; }
+
+function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose }) {
+  return <Sheet className="food-activity" onClose={onClose} label="Foodie Finds notifications">
+    <div className="food-sheet-head"><div><span>FOODIE FINDS</span><h2>Activity</h2></div><button type="button" onClick={onClose} aria-label="Close notifications"><X /></button></div>
+    <div className="food-alert-setting"><span><strong>Alerts</strong><small>In app</small></span><button type="button" role="switch" aria-label="In-app alerts" aria-checked={enabled} className={enabled ? "on" : ""} onClick={() => onToggle(!enabled)}><i /></button></div>
+    {!enabled && <div className="food-activity-empty"><Bell /><strong>Alerts off</strong></div>}
+    {enabled && loading && <div className="food-activity-empty"><span className="food-photo-spinner" /><strong>Checking activity…</strong></div>}
+    {enabled && !loading && activity.notifications.length === 0 && <div className="food-activity-empty"><Bell /><strong>No new replies</strong></div>}
+    {enabled && !loading && activity.notifications.length > 0 && <div className="food-activity-list">{activity.notifications.map((item) => <button type="button" className={item.read ? "" : "unread"} onClick={() => onSelect(item)} key={item.id}><span className="food-activity-icon">{item.type === "reaction" ? <Heart size={17} /> : <MessageCircle size={17} />}</span><span><strong>{item.type === "reaction" ? "New reaction" : "New reply"}</strong><small>{item.message || relativeTime(item.createdAt)}</small></span><ChevronRight size={17} /></button>)}</div>}
+    <p className="food-activity-note">In-app only</p>
+  </Sheet>;
+}
 
 function ProfileSheet({ displayName, onClose, onSaved, onOpenFinds }) {
   const [name, setName] = useState(displayName);
   const cleanName = name.trim().slice(0, 24);
+  const releaseFocus = () => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  };
   const save = () => {
     if (!cleanName) return;
+    releaseFocus();
     saveDisplayName(cleanName);
     onSaved(cleanName);
   };
 
   return <Sheet className="food-profile" onClose={onClose} label="Edit Foodie Finds profile">
-    <div className="food-sheet-head"><div><span>YOUR PROFILE</span><h2>Pick a fun name</h2></div><button type="button" onClick={onClose} aria-label="Close profile"><X /></button></div>
+    <div className="food-sheet-head"><div><span>YOUR PROFILE</span><h2>Pick a fun name</h2></div><button type="button" onClick={() => { releaseFocus(); onClose(); }} aria-label="Close profile"><X /></button></div>
     <div className="food-profile-card">
       <span className="food-profile-avatar" aria-hidden="true">{displayInitials(cleanName || displayName)}</span>
-      <label><span>Display name</span><div><Pencil size={16} /><input maxLength={24} value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Noodle Fox" /></div></label>
+      <label><span>Display name</span><div><Pencil size={16} /><input maxLength={24} value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); save(); } }} enterKeyHint="done" placeholder="e.g. Noodle Fox" /></div></label>
       <small>This name appears on new finds and comments. No account needed.</small>
     </div>
     <button className="food-primary" disabled={!cleanName} type="button" onClick={save}>Save nickname <Check size={18} /></button>
-    <button className="food-profile-finds" type="button" onClick={onOpenFinds}><Utensils size={18} /><span><strong>My finds</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
+    <button className="food-profile-finds" type="button" onClick={() => { releaseFocus(); onOpenFinds(); }}><Utensils size={18} /><span><strong>My finds</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
   </Sheet>;
 }
 
@@ -569,6 +714,7 @@ function rankShouts(items) { return [...items].sort((a, b) => communityScore(b) 
 function toneLabel(tone) { return tone === "loved_it" ? "Loved it" : tone === "needs_update" ? "Needs update" : "Helpful"; }
 function readDisplayName() { try { const saved = localStorage.getItem(DISPLAY_NAME_KEY); if (saved) return saved; const first = ["Noodle", "Mango", "Chilli", "Bento", "Mochi"][Math.floor(Math.random() * 5)]; const second = ["Fox", "Otter", "Koala", "Panda", "Gecko"][Math.floor(Math.random() * 5)]; const value = `${first} ${second}`; localStorage.setItem(DISPLAY_NAME_KEY, value); return value; } catch { return "Food explorer"; } }
 function saveDisplayName(value) { try { const clean = value.trim().slice(0, 24); if (clean) localStorage.setItem(DISPLAY_NAME_KEY, clean); } catch { /* optional */ } }
+function readActivityEnabled() { try { return localStorage.getItem(ACTIVITY_ENABLED_KEY) !== "0"; } catch { return true; } }
 function displayInitials(value) { const parts = String(value || "ME").trim().split(/\s+/).filter(Boolean); return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "ME"; }
 function readDraft() { try { return { title: "", caption: "", priceText: "", cuisine: "Other", shoutType: "dish", vibeTags: [], ...JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return { title: "", caption: "", priceText: "", cuisine: "Other", shoutType: "dish", vibeTags: [] }; } }
 function toggleVibe(current, vibe) { if (current.includes(vibe)) return current.filter((item) => item !== vibe); if (current.length >= 3) return current; return [...current, vibe]; }

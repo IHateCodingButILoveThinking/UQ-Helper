@@ -296,8 +296,21 @@
   --card-color: #7c3db4;
 }
 
-.campus-home-actions.compact .campus-home-card.community {
-  --card-color: #df6554;
+.campus-home-actions.compact .campus-home-card.foodie {
+  --card-color: #df8217;
+}
+
+.campus-home-actions.compact .campus-home-card.foodie .campus-home-icon {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(145deg, #ffb42a 0%, #f26442 78%);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(223, 101, 52, 0.24);
+}
+
+.campus-home-actions.compact .campus-home-card.foodie .campus-home-icon svg {
+  position: relative;
+  z-index: 1;
 }
 
 .campus-home-actions.compact .campus-home-card::after {

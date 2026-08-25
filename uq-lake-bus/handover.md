@@ -45,14 +45,21 @@ The active work is at **Stage 7: frontend publication and production QA**. Do no
 - Food and drink posts do not expire (`expires_at` stays `NULL`). Unclaimed uploads still expire for storage hygiene.
 - Added custom or stable random nicknames, plus commenter-selected `Loved it`, `Helpful`, and `Needs update` labels. This replaces unreliable hidden sentiment guessing.
 - The top-right profile badge now shows the saved nickname's initials and opens a compact profile editor. A user can change the device-local nickname or jump to My finds without creating an account; the new name applies to future posts and comments.
+- Fixed iPhone profile-field zoom by using 16 px mobile inputs and releasing keyboard focus on Save, Close, Enter, and My finds. The Foodie Finds header/back control remains sticky and readable down to a 320 px viewport.
+- Added a searchable geographic country/region browser with Australia as the default and grouped Asian destinations including Hong Kong and Taiwan. Selecting a region moves the map and refreshes that viewport; cuisine remains a separate food-style filter.
+- Applied the requested regional naming in the map picker: Mainland China, Hong Kong SAR (China), and Taiwan (China), with searchable China/HK/TW aliases.
+- Simplified the Foodie map header to Back, the saved profile name, and a notification bell. The compact Activity sheet has an animated In-app alerts switch; disabling it stops polling, while enabling it checks at most every five minutes while the page is visible. It does not request phone push permission or use a paid notification service.
+- Hardened phone photo preparation with a Safari fallback when `createImageBitmap` fails, JPEG/WebP fallback encoding, progressive downscaling for oversized images, a visible Preparing state, correct filename extensions, and a 90-second mobile upload timeout.
 - Owners can edit title, caption, nickname, price, cuisine, and category without replacing the photo or moving the exact pin. Comments can be individually reported as well as deleted by their author.
 - The Worker now verifies JPEG/PNG/WebP file signatures instead of trusting the browser-provided MIME label; a mismatched local upload is rejected with HTTP 415.
 - Each post accepts 1–3 photos. The composer has a visible red three-photo boundary and aggregate upload progress; the Worker independently rejects zero or four-plus photos.
+- The storage red line was not changed: the Worker still enforces 1.5 MB per image, three images per post, and the 8 GB application ceiling. Oversized photos are reduced in the browser to fit those existing limits.
 - R2 is protected by an 8 GB application ceiling beneath the 10 GB free allowance, 1.5 MB per-image validation, one-hour expiry for abandoned uploads, daily device/network upload budgets, and storage reservations made before an object write. Phone images are resized to a 1400 px maximum edge before upload.
 - Added a privacy-safe abuse shield. It measures write velocity for the anonymous client hash and a one-way network hash, detects same-device near-identical same-location posts within 24 hours, logs only rejection metadata, and temporarily blocks automated bursts. It does not store raw IP addresses or claim to identify a physical phone.
 - Added viewport clustering, Search this area, dish/caption search, Cuisine and Budget filters, Nearby/My Shouts/Saved sheets, Top 3 food and Top 3 drink community rankings, detail sheets, one-level replies, report/delete, Still Good, and I Tried This.
 - Category labels are now user-facing concepts such as `Dish worth ordering`, `Drink worth trying`, `Hidden food spot`, `Sweet find`, and `Budget find`. UI icons use Lucide rather than generated artwork.
 - Local D1 migrations, Worker syntax, exact-coordinate API round-trip, permanent-post response, owned-post editing without location movement, custom name/comment tone, image upload/signature rejection, reactions, freshness, tried vote, comments/replies, and the production frontend build have been tested successfully.
+- A real PNG upload returned HTTP 201 through the local Worker/R2 emulator. The temporary local object and emulator state were removed afterward; production storage was not touched.
 
 ### Deployment status
 

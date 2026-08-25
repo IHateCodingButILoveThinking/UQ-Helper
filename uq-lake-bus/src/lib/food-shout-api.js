@@ -38,6 +38,14 @@ export function listFoodComments(id, signal) {
   return request(`/api/shouts/${encodeURIComponent(id)}/comments`, { signal });
 }
 
+export function listFoodActivity(signal) {
+  return request("/api/notifications", { signal });
+}
+
+export function markFoodActivityRead() {
+  return request("/api/notifications/read", { method: "POST", body: {} });
+}
+
 export function createFoodComment(id, body, parentCommentId = null, displayName = "Food explorer", tone = "helpful") {
   return request(`/api/shouts/${encodeURIComponent(id)}/comments`, {
     method: "POST",
@@ -86,7 +94,8 @@ export function markFoodTried(id, verdict) {
 export function uploadFoodImage({ blob, width, height, postId, onProgress }) {
   return new Promise((resolve, reject) => {
     const form = new FormData();
-    form.append("image", blob, `food-${postId}.webp`);
+    const extension = blob.type === "image/png" ? "png" : blob.type === "image/webp" ? "webp" : "jpg";
+    form.append("image", blob, `food-${postId}.${extension}`);
     form.append("width", String(width));
     form.append("height", String(height));
     form.append("postId", postId);
@@ -94,16 +103,18 @@ export function uploadFoodImage({ blob, width, height, postId, onProgress }) {
     xhr.open("POST", `${SHOUTOUT_API_URL}/api/uploads`);
     xhr.setRequestHeader("Accept", "application/json");
     xhr.setRequestHeader("X-Shout-Client", getClientId());
-    xhr.timeout = 30_000;
+    xhr.timeout = 90_000;
     xhr.upload.onprogress = (event) => {
       if (event.lengthComputable) onProgress?.(Math.round((event.loaded / event.total) * 100));
     };
-    xhr.onerror = () => reject(new Error("The photo upload failed. Check your connection."));
-    xhr.ontimeout = () => reject(new Error("The photo upload took too long. Try again."));
+    xhr.onerror = () => reject(new Error("The photo could not reach the server. Check your connection and try again."));
+    xhr.ontimeout = () => reject(new Error("The photo upload took too long. Try Wi-Fi or upload one photo first."));
     xhr.onload = () => {
-      const payload = JSON.parse(xhr.responseText || "{}");
+      let payload = {};
+      try { payload = JSON.parse(xhr.responseText || "{}"); }
+      catch { payload = {}; }
       if (xhr.status < 200 || xhr.status >= 300) {
-        const error = new Error(payload.error || "The photo upload failed.");
+        const error = new Error(payload.error || `The photo upload failed (${xhr.status || "network"}).`);
         error.status = xhr.status;
         reject(error);
       } else resolve(payload);

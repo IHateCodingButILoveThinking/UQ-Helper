@@ -10,7 +10,7 @@ import {
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
-import { Bus, LampDesk, MessageCircle, Palmtree, Plane } from "lucide-react";
+import { Bus, LampDesk, Palmtree, Plane, UtensilsCrossed } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
@@ -2010,9 +2010,9 @@ function CampusHomePage({
       status: "Live",
     },
     {
-      accentClass: "community",
+      accentClass: "foodie",
       description: "Good food on the map",
-      Icon: MessageCircle,
+      Icon: UtensilsCrossed,
       label: "Foodie Finds",
       onClick: onOpenShoutOut,
       status: "Recent",
