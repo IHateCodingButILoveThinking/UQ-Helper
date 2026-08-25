@@ -4,16 +4,16 @@ Last updated: 25 August 2026
 
 ## Resume checkpoint — read this first after a crash
 
-The active work is at **Stage 7: frontend publication and production QA**. Do not recreate the R2 bucket, rerun migrations `0006`–`0008`, or redeploy an older Worker. The backend is already live. The current local branch is one commit ahead of GitHub because terminal GitHub authentication is missing.
+The active work is at **Stage 7: frontend publication and production QA**. Do not recreate the R2 bucket, rerun migrations `0006`–`0009`, or redeploy an older Worker. The backend is already live. The current local branch still needs to be pushed to GitHub/Vercel because terminal GitHub authentication is missing.
 
 | Stage | Status | Completed and verified | Still required |
 | --- | --- | --- | --- |
 | 1. Product logic | Done | Food-first map, exact chosen pin, permanent food/drink posts, 1–3 images per post, comments/replies, rankings, reactions and owner editing | The user-facing name is **Foodie Finds**. Do not reintroduce the legacy seven-day/1 km Shout Out rules |
-| 2. Database | Done and live | Remote D1 migrations `0006`, `0007`, `0008` applied to `uq-helper-shoutouts` | Only add a new numbered migration for future schema changes |
+| 2. Database | Done and live | Remote D1 migrations `0006`–`0009` applied to `uq-helper-shoutouts`, including half-star food ratings | Only add a new numbered migration for future schema changes |
 | 3. Image storage | Done and live | Private Standard R2 bucket `uq-helper-food-images`; binding `FOOD_IMAGES`; user billing limit; 8 GB application ceiling | Monitor real usage after launch |
-| 4. Worker API | Done and live | Worker `d813461a-4aa3-48c5-9249-03dc9825fa45`; health and read-only viewport smoke tests passed | Production end-to-end upload/delete test without leaving junk content |
+| 4. Worker API | Done and live | Worker `1a577822-8949-46c7-8370-bf6a789147e6`; half-star ratings, map-bounded place search, delete-time R2 cleanup, health and read-only smoke tests passed | Production end-to-end upload/delete/rating test without leaving junk content |
 | 5. Abuse protection | Done and live | Parameterised SQL, field/request limits, image signatures, storage reservation, device/network counters, duplicate detection, privacy-safe event log and temporary block list | Review thresholds after real usage; no system can permanently identify or disable a physical phone |
-| 6. Frontend implementation | Done locally | Multi-photo picker, red 3-photo boundary, aggregate upload progress, gallery, 1400 px resize, 1.5 MB limit, smaller phone photo panels; production build passed | Publish local commit to GitHub/Vercel |
+| 6. Frontend implementation | Done locally | Cleaner three-step composer, mobile-safe search focus, compact clustered food markers, 1200 px/600 KB browser image target, smaller detail photo, collapsed ratings/comments, on-demand comment editor and owner delete confirmation; production build passed | Publish local changes to GitHub/Vercel |
 | 7. GitHub/Vercel publication | Blocked | The local HEAD commit `tighten mobile food photo uploads` contains the final phone-image changes and this crash-safe handover | Push failed because the terminal has no GitHub credentials. Push `main` from GitHub Desktop or a signed-in terminal |
 | 8. Mobile visual QA | Partial | Foodie Finds map, renamed header/home card, Near me radar control, and empty 1–3 photo composer visually checked at 390 × 844; layout is compact and readable | Test 1, 2 and 3 real photos, gallery swiping/buttons, slow upload, denied location and small iPhone viewport on the deployed site |
 | 9. Social end-to-end QA | Not done | Local API coverage exists | Test post, reply, reaction, notification, report, owner edit/delete and automatic cleanup across two devices |
@@ -50,6 +50,12 @@ The active work is at **Stage 7: frontend publication and production QA**. Do no
 - Applied the requested regional naming in the map picker: Mainland China, Hong Kong SAR (China), and Taiwan (China), with searchable China/HK/TW aliases.
 - Simplified the Foodie map header to Back, the saved profile name, and a notification bell. The compact Activity sheet has an animated In-app alerts switch; disabling it stops polling, while enabling it checks at most every five minutes while the page is visible. It does not request phone push permission or use a paid notification service.
 - Hardened phone photo preparation with a Safari fallback when `createImageBitmap` fails, JPEG/WebP fallback encoding, progressive downscaling for oversized images, a visible Preparing state, correct filename extensions, and a 90-second mobile upload timeout.
+- Reduced the browser image target to a 1200 px long edge and 600 KB per image while retaining the server's 1.5 MB hard acceptance ceiling. Re-encoding strips metadata; the photo picker shows the compressed aggregate size.
+- Reworked post details to show only the food, short note, place, cuisine/time/price/tags by default. The photo is shorter on phones; ratings and comments are collapsed and comments load only after expansion.
+- Added a D1-backed 0.5–5 star rating model (`0009_food_ratings.sql`) with one editable rating per anonymous device. The comment editor appears only after Comment or Reply is tapped.
+- Made individual map markers smaller and increased clustering. Markers use reusable locally drawn circular food-type thumbnails, so the fun visual does not download every post image or consume R2 storage.
+- Place lookup is biased and bounded to the visible map area, uses a location-aware capped cache, and falls back to the exact manual pin when OpenStreetMap does not list a store. No paid Google Places API was added.
+- Owner deletion is now two-step and visible without showing owner identity. The Worker removes deleted post images from R2 and releases counted storage when object deletion succeeds.
 - Owners can edit title, caption, nickname, price, cuisine, and category without replacing the photo or moving the exact pin. Comments can be individually reported as well as deleted by their author.
 - The Worker now verifies JPEG/PNG/WebP file signatures instead of trusting the browser-provided MIME label; a mismatched local upload is rejected with HTTP 415.
 - Each post accepts 1–3 photos. The composer has a visible red three-photo boundary and aggregate upload progress; the Worker independently rejects zero or four-plus photos.
@@ -197,6 +203,19 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Verify reports, expiry cleanup, and pin cleanup against the remote D1 database.
 - Test replies and cross-device reply/reaction notifications end to end. Existing posts created before migration have no anonymous author hash, so only posts created after this release can receive notifications.
 - Web Push while the PWA is fully closed is not implemented. Current notifications appear inside Shout Out while the app is open; true phone push requires Push API subscriptions, VAPID keys, and a service-worker push handler.
+
+### Foodie Finds post-detail redesign (completed locally)
+
+- Replaced the oversized ratings/comments accordion with a compact three-action row: rating, comments, and save.
+- Rating and comments now open as separate animated panels. Tapping Comment opens and focuses a text-first composer immediately; Reply reuses the same field.
+- Comment identity is intentionally hidden in the post detail. Entries show only the selected feeling, relative time, message, and minimal reply/report controls.
+- Ratings use a visual half-star picker from 0.5 to 5 instead of a range slider.
+- One, two, or three uploaded photos use a fixed connected collage. Three photos use one large image plus two stacked images, with no horizontal scrolling.
+- Broken or missing image objects show a warm food-themed fallback instead of an empty image box.
+- The detail sheet no longer shows post-owner identity. Owner-only Edit and Delete controls remain available.
+- Raw coordinates and generic pin labels are hidden from detail/feed/ranking cards. A location is displayed only when a meaningful `placeName` was found; the exact coordinates remain internal for map placement.
+- Mobile QA was completed at the current 430 px in-app viewport for the collapsed detail, half-star rating panel, comments panel, and tap-to-open comment editor. No live rating, comment, deletion, or upload was submitted during QA.
+- `npm run build` passes. The only output is the existing Vite large-chunk warning.
 
 ### Data and product questions not fully resolved
 

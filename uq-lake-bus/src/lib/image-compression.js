@@ -1,6 +1,6 @@
-const MAX_EDGE = 1400;
+const MAX_EDGE = 1200;
 const MAX_SOURCE_BYTES = 18 * 1024 * 1024;
-const MAX_OUTPUT_BYTES = 1_500_000;
+const MAX_OUTPUT_BYTES = 600_000;
 const ACCEPTED_FILE_PATTERN = /\.(?:jpe?g|png|webp|heic|heif)$/i;
 
 export async function compressFoodImage(file) {
@@ -74,8 +74,8 @@ async function decodeImage(file) {
 }
 
 async function encodeUnderLimit(canvas) {
-  const attempts = [["image/webp", 0.72], ["image/webp", 0.56], ["image/jpeg", 0.68], ["image/jpeg", 0.5]];
-  const sizes = [1, 0.84, 0.7, 0.56];
+  const attempts = [["image/webp", 0.68], ["image/webp", 0.54], ["image/jpeg", 0.64], ["image/jpeg", 0.48]];
+  const sizes = [1, 0.86, 0.72, 0.58];
   let smallest = null;
   for (const size of sizes) {
     const working = size === 1 ? canvas : resizeCanvas(canvas, size);

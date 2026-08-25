@@ -108,6 +108,11 @@ export async function handleFoodRequest({ request, env, ctx, url, path, respond 
     return toggleFoodReaction(request, env, reactionMatch[1], reactionMatch[2], respond);
   }
 
+  const ratingMatch = path.match(/^\/api\/shouts\/([0-9a-f-]{36})\/rating$/i);
+  if (ratingMatch && request.method === "POST") {
+    return rateFoodShout(request, env, ratingMatch[1], respond);
+  }
+
   const reportMatch = path.match(/^\/api\/shouts\/([0-9a-f-]{36})\/report$/i);
   if (reportMatch && request.method === "POST") {
     return reportFoodEntity(request, env, "shout", reportMatch[1], respond);
@@ -333,7 +338,7 @@ async function createFoodShout(request, env, respond) {
     ).bind(now, item.object_key)),
   ]);
   const created = await env.DB.prepare(`${foodSelectSql()} WHERE s.id = ? LIMIT 1`)
-    .bind(clientHash, clientHash, id)
+    .bind(clientHash, clientHash, clientHash, id)
     .first();
   return respond({ shout: serializeFoodShout(created, request, clientHash) }, 201);
 }
@@ -355,7 +360,7 @@ async function listFoodShouts(request, env, url, respond) {
     "s.latitude_e6 BETWEEN ? AND ?",
     "s.longitude_e6 BETWEEN ? AND ?",
   ];
-  const bindings = [clientHash, clientHash, now, bounds.southE6, bounds.northE6, bounds.westE6, bounds.eastE6];
+  const bindings = [clientHash, clientHash, clientHash, now, bounds.southE6, bounds.northE6, bounds.westE6, bounds.eastE6];
   if (cuisine && CUISINES.has(cuisine)) {
     clauses.push("s.cuisine = ?");
     bindings.push(cuisine);
@@ -393,7 +398,7 @@ async function listFoodShouts(request, env, url, respond) {
 async function getFoodShout(request, env, id, respond) {
   const clientHash = await getClientHash(request);
   const row = await env.DB.prepare(`${foodSelectSql()} WHERE s.id = ? LIMIT 1`)
-    .bind(clientHash, clientHash, id)
+    .bind(clientHash, clientHash, clientHash, id)
     .first();
   if (!row || row.status === "deleted") throw new FoodError(404, "Food Shout not found.");
   return respond({ shout: serializeFoodShout(row, request, clientHash) });
@@ -401,13 +406,40 @@ async function getFoodShout(request, env, id, respond) {
 
 async function deleteFoodShout(request, env, id, respond) {
   const clientHash = await getClientHash(request);
+  const owned = await env.DB.prepare(
+    "SELECT id FROM food_shouts WHERE id = ? AND author_hash = ? AND status = 'active'",
+  ).bind(id, clientHash).first();
+  if (!owned) throw new FoodError(404, "Food Shout not found or not owned by this device.");
+
+  const imageRows = await env.DB.prepare(
+    `SELECT i.object_key, COALESCE(u.byte_size, 0) AS byte_size
+       FROM food_shout_images AS i
+       LEFT JOIN food_uploads AS u ON u.object_key = i.object_key
+      WHERE i.shout_id = ?`,
+  ).bind(id).all();
+  const images = imageRows.results || [];
+  const keys = images.map((image) => String(image.object_key)).filter(Boolean);
+  const releasedBytes = images.reduce((total, image) => total + Number(image.byte_size || 0), 0);
+
   const result = await env.DB.prepare(
     "UPDATE food_shouts SET status = 'deleted', updated_at = ? WHERE id = ? AND author_hash = ? AND status = 'active'",
   )
     .bind(unixNow(), id, clientHash)
     .run();
   if (!Number(result.meta?.changes)) throw new FoodError(404, "Food Shout not found or not owned by this device.");
-  return respond({ accepted: true });
+
+  if (keys.length && env.FOOD_IMAGES) {
+    try {
+      await env.FOOD_IMAGES.delete(keys);
+      const placeholders = keys.map(() => "?").join(", ");
+      await env.DB.prepare(`DELETE FROM food_uploads WHERE object_key IN (${placeholders})`).bind(...keys).run();
+      await env.DB.prepare("DELETE FROM food_shout_images WHERE shout_id = ?").bind(id).run();
+      if (releasedBytes > 0) await releaseFoodStorage(env.DB, releasedBytes, unixNow());
+    } catch {
+      // The post stays deleted. Retaining the storage count is safer than undercounting a failed object deletion.
+    }
+  }
+  return respond({ accepted: true, imagesRemoved: keys.length });
 }
 
 async function updateFoodShout(request, env, id, respond) {
@@ -434,7 +466,7 @@ async function updateFoodShout(request, env, id, respond) {
     throw new FoodError(404, "Food Shout not found or not owned by this device.");
   }
   const row = await env.DB.prepare(`${foodSelectSql()} WHERE s.id = ? LIMIT 1`)
-    .bind(clientHash, clientHash, id)
+    .bind(clientHash, clientHash, clientHash, id)
     .first();
   return respond({ shout: serializeFoodShout(row, request, clientHash) });
 }
@@ -443,6 +475,9 @@ function foodSelectSql() {
   return `SELECT s.*,
       EXISTS(SELECT 1 FROM food_reactions r WHERE r.shout_id = s.id AND r.client_hash = ? AND r.kind = 'like') AS viewer_liked,
       EXISTS(SELECT 1 FROM food_reactions r WHERE r.shout_id = s.id AND r.client_hash = ? AND r.kind = 'save') AS viewer_saved,
+      (SELECT COUNT(*) FROM food_ratings fr WHERE fr.shout_id = s.id) AS rating_count,
+      (SELECT AVG(fr.rating_x2) / 2.0 FROM food_ratings fr WHERE fr.shout_id = s.id) AS rating_average,
+      (SELECT fr.rating_x2 / 2.0 FROM food_ratings fr WHERE fr.shout_id = s.id AND fr.client_hash = ?) AS viewer_rating,
       (SELECT json_group_array(json_object(
           'objectKey', ordered.object_key,
           'width', ordered.width,
@@ -564,6 +599,32 @@ async function toggleFoodReaction(request, env, shoutId, kind, respond) {
   return respond({ active, count: Number(row?.total ?? 0) });
 }
 
+async function rateFoodShout(request, env, shoutId, respond) {
+  await requireActiveShout(env.DB, shoutId);
+  const payload = await readJson(request);
+  const rating = Number(payload.rating);
+  const ratingX2 = Math.round(rating * 2);
+  if (!Number.isFinite(rating) || rating < .5 || rating > 5 || Math.abs(ratingX2 / 2 - rating) > .001) {
+    throw new FoodError(400, "Choose a rating from 0.5 to 5 stars.");
+  }
+  const clientHash = await getClientHash(request);
+  const now = unixNow();
+  await env.DB.prepare(
+    `INSERT INTO food_ratings (shout_id, client_hash, rating_x2, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(shout_id, client_hash)
+     DO UPDATE SET rating_x2 = excluded.rating_x2, updated_at = excluded.updated_at`,
+  ).bind(shoutId, clientHash, ratingX2, now, now).run();
+  const result = await env.DB.prepare(
+    "SELECT COUNT(*) AS rating_count, AVG(rating_x2) / 2.0 AS rating_average FROM food_ratings WHERE shout_id = ?",
+  ).bind(shoutId).first();
+  return respond({
+    average: Number(Number(result?.rating_average || 0).toFixed(1)),
+    count: Number(result?.rating_count || 0),
+    viewerValue: ratingX2 / 2,
+  });
+}
+
 async function reportFoodEntity(request, env, entityType, entityId, respond) {
   const payload = await readJson(request);
   const clientHash = await getClientHash(request);
@@ -683,7 +744,16 @@ async function searchFoodPlaces(request, env, url, respond) {
   const query = normalizeSearchQuery(url.searchParams.get("q"));
   if (!query || query.length < 2) throw new FoodError(400, "Enter at least two characters and submit the search.");
   if (query.length > 80) throw new FoodError(400, "Keep the place search short.");
-  const cacheKey = `nominatim:${query.toLowerCase()}`;
+  const latitude = optionalSearchCoordinate(url.searchParams.get("lat"), -90, 90);
+  const longitude = optionalSearchCoordinate(url.searchParams.get("lon"), -180, 180);
+  const hasMapBias = latitude !== null && longitude !== null;
+  const west = optionalSearchCoordinate(url.searchParams.get("west"), -180, 180);
+  const south = optionalSearchCoordinate(url.searchParams.get("south"), -90, 90);
+  const east = optionalSearchCoordinate(url.searchParams.get("east"), -180, 180);
+  const north = optionalSearchCoordinate(url.searchParams.get("north"), -90, 90);
+  const hasViewbox = west !== null && south !== null && east !== null && north !== null && west < east && south < north;
+  const areaKey = hasMapBias ? `${latitude.toFixed(2)}:${longitude.toFixed(2)}` : "global";
+  const cacheKey = `nominatim:${areaKey}:${query.toLowerCase()}`;
   const now = unixNow();
   const cached = await env.DB.prepare(
     "SELECT response_json FROM food_place_cache WHERE cache_key = ? AND expires_at > ?",
@@ -708,6 +778,17 @@ async function searchFoodPlaces(request, env, url, respond) {
   searchUrl.searchParams.set("format", "jsonv2");
   searchUrl.searchParams.set("limit", "6");
   searchUrl.searchParams.set("addressdetails", "1");
+  searchUrl.searchParams.set("namedetails", "1");
+  searchUrl.searchParams.set("accept-language", "en");
+  if (hasViewbox) {
+    const longitudePadding = Math.max(.01, (east - west) * .35);
+    const latitudePadding = Math.max(.01, (north - south) * .35);
+    searchUrl.searchParams.set("viewbox", `${west - longitudePadding},${north + latitudePadding},${east + longitudePadding},${south - latitudePadding}`);
+    searchUrl.searchParams.set("bounded", "1");
+  } else if (hasMapBias) {
+    searchUrl.searchParams.set("viewbox", `${longitude - .15},${latitude + .12},${longitude + .15},${latitude - .12}`);
+    searchUrl.searchParams.set("bounded", "1");
+  }
   const response = await fetch(searchUrl, {
     headers: {
       Accept: "application/json",
@@ -721,7 +802,7 @@ async function searchFoodPlaces(request, env, url, respond) {
     provider: "osm",
     providerPlaceId: `${item.osm_type}:${item.osm_id}`,
     label: String(item.display_name || "").slice(0, 160),
-    name: String(item.name || item.display_name?.split(",")[0] || "Pinned place").slice(0, 100),
+    name: String(item.namedetails?.name || item.name || item.display_name?.split(",")[0] || "Pinned place").slice(0, 100),
     latitude: Number(item.lat),
     longitude: Number(item.lon),
     category: item.type || item.category || "place",
@@ -732,7 +813,19 @@ async function searchFoodPlaces(request, env, url, respond) {
      ON CONFLICT(cache_key) DO UPDATE SET response_json = excluded.response_json,
        created_at = excluded.created_at, expires_at = excluded.expires_at`,
   ).bind(cacheKey, JSON.stringify(results), now, now + 30 * 24 * 60 * 60).run();
-  return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, results });
+  await env.DB.prepare(
+    `DELETE FROM food_place_cache
+      WHERE cache_key NOT IN (
+        SELECT cache_key FROM food_place_cache ORDER BY created_at DESC LIMIT 1500
+      )`,
+  ).run();
+  return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, mapBiasApplied: hasMapBias, boundedToMap: hasViewbox, results });
+}
+
+function optionalSearchCoordinate(value, min, max) {
+  if (value === null || value === "") return null;
+  const coordinate = Number(value);
+  return Number.isFinite(coordinate) && coordinate >= min && coordinate <= max ? coordinate : null;
 }
 
 async function requireActiveShout(database, id) {
@@ -1048,6 +1141,11 @@ function serializeFoodShout(row, request, clientHash) {
     viewerLiked: Boolean(row.viewer_liked),
     viewerSaved: Boolean(row.viewer_saved),
     viewerOwned: row.author_hash === clientHash,
+    rating: {
+      average: Number(Number(row.rating_average || 0).toFixed(1)),
+      count: Number(row.rating_count || 0),
+      viewerValue: row.viewer_rating === null || row.viewer_rating === undefined ? null : Number(row.viewer_rating),
+    },
     freshness: serializeVerificationCounts(row),
     tried,
     activityTier: activityTier(row),

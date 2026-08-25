@@ -24,6 +24,7 @@ import {
   Search,
   Send,
   SlidersHorizontal,
+  Star,
   Trash2,
   Trophy,
   Utensils,
@@ -41,14 +42,13 @@ import {
   listFoodComments,
   listFoodShouts,
   markFoodActivityRead,
-  markFoodTried,
+  rateFoodShout,
   reportFoodComment,
   reportFoodShout,
   searchFoodPlaces,
   toggleFoodReaction,
   uploadFoodImage,
   updateFoodShout,
-  verifyFoodShout,
 } from "../lib/food-shout-api";
 
 const MAP_STYLE = "https://tiles.openfreemap.org/styles/liberty";
@@ -207,10 +207,16 @@ export default function FoodShoutPage({ onHome }) {
       map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-left");
       map.on("load", () => {
         if (cancelled) return;
-        map.addSource("food-shouts", { type: "geojson", data: emptyGeoJson(), cluster: true, clusterRadius: 52, clusterMaxZoom: 15 });
+        Object.entries({
+          "food-icon-default": ["🍜", "#fff7ee", "#f26442"],
+          "food-icon-drink": ["🧋", "#eef9fb", "#2c94b5"],
+          "food-icon-dessert": ["🍰", "#fff1fb", "#c466d8"],
+          "food-icon-market": ["🥕", "#f3f8eb", "#6b8e42"],
+        }).forEach(([name, values]) => map.addImage(name, makeMapFoodIcon(...values), { pixelRatio: 2 }));
+        map.addSource("food-shouts", { type: "geojson", data: emptyGeoJson(), cluster: true, clusterRadius: 62, clusterMaxZoom: 16 });
         map.addLayer({
           id: "food-clusters", type: "circle", source: "food-shouts", filter: ["has", "point_count"],
-          paint: { "circle-color": "#ff7043", "circle-radius": ["step", ["get", "point_count"], 22, 10, 27, 30, 32], "circle-stroke-width": 4, "circle-stroke-color": "#fff" },
+          paint: { "circle-color": "#ff7043", "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 30, 26], "circle-stroke-width": 3, "circle-stroke-color": "#fff" },
         });
         map.addLayer({
           id: "food-cluster-count", type: "symbol", source: "food-shouts", filter: ["has", "point_count"],
@@ -218,15 +224,24 @@ export default function FoodShoutPage({ onHome }) {
         });
         map.addLayer({
           id: "food-active-pulse", type: "circle", source: "food-shouts", filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "active"], 1]],
-          paint: { "circle-color": "#ff7043", "circle-radius": 21, "circle-opacity": .2, "circle-stroke-width": 1, "circle-stroke-color": "#fff" },
+          paint: { "circle-color": "#ff7043", "circle-radius": 14, "circle-opacity": .18, "circle-stroke-width": 1, "circle-stroke-color": "#fff" },
         });
         map.addLayer({
           id: "food-pins", type: "circle", source: "food-shouts", filter: ["!", ["has", "point_count"]],
           paint: {
             "circle-color": ["case", ["==", ["get", "selected"], 1], "#ff7043", "#fff8ef"],
-            "circle-radius": ["case", ["==", ["get", "selected"], 1], 16, 13],
-            "circle-stroke-width": 4,
+            "circle-radius": ["case", ["==", ["get", "selected"], 1], 13, 9],
+            "circle-stroke-width": ["case", ["==", ["get", "selected"], 1], 4, 3],
             "circle-stroke-color": ["match", ["get", "type"], "dessert", "#c466d8", "drink", "#2c94b5", "market", "#6b8e42", "#ff7043"],
+          },
+        });
+        map.addLayer({
+          id: "food-pin-glyphs", type: "symbol", source: "food-shouts", filter: ["!", ["has", "point_count"]],
+          layout: {
+            "icon-image": ["match", ["get", "type"], "drink", "food-icon-drink", "cafe", "food-icon-drink", "dessert", "food-icon-dessert", "market", "food-icon-market", "food-icon-default"],
+            "icon-size": ["case", ["==", ["get", "selected"], 1], 1.12, .82],
+            "icon-allow-overlap": true,
+            "icon-ignore-placement": true,
           },
         });
         map.on("click", "food-clusters", async (event) => {
@@ -248,7 +263,7 @@ export default function FoodShoutPage({ onHome }) {
           const animatePulse = (time) => {
             if (cancelled || !map.getLayer("food-active-pulse")) return;
             const phase = (Math.sin(time / 520) + 1) / 2;
-            map.setPaintProperty("food-active-pulse", "circle-radius", 18 + phase * 10);
+            map.setPaintProperty("food-active-pulse", "circle-radius", 12 + phase * 7);
             map.setPaintProperty("food-active-pulse", "circle-opacity", .28 - phase * .2);
             pulseFrame = requestAnimationFrame(animatePulse);
           };
@@ -306,6 +321,7 @@ export default function FoodShoutPage({ onHome }) {
   const submitSearch = (event) => {
     event.preventDefault();
     setSubmittedQuery(query.trim());
+    releaseMobileFocus();
   };
 
   const selectBrowseRegion = (region) => {
@@ -366,10 +382,11 @@ export default function FoodShoutPage({ onHome }) {
 
       <div className="food-map-shell">
         <div ref={mapContainerRef} className="food-map" aria-label="Interactive food discovery map" />
-        <form className="food-search" onSubmit={submitSearch}>
+        <form className={`food-search ${submittedQuery ? "active" : ""}`} onSubmit={submitSearch}>
           <Search size={18} aria-hidden="true" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search dishes, markets, cheap eats" aria-label="Search Foodie Finds" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search food finds" aria-label="Search Foodie Finds" inputMode="search" enterKeyHint="search" autoComplete="off" />
           {query && <button type="button" onClick={() => { setQuery(""); setSubmittedQuery(""); }} aria-label="Clear search"><X size={17} /></button>}
+          <button className="food-search-submit" type="submit" disabled={!query.trim()} aria-label="Run search"><Search size={16} /></button>
         </form>
 
         <div className="food-filter-row" aria-label="Food filters">
@@ -415,6 +432,7 @@ function FoodComposer({ map, onClose, onCreated }) {
   const [locationSearch, setLocationSearch] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [searchAttempted, setSearchAttempted] = useState(false);
   const [form, setForm] = useState(() => readDraft());
   const [error, setError] = useState("");
   const [posting, setPosting] = useState(false);
@@ -467,8 +485,23 @@ function FoodComposer({ map, onClose, onCreated }) {
 
   const searchLocation = async (event) => {
     event.preventDefault();
+    const cleanQuery = locationSearch.trim();
+    if (cleanQuery.length < 2) return setError("Type at least two letters of the store or address.");
+    releaseMobileFocus();
     setSearching(true); setError("");
-    try { setSearchResults((await searchFoodPlaces(locationSearch)).results || []); }
+    setSearchAttempted(true);
+    const center = map?.getCenter();
+    const visible = map?.getBounds();
+    try {
+      setSearchResults((await searchFoodPlaces(cleanQuery, {
+        latitude: center?.lat,
+        longitude: center?.lng,
+        west: visible?.getWest(),
+        south: visible?.getSouth(),
+        east: visible?.getEast(),
+        north: visible?.getNorth(),
+      })).results || []);
+    }
     catch (nextError) { setError(nextError.message); }
     finally { setSearching(false); }
   };
@@ -519,10 +552,10 @@ function FoodComposer({ map, onClose, onCreated }) {
 
   return (
     <Sheet className="food-composer" onClose={onClose} label="Create a food find">
-      <div className="food-sheet-head"><div><span>STEP {step} OF 3</span><h2>{step === 1 ? "Share a food find" : step === 2 ? "Where was it?" : "Make it useful"}</h2></div><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>
+      <div className="food-sheet-head"><div><span>STEP {step} OF 3</span><h2>{step === 1 ? "Add photos" : step === 2 ? "Choose the place" : "Share the details"}</h2></div><div className="food-sheet-actions">{step > 1 && <button type="button" onClick={() => setStep((value) => value - 1)} aria-label="Previous step"><ArrowLeft /></button>}<button type="button" onClick={() => { releaseMobileFocus(); onClose(); }} aria-label="Close"><X /></button></div></div>
       <div className="food-progress"><i style={{ width: `${step / 3 * 100}%` }} /></div>
       {step === 1 && <div className="food-photo-step">
-        <div className="food-photo-limit-head"><strong>Photos</strong><span>{photos.length} / 3 max</span></div>
+        <div className="food-photo-limit-head"><strong>Photos</strong><span>{photos.length} / 3{photos.length ? ` · ${formatBytes(photos.reduce((total, photo) => total + photo.blob.size, 0))}` : " max"}</span></div>
         <div className="food-photo-limit" aria-label={`${photos.length} of 3 photos selected`}><i style={{ width: `${photos.length / 3 * 100}%` }} /><b aria-hidden="true" /></div>
         {photos.length > 0 && <div className="food-photo-grid">{photos.map((photo, index) => <figure key={photo.previewUrl}><img src={photo.previewUrl} alt={`Selected food ${index + 1}`} /><button type="button" onClick={() => removePhoto(index)} aria-label={`Remove photo ${index + 1}`}><X size={16} /></button><span>{index + 1}</span></figure>)}</div>}
         {photos.length < 3 && <button className="food-photo-picker" type="button" disabled={preparing} aria-busy={preparing} onClick={() => fileRef.current?.click()}>
@@ -532,21 +565,30 @@ function FoodComposer({ map, onClose, onCreated }) {
         {photos.length > 0 && <button className="food-primary" type="button" onClick={() => setStep(2)}>Continue <ChevronRight size={18} /></button>}
       </div>}
       {step === 2 && <div className="food-location-step">
-        <button className="food-choice" type="button" onClick={currentLocation}><LocateFixed /><span><strong>Use where I am now</strong><small>Fastest for something you just ate</small></span><ChevronRight /></button>
-        <form className="food-place-search" onSubmit={searchLocation}><Search size={18} /><input value={locationSearch} onChange={(event) => setLocationSearch(event.target.value)} placeholder="Search a place you visited" /><button type="submit" disabled={searching}>{searching ? "…" : "Go"}</button></form>
-        {searchResults.length > 0 && <div className="food-place-results">{searchResults.map((place) => <button type="button" key={place.providerPlaceId} onClick={() => { setLocation(place); setLocationMode("search"); setStep(3); saveRecentLocation(place); }}><MapPin size={17} /><span><strong>{place.name}</strong><small>{place.label}</small></span></button>)}</div>}
-        <button className="food-choice" type="button" onClick={() => setManualPicking(true)}><Navigation /><span><strong>Place an exact map pin</strong><small>Move and zoom before you confirm</small></span><ChevronRight /></button>
+        <div className="food-place-panel">
+          <label htmlFor="food-place-query">Find the store</label>
+          <form className="food-place-search" onSubmit={searchLocation}><Search size={18} /><input id="food-place-query" value={locationSearch} onChange={(event) => { setLocationSearch(event.target.value); setSearchAttempted(false); }} placeholder="Store name or address" aria-label="Store name or address" inputMode="search" enterKeyHint="search" autoComplete="off" /><button type="submit" disabled={searching} aria-label="Search stores">{searching ? <span className="food-mini-spinner" /> : <Search size={17} />}</button></form>
+          <small>Results are prioritised around the map area.</small>
+        </div>
+        {searchResults.length > 0 && <div className="food-place-results" aria-live="polite">{searchResults.map((place) => <button type="button" key={place.providerPlaceId} onClick={() => { releaseMobileFocus(); setLocation(place); setLocationMode("search"); setStep(3); saveRecentLocation(place); }}><MapPin size={17} /><span><strong>{place.name}</strong><small>{place.label}</small></span><ChevronRight size={16} /></button>)}</div>}
+        {searchAttempted && !searching && searchResults.length === 0 && <div className="food-place-empty"><strong>Store not listed</strong><span>Drop an exact pin instead.</span></div>}
+        <div className="food-location-options">
+          <button type="button" onClick={currentLocation}><LocateFixed /><span><strong>I'm here</strong><small>Use GPS</small></span></button>
+          <button type="button" onClick={() => { releaseMobileFocus(); setManualPicking(true); }}><Navigation /><span><strong>Drop a pin</strong><small>Exact spot</small></span></button>
+        </div>
         <RecentLocations onSelect={(place) => { setLocation(place); setLocationMode("recent"); setStep(3); }} />
         <p className="food-attribution">Place search © OpenStreetMap contributors</p>
       </div>}
       {step === 3 && <div className="food-details-step">
         <div className="food-compose-summary"><img src={photos[0]?.previewUrl} alt="" /><div><strong>{location?.name || location?.label}</strong><small><MapPin size={13} /> {photos.length} photo{photos.length === 1 ? "" : "s"} · {locationMode === "current" ? "Current location" : locationMode === "manual" ? "Map pin" : "Chosen place"}</small></div><button type="button" onClick={() => setStep(2)}>Change</button></div>
-        <label>What did you find? <input maxLength={80} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Amazing beef noodles" /></label>
-        <label>Your display name <input maxLength={24} value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="e.g. Noodle Fox" /><small className="food-field-help">Use a nickname, or keep the random one.</small></label>
-        <label>Tell people about it <textarea maxLength={280} rows={3} value={form.caption} onChange={(event) => setForm({ ...form, caption: event.target.value })} placeholder="What made it worth finding?" /></label>
-        <div className="food-field-grid"><label>Price <input maxLength={40} value={form.priceText} onChange={(event) => setForm({ ...form, priceText: event.target.value })} placeholder="$12" /></label><label>Cuisine <select value={form.cuisine} onChange={(event) => setForm({ ...form, cuisine: event.target.value })}>{CUISINES.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label></div>
-        <label>Type <select value={form.shoutType} onChange={(event) => setForm({ ...form, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
-        <fieldset><legend>Good for <small>up to 3</small></legend><div className="food-vibes">{VIBES.map((vibe) => <button type="button" className={form.vibeTags.includes(vibe) ? "active" : ""} onClick={() => setForm({ ...form, vibeTags: toggleVibe(form.vibeTags, vibe) })} key={vibe}>{vibe.replaceAll("-", " ")}</button>)}</div></fieldset>
+        <label>What did you find? <input maxLength={80} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Amazing beef noodles" enterKeyHint="next" /></label>
+        <label>Quick note <textarea maxLength={280} rows={2} value={form.caption} onChange={(event) => setForm({ ...form, caption: event.target.value })} placeholder="Why is it worth trying?" /></label>
+        <details className="food-more-fields">
+          <summary><Plus size={16} /> Add price, cuisine and tags</summary>
+          <div className="food-field-grid"><label>Price <input maxLength={40} value={form.priceText} onChange={(event) => setForm({ ...form, priceText: event.target.value })} placeholder="$12" /></label><label>Cuisine <select value={form.cuisine} onChange={(event) => setForm({ ...form, cuisine: event.target.value })}>{CUISINES.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label></div>
+          <label>Type <select value={form.shoutType} onChange={(event) => setForm({ ...form, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
+          <fieldset><legend>Good for <small>up to 3</small></legend><div className="food-vibes">{VIBES.map((vibe) => <button type="button" className={form.vibeTags.includes(vibe) ? "active" : ""} onClick={() => setForm({ ...form, vibeTags: toggleVibe(form.vibeTags, vibe) })} key={vibe}>{vibe.replaceAll("-", " ")}</button>)}</div></fieldset>
+        </details>
         <button className="food-primary" disabled={posting || !form.title.trim()} type="button" onClick={publish}>{posting ? `Uploading ${progress}%` : "Share find"} <Send size={18} /></button>
         {posting && <div className="food-upload-progress" role="progressbar" aria-label="Photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div>}
       </div>}
@@ -557,7 +599,7 @@ function FoodComposer({ map, onClose, onCreated }) {
 
 function FoodDetail({ shout, onClose, onChange, onDeleted }) {
   const gallery = shout.images?.length ? shout.images : [{ url: shout.imageUrl }];
-  const [activePhoto, setActivePhoto] = useState(0);
+  const [failedImages, setFailedImages] = useState([]);
   const [comments, setComments] = useState([]);
   const [comment, setComment] = useState("");
   const [replyTo, setReplyTo] = useState(null);
@@ -567,6 +609,12 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
   const [tone, setTone] = useState("helpful");
   const [editing, setEditing] = useState(false);
   const [editBusy, setEditBusy] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [feedbackMode, setFeedbackMode] = useState(null);
+  const [commentsLoaded, setCommentsLoaded] = useState(false);
+  const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue || 5);
+  const [ratingBusy, setRatingBusy] = useState(false);
   const [editForm, setEditForm] = useState(() => ({
     title: shout.title,
     caption: shout.caption,
@@ -576,7 +624,12 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
     shoutType: shout.shoutType,
     vibeTags: shout.vibeTags || [],
   }));
-  useEffect(() => { const controller = new AbortController(); listFoodComments(shout.id, controller.signal).then((data) => setComments(data.comments || [])).catch(() => {}); return () => controller.abort(); }, [shout.id]);
+  useEffect(() => {
+    if (feedbackMode !== "comments" || commentsLoaded) return undefined;
+    const controller = new AbortController();
+    listFoodComments(shout.id, controller.signal).then((data) => { setComments(data.comments || []); setCommentsLoaded(true); }).catch(() => {});
+    return () => controller.abort();
+  }, [commentsLoaded, feedbackMode, shout.id]);
   const react = async (kind) => {
     const activeKey = kind === "like" ? "viewerLiked" : "viewerSaved";
     const countKey = kind === "like" ? "likeCount" : "saveCount";
@@ -585,7 +638,7 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
   const submitComment = async (event) => {
     event.preventDefault(); if (!comment.trim()) return;
     setBusy(true); setError("");
-    try { const result = await createFoodComment(shout.id, comment.trim(), replyTo?.id, displayName.trim() || readDisplayName(), tone); saveDisplayName(displayName); setComments((items) => [...items, result.comment]); setComment(""); setReplyTo(null); onChange({ ...shout, commentCount: shout.commentCount + 1 }); }
+    try { const result = await createFoodComment(shout.id, comment.trim(), replyTo?.id, displayName.trim() || readDisplayName(), tone); saveDisplayName(displayName); setComments((items) => [...items, result.comment]); setComment(""); setReplyTo(null); releaseMobileFocus(); onChange({ ...shout, commentCount: shout.commentCount + 1 }); }
     catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
   };
   const roots = comments.filter((item) => !item.parentCommentId);
@@ -600,24 +653,63 @@ function FoodDetail({ shout, onClose, onChange, onDeleted }) {
     } catch (nextError) { setError(nextError.message); }
     finally { setEditBusy(false); }
   };
+  const removePost = async () => {
+    setDeleteBusy(true); setError("");
+    try { await deleteFoodShout(shout.id); onDeleted(); }
+    catch (nextError) { setError(nextError.message); setDeleteConfirm(false); }
+    finally { setDeleteBusy(false); }
+  };
+  const submitRating = async () => {
+    setRatingBusy(true); setError("");
+    try { onChange({ ...shout, rating: await rateFoodShout(shout.id, ratingValue) }); }
+    catch (nextError) { setError(nextError.message); }
+    finally { setRatingBusy(false); }
+  };
+  const openCommentComposer = (item = null) => {
+    setReplyTo(item);
+    window.requestAnimationFrame(() => document.getElementById(`comment-${shout.id}`)?.focus());
+  };
+  const toggleComments = () => {
+    if (feedbackMode === "comments") { setFeedbackMode(null); setReplyTo(null); releaseMobileFocus(); return; }
+    setFeedbackMode("comments");
+    window.setTimeout(() => document.getElementById(`comment-${shout.id}`)?.focus(), 220);
+  };
+  const readablePlace = foodPlaceLabel(shout);
   return <Sheet className="food-detail" onClose={onClose} label={shout.title}>
-    <div className="food-detail-photo"><img src={gallery[activePhoto]?.url || shout.imageUrl} alt={`${shout.title}${gallery.length > 1 ? `, photo ${activePhoto + 1}` : ""}`} /><button type="button" onClick={onClose} aria-label="Close"><X /></button><span>{typeLabel(shout.shoutType)}</span>{gallery.length > 1 && <div className="food-gallery-dots" aria-label="Choose photo">{gallery.map((image, index) => <button type="button" className={index === activePhoto ? "active" : ""} onClick={() => setActivePhoto(index)} key={image.objectKey || index} aria-label={`Show photo ${index + 1}`} />)}</div>}</div>
+    <div className={`food-detail-media food-detail-media-${Math.min(3, gallery.length)}`}>
+      {gallery.slice(0, 3).map((image, index) => <figure key={image.objectKey || index}>{failedImages.includes(index) || !(image.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <img src={image.url || shout.imageUrl} alt={`${shout.title}, photo ${index + 1}`} onError={() => setFailedImages((items) => items.includes(index) ? items : [...items, index])} />}</figure>)}
+      <button type="button" onClick={onClose} aria-label="Close"><X /></button><span>{typeLabel(shout.shoutType)}</span>
+    </div>
     <div className="food-detail-body">
-      <div className="food-detail-kicker"><span>{shout.cuisine}</span><span>·</span><span>{shout.displayName || "Food explorer"}</span><span>·</span><span><Clock3 size={13} /> {relativeTime(shout.createdAt)}</span></div>
       {editing ? <div className="food-inline-edit">
         <label>Title<input maxLength={80} value={editForm.title} onChange={(event) => setEditForm({ ...editForm, title: event.target.value })} /></label>
         <label>Caption<textarea rows={3} maxLength={280} value={editForm.caption} onChange={(event) => setEditForm({ ...editForm, caption: event.target.value })} /></label>
-        <div className="food-field-grid"><label>Name<input maxLength={24} value={editForm.displayName} onChange={(event) => setEditForm({ ...editForm, displayName: event.target.value })} /></label><label>Price<input maxLength={40} value={editForm.priceText} onChange={(event) => setEditForm({ ...editForm, priceText: event.target.value })} /></label></div>
-        <div className="food-field-grid"><label>Cuisine<select value={editForm.cuisine} onChange={(event) => setEditForm({ ...editForm, cuisine: event.target.value })}>{CUISINES.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label><label>Kind<select value={editForm.shoutType} onChange={(event) => setEditForm({ ...editForm, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label></div>
+        <div className="food-field-grid"><label>Price<input maxLength={40} value={editForm.priceText} onChange={(event) => setEditForm({ ...editForm, priceText: event.target.value })} /></label><label>Cuisine<select value={editForm.cuisine} onChange={(event) => setEditForm({ ...editForm, cuisine: event.target.value })}>{CUISINES.slice(1).map((item) => <option key={item}>{item}</option>)}</select></label></div>
+        <label>Kind<select value={editForm.shoutType} onChange={(event) => setEditForm({ ...editForm, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
         <div className="food-inline-edit-actions"><button type="button" onClick={() => setEditing(false)}>Cancel</button><button type="button" disabled={editBusy} onClick={saveEdit}>{editBusy ? "Saving…" : "Save changes"}</button></div>
       </div> : <><h2>{shout.title}</h2>{shout.caption && <p className="food-caption">{shout.caption}</p>}</>}
-      <div className="food-location-line"><MapPin size={17} /><span><strong>{shout.placeName || shout.locationLabel}</strong>{shout.placeName && <small>{shout.locationLabel}</small>}</span></div>
-      <div className="food-meta-row">{shout.priceText && <span><CircleDollarSign size={15} /> {shout.priceText}</span>}{shout.vibeTags.map((tag) => <span key={tag}>{tag.replaceAll("-", " ")}</span>)}</div>
-      <div className="food-social-row"><button className={shout.viewerLiked ? "active" : ""} onClick={() => react("like")}><Heart size={19} fill={shout.viewerLiked ? "currentColor" : "none"} /> {shout.likeCount || "Like"}</button><button className={shout.viewerSaved ? "active" : ""} onClick={() => react("save")}><Bookmark size={19} fill={shout.viewerSaved ? "currentColor" : "none"} /> {shout.viewerSaved ? "Saved" : "Save"}</button><button onClick={() => document.getElementById(`comment-${shout.id}`)?.focus()}><MessageCircle size={19} /> {shout.commentCount || "Comment"}</button></div>
-      <div className="food-proof-grid"><div><span>STILL GOOD?</span><strong>{shout.freshness.confirmed ? `${shout.freshness.confirmed} confirmed` : "Be first"}</strong><div><button onClick={async () => onChange({ ...shout, freshness: await verifyFoodShout(shout.id, "confirmed") })}><Check size={14} /> Yes</button><button onClick={async () => onChange({ ...shout, freshness: await verifyFoodShout(shout.id, "unsure") })}>Not sure</button></div></div><div><span>I TRIED THIS</span><strong>{shout.tried.total ? `${shout.tried.adjustedWouldGetAgain}% again` : "No votes yet"}</strong><button onClick={async () => onChange({ ...shout, tried: await markFoodTried(shout.id, "would_get_again") })}>Would get again</button></div></div>
-      <section className="food-comments"><h3>Comments <span>{comments.length}</span></h3>{roots.length === 0 && <p className="food-comment-empty">Ask a question or share what you tried.</p>}{roots.map((item) => <div className="food-comment" key={item.id}><span className="food-random-avatar">{avatarText(item.id)}</span><div><div><strong>{item.displayName || "Food explorer"}</strong><span className={`food-tone ${item.tone}`}>{toneLabel(item.tone)}</span><time>{relativeTime(item.createdAt)}</time></div><p>{item.body}</p><div className="food-comment-actions"><button onClick={() => setReplyTo(item)}>Reply</button><button onClick={async () => { await reportFoodComment(item.id, "inappropriate"); setError("Comment report received. Thank you."); }}><Flag size={12} /> Report</button>{item.viewerOwned && <button onClick={async () => { await deleteFoodComment(item.id); setComments((items) => items.filter((entry) => entry.id !== item.id && entry.parentCommentId !== item.id)); }}><Trash2 size={13} /> Delete</button>}</div>{comments.filter((reply) => reply.parentCommentId === item.id).map((reply) => <div className="food-reply" key={reply.id}><strong>↳ {reply.displayName || "Food explorer"} · {toneLabel(reply.tone)}</strong><span>{reply.body}</span></div>)}</div></div>)}</section>
-      <form className="food-comment-form" onSubmit={submitComment}>{replyTo && <div>Replying to “{replyTo.body.slice(0, 32)}” <button type="button" onClick={() => setReplyTo(null)}>Cancel</button></div>}<div className="food-comment-context"><input aria-label="Your display name" maxLength={24} value={displayName} onChange={(event) => setDisplayName(event.target.value)} /><select aria-label="Comment meaning" value={tone} onChange={(event) => setTone(event.target.value)}><option value="loved_it">Loved it</option><option value="helpful">Helpful</option><option value="needs_update">Needs update</option></select></div><label><input id={`comment-${shout.id}`} maxLength={160} value={comment} onChange={(event) => setComment(event.target.value)} placeholder={replyTo ? "Write a reply" : "Add a comment"} /><button disabled={busy || !comment.trim()} aria-label="Send comment"><Send size={18} /></button></label></form>
-      <div className="food-danger-row"><button onClick={async () => { await reportFoodShout(shout.id, "inappropriate"); setError("Report received. Thank you."); }}><Flag size={15} /> Report</button>{shout.viewerOwned && <><button onClick={() => setEditing(true)}><Pencil size={14} /> Edit</button><button onClick={async () => { await deleteFoodShout(shout.id); onDeleted(); }}><Trash2 size={15} /> Delete my post</button></>}</div>
+      {readablePlace && <div className="food-location-line"><MapPin size={17} /><span><strong>{readablePlace}</strong></span></div>}
+      <div className="food-meta-row"><span>{shout.cuisine}</span><span><Clock3 size={13} /> {relativeTime(shout.createdAt)}</span>{shout.priceText && <span><CircleDollarSign size={15} /> {shout.priceText}</span>}{shout.vibeTags.map((tag) => <span key={tag}>{tag.replaceAll("-", " ")}</span>)}</div>
+      <div className="food-engagement-bar" aria-label="Food feedback">
+        <button type="button" className={feedbackMode === "rating" ? "active" : ""} onClick={() => setFeedbackMode((mode) => mode === "rating" ? null : "rating")} aria-expanded={feedbackMode === "rating"}><Star size={19} fill={shout.rating?.count ? "currentColor" : "none"} /><span><strong>{shout.rating?.count ? shout.rating.average : "Rate"}</strong><small>{shout.rating?.count ? `${shout.rating.count} rating${shout.rating.count === 1 ? "" : "s"}` : "Your taste"}</small></span></button>
+        <button type="button" className={feedbackMode === "comments" ? "active" : ""} onClick={toggleComments} aria-expanded={feedbackMode === "comments"}><MessageCircle size={19} /><span><strong>{shout.commentCount || "Comment"}</strong><small>{shout.commentCount ? `${shout.commentCount} comment${shout.commentCount === 1 ? "" : "s"}` : "Say something"}</small></span></button>
+        <button type="button" className={shout.viewerSaved ? "active" : ""} onClick={() => react("save")}><Bookmark size={19} fill={shout.viewerSaved ? "currentColor" : "none"} /><span><strong>{shout.viewerSaved ? "Saved" : "Save"}</strong><small>For later</small></span></button>
+      </div>
+      <AnimatePresence mode="wait">
+        {feedbackMode === "rating" && <motion.section className="food-feedback-popover food-rating-popover" key="rating" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .18 }}>
+          <div className="food-feedback-popover-head"><span><strong>Your rating</strong><small>{shout.rating?.count ? `Community average ${shout.rating.average}` : "Be the first to rate it"}</small></span><b>{ratingValue.toFixed(1)}</b></div>
+          <RatingPicker value={ratingValue} onChange={setRatingValue} />
+          <button className="food-rating-save" type="button" disabled={ratingBusy || shout.rating?.viewerValue === ratingValue} onClick={submitRating}>{ratingBusy ? "Saving…" : shout.rating?.viewerValue ? "Update rating" : "Save rating"}</button>
+        </motion.section>}
+        {feedbackMode === "comments" && <motion.section className="food-feedback-popover food-comments-popover" key="comments" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .18 }}>
+          <div className="food-comments-head"><span><strong>Comments</strong><small>Text or a quick feeling</small></span></div>
+          <form className="food-comment-form food-comment-popover food-comment-quick" onSubmit={submitComment}>{replyTo && <div className="food-replying">Replying to “{replyTo.body.slice(0, 32)}”<button type="button" onClick={() => setReplyTo(null)} aria-label="Cancel reply"><X size={13} /></button></div>}<div className="food-feeling-choices" aria-label="Comment feeling">{[["loved_it", "😍", "Loved it"], ["helpful", "💡", "Helpful"], ["needs_update", "⚠️", "Needs update"]].map(([value, emoji, label]) => <button type="button" className={tone === value ? "active" : ""} onClick={() => setTone(value)} aria-label={label} aria-pressed={tone === value} key={value}>{emoji}</button>)}</div><label><input id={`comment-${shout.id}`} maxLength={160} value={comment} onChange={(event) => setComment(event.target.value)} placeholder={replyTo ? "Write a reply…" : "Write a comment…"} /><button disabled={busy || !comment.trim()} aria-label="Send comment"><Send size={18} /></button></label></form>
+          <section className="food-comments">{!commentsLoaded && <p className="food-comment-empty">Loading comments…</p>}{commentsLoaded && roots.length === 0 && <p className="food-comment-empty">No comments yet.</p>}{roots.map((item) => <div className="food-comment food-comment-anonymous" key={item.id}><div><div><span className={`food-tone ${item.tone}`}>{toneLabel(item.tone)}</span><time>{relativeTime(item.createdAt)}</time></div><p>{item.body}</p><div className="food-comment-actions"><button onClick={() => openCommentComposer(item)}>Reply</button><button onClick={async () => { await reportFoodComment(item.id, "inappropriate"); setError("Comment report received. Thank you."); }}><Flag size={12} /> Report</button>{item.viewerOwned && <button onClick={async () => { await deleteFoodComment(item.id); setComments((items) => items.filter((entry) => entry.id !== item.id && entry.parentCommentId !== item.id)); }}><Trash2 size={13} /> Delete</button>}</div>{comments.filter((reply) => reply.parentCommentId === item.id).map((reply) => <div className="food-reply" key={reply.id}><span><b>{toneLabel(reply.tone)}</b> · {relativeTime(reply.createdAt)}</span><span>{reply.body}</span></div>)}</div></div>)}</section>
+          <div className="food-danger-row"><button onClick={async () => { await reportFoodShout(shout.id, "inappropriate"); setError("Report received. Thank you."); }}><Flag size={15} /> Report post</button></div>
+        </motion.section>}
+      </AnimatePresence>
+      {shout.viewerOwned && <div className="food-owner-tools food-owner-tools-compact"><button type="button" onClick={() => setEditing(true)}><Pencil size={14} /> Edit</button><button type="button" className="danger" onClick={() => setDeleteConfirm(true)}><Trash2 size={14} /> Delete</button></div>}
+      {deleteConfirm && <div className="food-delete-confirm" role="alertdialog" aria-label="Delete this food find"><div><strong>Delete this find?</strong><span>It will disappear from the map.</span></div><div><button type="button" onClick={() => setDeleteConfirm(false)}>Keep it</button><button type="button" disabled={deleteBusy} onClick={removePost}>{deleteBusy ? "Deleting…" : "Delete"}</button></div></div>}
       {error && <p className="food-form-error">{error}</p>}
     </div>
   </Sheet>;
@@ -635,7 +727,7 @@ function TopPicks({ shouts, onClose, onSelect }) {
 }
 
 function TopPickGroup({ title, icon, items, onSelect }) {
-  return <section className="food-top-group"><h3>{icon}{title}</h3>{items.length === 0 ? <p>No picks in this map area yet.</p> : items.map((item, index) => <button type="button" onClick={() => onSelect(item)} key={item.id}><b>{index + 1}</b><img src={item.imageUrl} alt="" /><span><strong>{item.title}</strong><small>{item.placeName || item.locationLabel}</small><em>{communityScore(item)} community points</em></span><ChevronRight size={18} /></button>)}</section>;
+  return <section className="food-top-group"><h3>{icon}{title}</h3>{items.length === 0 ? <p>No picks in this map area yet.</p> : items.map((item, index) => <button type="button" onClick={() => onSelect(item)} key={item.id}><b>{index + 1}</b><img src={item.imageUrl} alt="" /><span><strong>{item.title}</strong>{foodPlaceLabel(item) && <small>{foodPlaceLabel(item)}</small>}<em>{communityScore(item)} community points</em></span><ChevronRight size={18} /></button>)}</section>;
 }
 
 function FilterSheet({ cuisine, onCuisine, onClose }) { return <Sheet className="food-filter-sheet" onClose={onClose} label="Cuisine filter"><div className="food-sheet-head"><div><span>FILTER</span><h2>What sounds good?</h2></div><button onClick={onClose}><X /></button></div><div className="food-cuisine-grid">{CUISINES.map((item) => <button className={cuisine === item ? "active" : ""} onClick={() => onCuisine(item)} key={item}>{item === "All" ? "Everything" : item}</button>)}</div></Sheet>; }
@@ -657,7 +749,7 @@ function RegionSheet({ selected, onSelect, onClose }) {
   </Sheet>;
 }
 
-function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My finds</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length === 0 ? <div className="food-feed-empty"><Utensils /><strong>No food finds here yet</strong><span>Move the map or share the first one.</span></div> : <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong><em><MapPin size={12} /> {shout.placeName || shout.locationLabel}</em></span><ChevronRight /></button>)}</div>}</Sheet>; }
+function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My finds</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length === 0 ? <div className="food-feed-empty"><Utensils /><strong>No food finds here yet</strong><span>Move the map or share the first one.</span></div> : <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={12} /> {foodPlaceLabel(shout)}</em>}</span><ChevronRight /></button>)}</div>}</Sheet>; }
 
 function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose }) {
   return <Sheet className="food-activity" onClose={onClose} label="Foodie Finds notifications">
@@ -702,14 +794,45 @@ function Sheet({ children, className, label, onClose }) { useEffect(() => { cons
 
 function Toast({ toast, onClose }) { useEffect(() => { const timer = setTimeout(onClose, 5200); return () => clearTimeout(timer); }, [onClose]); return <div className="food-toast" role="status"><Check size={17} /><span>{toast.text}</span>{toast.action && <button onClick={() => { toast.onAction?.(); onClose(); }}>{toast.action}</button>}<button aria-label="Dismiss" onClick={onClose}><X size={16} /></button></div>; }
 
+function StarDisplay({ value }) {
+  return <span className="food-stars" aria-label={`${Number(value || 0).toFixed(1)} out of 5 stars`}>{[0, 1, 2, 3, 4].map((index) => <span className="food-star" style={{ "--star-fill": `${Math.max(0, Math.min(1, Number(value || 0) - index)) * 100}%` }} key={index}><Star size={18} /><span><Star size={18} fill="currentColor" /></span></span>)}</span>;
+}
+
+function RatingPicker({ value, onChange }) {
+  return <div className="food-rating-picker" role="radiogroup" aria-label="Your food rating">{[1, 2, 3, 4, 5].map((star) => <span className="food-rating-choice" style={{ "--star-fill": `${Math.max(0, Math.min(1, Number(value || 0) - (star - 1))) * 100}%` }} key={star}><Star size={34} /><span><Star size={34} fill="currentColor" /></span><button type="button" role="radio" aria-label={`${star - .5} stars`} aria-checked={value === star - .5} onClick={() => onChange(star - .5)} /><button type="button" role="radio" aria-label={`${star} stars`} aria-checked={value === star} onClick={() => onChange(star)} /></span>)}</div>;
+}
+
+function releaseMobileFocus() {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+  window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+}
+
+function makeMapFoodIcon(emoji, background, border) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 48; canvas.height = 48;
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, 48, 48);
+  context.beginPath(); context.arc(24, 24, 20, 0, Math.PI * 2);
+  context.fillStyle = background; context.fill();
+  context.lineWidth = 4; context.strokeStyle = "#ffffff"; context.stroke();
+  context.beginPath(); context.arc(24, 24, 17.5, 0, Math.PI * 2);
+  context.lineWidth = 2; context.strokeStyle = border; context.stroke();
+  context.font = '22px -apple-system,BlinkMacSystemFont,"Segoe UI Emoji",sans-serif';
+  context.textAlign = "center"; context.textBaseline = "middle";
+  context.fillText(emoji, 24, 25);
+  return context.getImageData(0, 0, 48, 48);
+}
+
 function emptyGeoJson() { return { type: "FeatureCollection", features: [] }; }
 function readBounds(map) { const value = map.getBounds(); return { west: round(value.getWest()), south: round(value.getSouth()), east: round(value.getEast()), north: round(value.getNorth()) }; }
 function round(value) { return Math.round(value * 100000) / 100000; }
 function typeLabel(value) { return TYPES.find(([key]) => key === value)?.[1] || "Food find"; }
 function coordinateLabel(latitude, longitude) { return `${Math.abs(latitude).toFixed(6)}° ${latitude < 0 ? "S" : "N"}, ${Math.abs(longitude).toFixed(6)}° ${longitude < 0 ? "W" : "E"}`; }
+function foodPlaceLabel(shout) { const value = String(shout.placeName || "").trim(); if (!value || /^(current|chosen|pinned|dropped) location$/i.test(value) || /^[-+]?\d+(?:\.\d+)?(?:°|\s*,)/.test(value) || /\d+(?:\.\d+)?°\s*[NS].*\d+(?:\.\d+)?°\s*[EW]/i.test(value)) return ""; return value; }
 function relativeTime(value) { const seconds = Math.max(1, Math.round((Date.now() - new Date(value).getTime()) / 1000)); if (seconds < 60) return "just now"; if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`; if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`; return `${Math.floor(seconds / 86400)}d ago`; }
+function formatBytes(value) { return value < 1024 * 1024 ? `${Math.max(1, Math.round(value / 1024))} KB` : `${(value / 1024 / 1024).toFixed(1)} MB`; }
 function avatarText(id) { return ["◡", "ᴗ", "•", "✦"][id.charCodeAt(0) % 4]; }
-function communityScore(shout) { return Number(shout.likeCount || 0) * 2 + Number(shout.commentCount || 0) * 3 + Number(shout.tried?.total || 0) * 3 + Number(shout.freshness?.confirmed || 0); }
+function communityScore(shout) { return Number(shout.likeCount || 0) * 2 + Number(shout.commentCount || 0) * 3 + Number(shout.rating?.average || 0) * Math.min(10, Number(shout.rating?.count || 0)); }
 function rankShouts(items) { return [...items].sort((a, b) => communityScore(b) - communityScore(a) || new Date(b.createdAt) - new Date(a.createdAt)); }
 function toneLabel(tone) { return tone === "loved_it" ? "Loved it" : tone === "needs_update" ? "Needs update" : "Helpful"; }
 function readDisplayName() { try { const saved = localStorage.getItem(DISPLAY_NAME_KEY); if (saved) return saved; const first = ["Noodle", "Mango", "Chilli", "Bento", "Mochi"][Math.floor(Math.random() * 5)]; const second = ["Fox", "Otter", "Koala", "Panda", "Gecko"][Math.floor(Math.random() * 5)]; const value = `${first} ${second}`; localStorage.setItem(DISPLAY_NAME_KEY, value); return value; } catch { return "Food explorer"; } }

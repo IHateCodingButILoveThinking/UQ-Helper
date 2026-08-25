@@ -30,8 +30,16 @@ export function updateFoodShout(id, body) {
   return request(`/api/shouts/${encodeURIComponent(id)}`, { method: "PATCH", body });
 }
 
-export function searchFoodPlaces(query, signal) {
-  return request(`/api/places/search?q=${encodeURIComponent(query)}`, { signal });
+export function searchFoodPlaces(query, center = {}, signal) {
+  const params = new URLSearchParams({ q: query });
+  if (Number.isFinite(center.latitude) && Number.isFinite(center.longitude)) {
+    params.set("lat", String(center.latitude));
+    params.set("lon", String(center.longitude));
+  }
+  ["west", "south", "east", "north"].forEach((key) => {
+    if (Number.isFinite(center[key])) params.set(key, String(center[key]));
+  });
+  return request(`/api/places/search?${params}`, { signal });
 }
 
 export function listFoodComments(id, signal) {
@@ -60,6 +68,13 @@ export function deleteFoodComment(id) {
 export function toggleFoodReaction(id, kind, active) {
   return request(`/api/shouts/${encodeURIComponent(id)}/${kind}`, {
     method: active ? "DELETE" : "POST",
+  });
+}
+
+export function rateFoodShout(id, rating) {
+  return request(`/api/shouts/${encodeURIComponent(id)}/rating`, {
+    method: "POST",
+    body: { rating },
   });
 }
 
