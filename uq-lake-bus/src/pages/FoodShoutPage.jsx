@@ -27,6 +27,7 @@ import {
   Send,
   Share2,
   SlidersHorizontal,
+  Sparkles,
   Star,
   Trash2,
   Trophy,
@@ -48,6 +49,7 @@ import {
   rateFoodShout,
   reportFoodComment,
   reportFoodShout,
+  reverseFoodLocation,
   searchFoodPlaces,
   toggleFoodReaction,
   uploadFoodImage,
@@ -111,7 +113,9 @@ export default function FoodShoutPage({ onHome }) {
   const mapRef = useRef(null);
   const selectedRef = useRef(null);
   const fetchSequenceRef = useRef(0);
+  const fetchAbortRef = useRef(null);
   const fetchVisibleRef = useRef(null);
+  const areaCacheRef = useRef(new Map());
   const [initialMapView] = useState(() => readFoodMapView() || recentFoodMapView());
   const [mapReady, setMapReady] = useState(false);
   const [mapError, setMapError] = useState("");
@@ -180,11 +184,28 @@ export default function FoodShoutPage({ onHome }) {
     return () => { controller.abort(); window.clearInterval(timer); };
   }, [activityEnabled, loadActivity]);
 
-  const fetchVisible = useCallback(async (nextBounds = bounds, signal, { replace = false } = {}) => {
+  const fetchVisible = useCallback(async (nextBounds = bounds, signal, { replace = false, force = false } = {}) => {
     if (!nextBounds) return;
+    fetchAbortRef.current?.abort();
+    const requestController = new AbortController();
+    fetchAbortRef.current = requestController;
+    if (signal) {
+      if (signal.aborted) requestController.abort();
+      else signal.addEventListener("abort", () => requestController.abort(), { once: true });
+    }
     const requestId = ++fetchSequenceRef.current;
-    setLoading(true);
+    const cacheKey = foodAreaCacheKey(nextBounds, { cuisine, foodType, budget, mine, saved });
+    const cached = areaCacheRef.current.get(cacheKey);
     setLoadError("");
+    if (!force && cached && Date.now() - cached.savedAt < 2 * 60_000) {
+      setShouts((current) => replace ? uniqueFoodShouts(cached.shouts) : mergeFoodShouts(current, cached.shouts));
+      setBounds(nextBounds);
+      setPendingBounds(null);
+      setLoading(false);
+      if (fetchAbortRef.current === requestController) fetchAbortRef.current = null;
+      return;
+    }
+    setLoading(true);
     try {
       const payload = await listFoodShouts({
         bounds: nextBounds,
@@ -193,9 +214,11 @@ export default function FoodShoutPage({ onHome }) {
         budget,
         mine,
         saved,
-        signal,
+        signal: requestController.signal,
       });
       if (requestId === fetchSequenceRef.current) {
+        areaCacheRef.current.set(cacheKey, { savedAt: Date.now(), shouts: payload.shouts || [] });
+        trimFoodAreaCache(areaCacheRef.current);
         setShouts((current) => replace
           ? uniqueFoodShouts(payload.shouts || [])
           : mergeFoodShouts(current, payload.shouts || []));
@@ -205,7 +228,8 @@ export default function FoodShoutPage({ onHome }) {
     } catch (error) {
       if (error.name !== "AbortError" && requestId === fetchSequenceRef.current) setLoadError(error.message);
     } finally {
-      if (!signal?.aborted && requestId === fetchSequenceRef.current) setLoading(false);
+      if (!requestController.signal.aborted && requestId === fetchSequenceRef.current) setLoading(false);
+      if (fetchAbortRef.current === requestController) fetchAbortRef.current = null;
     }
   }, [bounds, budget, cuisine, foodType, mine, saved]);
   fetchVisibleRef.current = fetchVisible;
@@ -222,6 +246,7 @@ export default function FoodShoutPage({ onHome }) {
     let cancelled = false;
     let map;
     let pulseFrame;
+    let moveFetchTimer;
     import("maplibre-gl").then(({ default: maplibregl }) => {
       if (cancelled) return;
       map = new maplibregl.Map({
@@ -304,21 +329,23 @@ export default function FoodShoutPage({ onHome }) {
           };
           pulseFrame = requestAnimationFrame(animatePulse);
         }
-        const initial = readBounds(map);
+        const initial = expandBounds(readBounds(map), .4);
         saveFoodMapView(map, browseRegionRef.current.id);
         setBounds(initial);
-        fetchVisible(initial);
+        fetchVisibleRef.current?.(initial);
         setMapReady(true);
       });
       map.on("moveend", () => {
         if (!map.loaded()) return;
         saveFoodMapView(map, browseRegionRef.current.id);
-        const next = readBounds(map);
+        const next = expandBounds(readBounds(map), .4);
         setPendingBounds(next);
+        window.clearTimeout(moveFetchTimer);
+        moveFetchTimer = window.setTimeout(() => fetchVisibleRef.current?.(next), 320);
       });
       map.on("error", () => setMapError("The map could not finish loading. Check your connection and try again."));
     }).catch(() => setMapError("The map is unavailable in this browser."));
-    return () => { cancelled = true; if (pulseFrame) cancelAnimationFrame(pulseFrame); map?.remove(); mapRef.current = null; };
+    return () => { cancelled = true; if (pulseFrame) cancelAnimationFrame(pulseFrame); window.clearTimeout(moveFetchTimer); fetchAbortRef.current?.abort(); map?.remove(); mapRef.current = null; };
   }, []);
 
   const shoutsRef = useRef(shouts);
@@ -361,18 +388,14 @@ export default function FoodShoutPage({ onHome }) {
       ({ coords }) => {
         const map = mapRef.current;
         if (map) {
-          let fetched = false;
           let fallbackTimer;
-          const fetchLocatedArea = async () => {
-            if (fetched) return;
-            fetched = true;
+          const finishLocate = () => {
             window.clearTimeout(fallbackTimer);
-            await fetchVisibleRef.current?.(readBounds(map));
             setLocating(false);
           };
-          map.once("moveend", fetchLocatedArea);
+          map.once("moveend", finishLocate);
           map.easeTo({ center: [coords.longitude, coords.latitude], zoom: 15, duration: 500 });
-          fallbackTimer = window.setTimeout(fetchLocatedArea, 1000);
+          fallbackTimer = window.setTimeout(finishLocate, 1000);
         } else setLocating(false);
       },
       (error) => {
@@ -427,7 +450,6 @@ export default function FoodShoutPage({ onHome }) {
     const map = mapRef.current;
     if (!map) return;
     setLoading(true);
-    map.once("moveend", () => fetchVisible(readBounds(map)));
     map.easeTo({ center: region.center, zoom: region.zoom, duration: 650 });
   };
 
@@ -482,7 +504,7 @@ export default function FoodShoutPage({ onHome }) {
       window.clearTimeout(refreshTimer);
       if (!map) return;
       saveFoodMapView(map, browseRegionRef.current.id);
-      const next = readBounds(map);
+      const next = expandBounds(readBounds(map), .4);
       setBounds(next);
       window.setTimeout(() => fetchVisibleRef.current?.(next), 250);
     };
@@ -497,14 +519,15 @@ export default function FoodShoutPage({ onHome }) {
       setShouts((items) => items.filter((item) => item.id !== shout.id));
       setSelected(null);
       await deleteFoodShout(shout.id);
-      fetchVisibleRef.current?.(readBounds(mapRef.current));
+      const currentMap = mapRef.current;
+      if (currentMap) fetchVisibleRef.current?.(expandBounds(readBounds(currentMap), .4), undefined, { force: true });
     } });
   };
 
   const refreshMap = () => {
     const map = mapRef.current;
-    const next = map ? readBounds(map) : bounds;
-    if (next) fetchVisible(next);
+    const next = map ? expandBounds(readBounds(map), .4) : bounds;
+    if (next) fetchVisible(next, undefined, { force: true });
   };
 
   return (
@@ -541,7 +564,6 @@ export default function FoodShoutPage({ onHome }) {
         {googleReturnOpen && !searchedPlace && <form className="food-map-google-return" onSubmit={importGoogleMapPlace}><input value={googleReturnValue} onChange={(event) => setGoogleReturnValue(event.target.value)} placeholder="Full Maps link or -27.47, 153.02" aria-label="Return a Google Maps location" autoCapitalize="off" autoCorrect="off" /><button type="submit">Use</button><button type="button" onClick={() => setGoogleReturnOpen(false)} aria-label="Close Google location field"><X size={15} /></button></form>}
         {searchedPlace && <div className="food-searched-place"><span><strong>{searchedPlace.name || "Chosen location"}</strong><small>{searchedPlace.label}</small></span><a href={googleMapsSearchUrl(searchedPlace)} target="_blank" rel="noreferrer" aria-label="Open in Google Maps"><Navigation size={16} /></a><button type="button" onClick={() => postAtPlace(searchedPlace)}><Plus size={16} /> Post here</button></div>}
 
-        {pendingBounds && mapReady && <button className="food-area-search" type="button" onClick={() => fetchVisible(pendingBounds)}><Search size={15} /> Search this area</button>}
         <div className="food-map-actions">
           <button type="button" onClick={locate} aria-label="Find my location" className={locating ? "loading" : ""}><LocateFixed size={21} /></button>
           <button type="button" onClick={() => { setComposerLocation(null); setComposerOpen(true); }} className="food-post-fab"><Plus size={23} /> Post</button>
@@ -568,9 +590,11 @@ export default function FoodShoutPage({ onHome }) {
 
 function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose, onCreated }) {
   const fileRef = useRef(null);
+  const photoLocationRequestRef = useRef(0);
   const [step, setStep] = useState(1);
   const [photos, setPhotos] = useState([]);
   const [photoLocation, setPhotoLocation] = useState(null);
+  const [photoLocationResolving, setPhotoLocationResolving] = useState(false);
   const [location, setLocation] = useState(initialLocation);
   const [locationMode, setLocationMode] = useState(initialLocation ? "search" : "");
   const [locationSearch, setLocationSearch] = useState("");
@@ -582,7 +606,9 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
   const [error, setError] = useState("");
   const [posting, setPosting] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [preparingStatus, setPreparingStatus] = useState("");
   const [progress, setProgress] = useState(0);
+  const [uploadStage, setUploadStage] = useState("");
   const [manualPicking, setManualPicking] = useState(false);
   const [displayName, setDisplayName] = useState(() => readDisplayName());
 
@@ -603,23 +629,47 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
     try {
       const prepared = [];
       let detectedLocation = null;
-      for (const file of files) {
+      for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
+        const file = files[fileIndex];
+        setPreparingStatus(`Preparing ${fileIndex + 1} of ${files.length}`);
         const [photo, gps] = await Promise.all([compressFoodImage(file), readFoodPhotoLocation(file)]);
         prepared.push({ ...photo, gps });
         if (!detectedLocation && gps) detectedLocation = gps;
       }
       setPhotos((current) => [...current, ...prepared]);
-      if (detectedLocation) setPhotoLocation((current) => current || detectedLocation);
+      if (detectedLocation && !photoLocation) {
+        const requestId = ++photoLocationRequestRef.current;
+        const detected = { ...detectedLocation, name: "", label: "Location detected from photo" };
+        setPhotoLocation(detected);
+        setLocation(detected);
+        setLocationMode("photo");
+        setPhotoLocationResolving(true);
+        try {
+          const payload = await reverseFoodLocation(detected.latitude, detected.longitude);
+          if (requestId === photoLocationRequestRef.current && payload.place) {
+            const resolved = { ...detected, ...payload.place, latitude: detected.latitude, longitude: detected.longitude };
+            setPhotoLocation(resolved);
+            setLocation(resolved);
+          }
+        } catch { /* Photo GPS remains usable even when the place name cannot be resolved. */ }
+        finally { if (requestId === photoLocationRequestRef.current) setPhotoLocationResolving(false); }
+      }
     }
     catch (nextError) { setError(nextError.message); }
-    finally { setPreparing(false); if (fileRef.current) fileRef.current.value = ""; }
+    finally { setPreparing(false); setPreparingStatus(""); if (fileRef.current) fileRef.current.value = ""; }
   };
 
   const removePhoto = (index) => {
     URL.revokeObjectURL(photos[index].previewUrl);
     const next = photos.filter((_, photoIndex) => photoIndex !== index);
     setPhotos(next);
-    setPhotoLocation(next.find((photo) => photo.gps)?.gps || null);
+    const remainingGps = next.find((photo) => photo.gps)?.gps || null;
+    if (!remainingGps) {
+      photoLocationRequestRef.current += 1;
+      setPhotoLocation(null);
+      setPhotoLocationResolving(false);
+      if (locationMode === "photo") { setLocation(initialLocation); setLocationMode(initialLocation ? "search" : ""); }
+    }
   };
 
   const currentLocation = () => {
@@ -637,7 +687,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
   const searchLocation = async (event) => {
     event.preventDefault();
     const cleanQuery = locationSearch.trim();
-    if (cleanQuery.length < 2) return setError("Type at least two letters of the store or address.");
+    if (cleanQuery.length < 2) return;
     releaseMobileFocus();
     setSearching(true); setError("");
     setSearchAttempted(true);
@@ -670,7 +720,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
   const importSharedLocation = (event) => {
     event.preventDefault();
     const imported = parseSharedMapLocation(sharedMapValue);
-    if (!imported) return setError("Paste a full Google Maps link containing coordinates, or latitude and longitude.");
+    if (!imported) return setError("Open the place in Google Maps, tap Share → Copy link, then paste the full link here.");
     releaseMobileFocus(); setError(""); setLocation(imported); setLocationMode("google"); setStep(3); saveRecentLocation(imported);
   };
   const countryMismatch = locationCountryMismatch(location, countryCode);
@@ -682,6 +732,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
       const id = crypto.randomUUID();
       const uploads = [];
       for (let index = 0; index < photos.length; index += 1) {
+        setUploadStage(`Uploading photo ${index + 1} of ${photos.length}`);
         const upload = await uploadFoodImage({
           ...photos[index],
           postId: id,
@@ -689,6 +740,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
         });
         uploads.push(upload);
       }
+      setUploadStage("Saving your find");
       const payload = await createFoodShout({
         id, imageKeys: uploads.map((upload) => upload.objectKey), displayName: displayName.trim() || readDisplayName(), title: form.title.trim(), caption: form.caption.trim(), priceText: form.priceText.trim(),
         cuisine: form.cuisine, shoutType: form.shoutType, vibeTags: form.vibeTags,
@@ -700,7 +752,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
       saveRecentLocation(location);
       onCreated(payload.shout);
     } catch (nextError) { setError(nextError.message); }
-    finally { setPosting(false); }
+    finally { setPosting(false); setUploadStage(""); setProgress(0); }
   };
 
   if (manualPicking) return <>
@@ -713,40 +765,42 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
 
   return (
     <Sheet className="food-composer" onClose={onClose} label="Create a food find">
-      <div className="food-sheet-head"><div><span>STEP {step} OF 3</span><h2>{step === 1 ? "Add photos" : step === 2 ? "Choose the place" : "Share the details"}</h2></div><div className="food-sheet-actions">{step > 1 && <button type="button" onClick={() => setStep((value) => value - 1)} aria-label="Previous step"><ArrowLeft /></button>}<button type="button" onClick={() => { releaseMobileFocus(); onClose(); }} aria-label="Close"><X /></button></div></div>
+      <div className="food-sheet-head"><div><span>STEP {step} OF 3</span><h2>{step === 1 ? "Add photos" : step === 2 ? "Set the place" : "Share the details"}</h2></div><div className="food-sheet-actions">{step > 1 && <button type="button" onClick={() => setStep((value) => value - 1)} aria-label="Previous step"><ArrowLeft /></button>}<button type="button" onClick={() => { releaseMobileFocus(); onClose(); }} aria-label="Close"><X /></button></div></div>
       <div className="food-progress"><i style={{ width: `${step / 3 * 100}%` }} /></div>
       {step === 1 && <div className="food-photo-step">
         <div className="food-photo-limit-head"><strong>Photos</strong><span>{photos.length} / 3{photos.length ? ` · ${formatBytes(photos.reduce((total, photo) => total + photo.blob.size, 0))}` : " max"}</span></div>
         <div className="food-photo-limit" aria-label={`${photos.length} of 3 photos selected`}><i style={{ width: `${photos.length / 3 * 100}%` }} /><b aria-hidden="true" /></div>
-        {photos.length > 0 && <div className="food-photo-grid">{photos.map((photo, index) => <figure key={photo.previewUrl}><img src={photo.previewUrl} alt={`Selected food ${index + 1}`} /><button type="button" onClick={() => removePhoto(index)} aria-label={`Remove photo ${index + 1}`}><X size={16} /></button><span>{index + 1}</span></figure>)}</div>}
-        {photoLocation && !initialLocation && <div className="food-photo-location"><span><MapPin size={18} /><span><strong>Location found in photo</strong><small>{photoLocation.latitude.toFixed(6)}, {photoLocation.longitude.toFixed(6)}</small></span></span><button type="button" onClick={() => { const next = { ...photoLocation, label: coordinateLabel(photoLocation.latitude, photoLocation.longitude) }; setLocation(next); setLocationMode("photo"); setStep(3); }}>Use it</button></div>}
-        {photos.length < 3 && <button className="food-photo-picker" type="button" disabled={preparing} aria-busy={preparing} onClick={() => fileRef.current?.click()}>
-          <span>{preparing ? <span className="food-photo-spinner" /> : <Camera size={28} />}</span><strong>{preparing ? "Preparing your photo…" : photos.length ? "Add another photo" : "Take or choose photos"}</strong><small>{preparing ? "Keep this screen open" : "At least 1 · maximum 3"}</small>
+        {photos.length > 0 && <div className="food-photo-tray" aria-label="Selected photos">{photos.map((photo, index) => <figure key={photo.previewUrl}><img src={photo.previewUrl} alt={`Selected food ${index + 1}`} /><button type="button" onClick={() => removePhoto(index)} aria-label={`Remove photo ${index + 1}`}><X size={15} /></button><span>{index + 1}</span></figure>)}{photos.length < 3 && <button className="food-photo-add-tile" type="button" disabled={preparing} onClick={() => fileRef.current?.click()}>{preparing ? <span className="food-photo-spinner" /> : <Camera size={22} />}<strong>{preparing ? preparingStatus : "Add photo"}</strong></button>}</div>}
+        {photoLocation && !initialLocation && <div className="food-photo-location smart"><span><Sparkles size={18} /><span><strong>{photoLocationResolving ? "Naming this place…" : "Location detected from photo"}</strong><small>{photoLocationResolving ? "Matching the nearby address" : photoLocation.name || photoLocation.label}</small></span></span><button type="button" disabled={photoLocationResolving} onClick={() => setStep(2)}>Edit</button></div>}
+        {photos.length === 0 && <button className="food-photo-picker" type="button" disabled={preparing} aria-busy={preparing} onClick={() => fileRef.current?.click()}>
+          <span>{preparing ? <span className="food-photo-spinner" /> : <Camera size={28} />}</span><strong>{preparing ? preparingStatus || "Preparing your photo…" : "Take or choose photos"}</strong><small>{preparing ? "Compressing for a faster upload" : "Choose 1–3 at once"}</small>
         </button>}
+        <p className="food-photo-tip"><Sparkles size={14} /> Camera location on? We can tag the place automatically.</p>
         <input ref={fileRef} hidden multiple type="file" accept="image/*,.heic,.heif" onChange={(event) => choosePhotos(event.target.files)} />
-        {photos.length > 0 && <button className="food-primary" type="button" onClick={() => setStep(initialLocation ? 3 : 2)}>Continue <ChevronRight size={18} /></button>}
+        {photos.length > 0 && <button className="food-primary" type="button" disabled={photoLocationResolving} onClick={() => setStep(initialLocation || photoLocation ? 3 : 2)}>{photoLocationResolving ? "Finding the place…" : photoLocation ? "Continue with this place" : "Continue"} <ChevronRight size={18} /></button>}
       </div>}
       {step === 2 && <div className="food-location-step">
+        {location && <div className="food-current-place"><span className="food-current-place-icon">{locationMode === "photo" ? <Sparkles size={18} /> : <MapPin size={18} />}</span><span><small>CURRENT CHOICE</small><strong>{location.name || (locationMode === "photo" ? "Photo location" : locationMode === "current" ? "Current location" : locationMode === "manual" ? "Dropped pin" : "Selected place")}</strong>{location.name && <em>{location.label}</em>}</span><button type="button" onClick={() => setStep(3)}>Keep</button></div>}
         <div className="food-place-panel">
-          <label htmlFor="food-place-query">Find the store</label>
-          <form className="food-place-search" onSubmit={searchLocation}><Search size={18} /><input id="food-place-query" value={locationSearch} onChange={(event) => { setLocationSearch(event.target.value); setSearchAttempted(false); }} placeholder="Store name or address" aria-label="Store name or address" inputMode="search" enterKeyHint="search" autoComplete="off" /><button type="submit" disabled={searching} aria-label="Search stores">{searching ? <span className="food-mini-spinner" /> : <Search size={17} />}</button></form>
-          <small>Search any store or full address. Nearby matches appear first.</small>
+          <label htmlFor="food-place-query">Search store or address</label>
+          <form className="food-place-search" onSubmit={searchLocation}><Search size={18} /><input id="food-place-query" value={locationSearch} onChange={(event) => { setLocationSearch(event.target.value); setSearchAttempted(false); setError(""); }} placeholder="Restaurant, suburb or address" aria-label="Store name or address" inputMode="search" enterKeyHint="search" autoComplete="off" /><button type="submit" disabled={searching || locationSearch.trim().length < 2} aria-label="Search stores">{searching ? <span className="food-mini-spinner" /> : <Search size={17} />}</button></form>
+          <small>Optional—use GPS or drop a pin instead.</small>
         </div>
         {searchResults.length > 0 && <div className="food-place-results" aria-live="polite">{searchResults.map((place) => <button type="button" key={place.providerPlaceId} onClick={() => { releaseMobileFocus(); setLocation(place); setLocationMode("search"); setStep(3); saveRecentLocation(place); }}><MapPin size={17} /><span><strong>{placeResultName(place)}</strong><small>{placeResultLabel(place)}</small></span><ChevronRight size={16} /></button>)}</div>}
         {searchAttempted && !searching && searchResults.length === 0 && <div className="food-place-empty"><strong>Store not listed</strong><span>Try Google or drop a pin.</span></div>}
         {locationSearch.trim().length > 1 && <a className="food-composer-google" href={googleMapsSearchUrl(locationSearch)} target="_blank" rel="noreferrer"><Navigation size={15} /> Search Google Maps</a>}
-        <details className="food-google-import"><summary><Navigation size={15} /> Bring a Google location back</summary><form onSubmit={importSharedLocation}><input value={sharedMapValue} onChange={(event) => setSharedMapValue(event.target.value)} placeholder="Paste full Maps link or -27.47, 153.02" aria-label="Google Maps link or coordinates" autoCapitalize="off" autoCorrect="off" /><button type="submit">Use</button></form><small>Google cannot return it automatically. This is parsed on your phone and is not stored until you post.</small></details>
         <div className="food-location-options">
           <button type="button" onClick={currentLocation}><LocateFixed /><span><strong>I'm here</strong><small>Use GPS</small></span></button>
           <button type="button" onClick={() => { releaseMobileFocus(); setManualPicking(true); }}><Navigation /><span><strong>Drop a pin</strong><small>Exact spot</small></span></button>
         </div>
+        <details className="food-google-import"><summary><Navigation size={15} /><span>Use a Google Maps link</span><em>Optional</em></summary><div className="food-google-help"><strong>Where do I find it?</strong><span>Open the place → Share → Copy link</span></div><form onSubmit={importSharedLocation}><input value={sharedMapValue} onChange={(event) => { setSharedMapValue(event.target.value); setError(""); }} placeholder="Paste the copied link here" aria-label="Google Maps link or coordinates" autoCapitalize="off" autoCorrect="off" /><button type="submit" disabled={!sharedMapValue.trim()}>Use</button></form><small>No link? Search above, use GPS, or drop a pin.</small></details>
         <RecentLocations onSelect={(place) => { setLocation(place); setLocationMode("recent"); setStep(3); }} />
         <p className="food-attribution">Place search © OpenStreetMap contributors</p>
       </div>}
       {step === 3 && <div className="food-details-step">
         <div className="food-compose-summary"><img src={photos[0]?.previewUrl} alt="" /><div><strong>{location?.name || location?.label}</strong><small><MapPin size={13} /> {photos.length} photo{photos.length === 1 ? "" : "s"} · {locationMode === "current" ? "Current location" : locationMode === "manual" ? "Map pin" : locationMode === "google" ? "Google location" : locationMode === "photo" ? "Photo GPS" : "Chosen place"}</small></div><button type="button" onClick={() => setStep(2)}>Change</button></div>
         {countryMismatch && <div className="food-country-warning"><Globe2 size={17} /><span><strong>This place is outside {regionShortCode(regionById(countryCode))}</strong><small>Posting is allowed. Select {countryMismatch.actual.toUpperCase()} in the map header to view posts there.</small></span></div>}
-        {!location?.providerPlaceId && <label>Store name <input maxLength={100} value={location?.name || ""} onChange={(event) => setLocation((current) => ({ ...current, name: event.target.value }))} placeholder="Optional — add a new store name" enterKeyHint="next" /></label>}
+        {!location?.providerPlaceId && <label>Store name <small>Optional</small><input maxLength={100} value={location?.name || ""} onChange={(event) => setLocation((current) => ({ ...current, name: event.target.value }))} placeholder="Add the venue name" enterKeyHint="next" /></label>}
         <label>What did you find? <input maxLength={80} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Amazing beef noodles" enterKeyHint="next" /></label>
         <label>Quick note <textarea maxLength={280} rows={2} value={form.caption} onChange={(event) => setForm({ ...form, caption: event.target.value })} placeholder="Why is it worth trying?" /></label>
         <details className="food-more-fields">
@@ -755,8 +809,9 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
           <label>Type <select value={form.shoutType} onChange={(event) => setForm({ ...form, shoutType: event.target.value })}>{TYPES.map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></label>
           <fieldset><legend>Good for <small>up to 3</small></legend><div className="food-vibes">{VIBES.map((vibe) => <button type="button" className={form.vibeTags.includes(vibe) ? "active" : ""} onClick={() => setForm({ ...form, vibeTags: toggleVibe(form.vibeTags, vibe) })} key={vibe}>{vibe.replaceAll("-", " ")}</button>)}</div></fieldset>
         </details>
-        <button className="food-primary" disabled={posting || !form.title.trim()} type="button" onClick={publish}>{posting ? `Uploading ${progress}%` : "Share find"} <Send size={18} /></button>
+        {posting && <div className="food-upload-status"><span className="food-photo-spinner" /><span><strong>{uploadStage || "Preparing upload"}</strong><small>Keep this screen open</small></span><b>{progress}%</b></div>}
         {posting && <div className="food-upload-progress" role="progressbar" aria-label="Photo upload progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress}><i style={{ width: `${progress}%` }} /></div>}
+        <button className="food-primary" disabled={posting || !form.title.trim()} type="button" onClick={publish}>{posting ? "Sharing…" : "Share find"} <Send size={18} /></button>
       </div>}
       {error && <p className="food-form-error" role="alert">{error}</p>}
     </Sheet>
@@ -781,7 +836,7 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [feedbackMode, setFeedbackMode] = useState(shout.openComments ? "comments" : null);
   const [commentsLoaded, setCommentsLoaded] = useState(false);
-  const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue || 5);
+  const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue ?? null);
   const [ratingBusy, setRatingBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
   const [editLocation, setEditLocation] = useState(() => ({
@@ -942,9 +997,9 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
       </div>
       <AnimatePresence mode="wait">
         {feedbackMode === "rating" && <motion.section className="food-feedback-popover food-rating-popover" key="rating" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .18 }}>
-          <div className="food-feedback-popover-head"><span><strong>Your rating</strong><small>{shout.rating?.count ? `Community average ${shout.rating.average}` : "Be the first to rate it"}</small></span><b>{ratingValue.toFixed(1)}</b></div>
+          <div className="food-feedback-popover-head"><span><strong>{ratingValue === null ? "Choose your rating" : "Your rating"}</strong><small>{shout.rating?.count ? `Community average ${shout.rating.average}` : "Not rated yet · be the first"}</small></span><b>{ratingValue === null ? "—" : ratingValue.toFixed(1)}</b></div>
           <RatingPicker value={ratingValue} onChange={setRatingValue} />
-          <button className="food-rating-save" type="button" disabled={ratingBusy || shout.rating?.viewerValue === ratingValue} onClick={submitRating}>{ratingBusy ? "Saving…" : shout.rating?.viewerValue ? "Update rating" : "Save rating"}</button>
+          <button className="food-rating-save" type="button" disabled={ratingBusy || ratingValue === null || shout.rating?.viewerValue === ratingValue} onClick={submitRating}>{ratingBusy ? "Saving…" : ratingValue === null ? "Select a rating" : shout.rating?.viewerValue ? "Update rating" : "Save rating"}</button>
         </motion.section>}
         {feedbackMode === "comments" && <motion.section className="food-feedback-popover food-comments-popover" key="comments" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .18 }}>
           <div className="food-comments-head"><span><strong>Comments</strong><small>Text or a quick feeling</small></span></div>
@@ -1090,7 +1145,22 @@ function ProfileSheet({ displayName, onClose, onSaved, onOpenFinds }) {
 
 function RecentLocations({ onSelect }) { const places = readRecentLocations(); if (!places.length) return null; return <div className="food-recent-locations"><span>RECENT PLACES</span>{places.map((place, index) => <button type="button" key={`${place.latitude}-${place.longitude}-${index}`} onClick={() => onSelect(place)}><Clock3 size={15} /> {place.name || place.label}</button>)}</div>; }
 
-function Sheet({ children, className, label, onClose }) { useEffect(() => { const closeOnEscape = (event) => { if (event.key === "Escape") onClose?.(); }; window.addEventListener("keydown", closeOnEscape); return () => window.removeEventListener("keydown", closeOnEscape); }, [onClose]); return <motion.div className="food-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section role="dialog" aria-modal="true" aria-label={label} className={`food-sheet ${className}`} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 390, damping: 38 }}><div className="food-sheet-grabber" />{children}</motion.section></motion.div>; }
+function Sheet({ children, className, label, onClose }) {
+  useEffect(() => {
+    const closeOnEscape = (event) => { if (event.key === "Escape") onClose?.(); };
+    const previousBodyOverflow = document.body.style.overflow;
+    const previousRootOverflow = document.documentElement.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.documentElement.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("keydown", closeOnEscape);
+      document.body.style.overflow = previousBodyOverflow;
+      document.documentElement.style.overflow = previousRootOverflow;
+    };
+  }, [onClose]);
+  return <motion.div className="food-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section role="dialog" aria-modal="true" aria-label={label} className={`food-sheet ${className}`} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 390, damping: 38 }}><div className="food-sheet-grabber" />{children}</motion.section></motion.div>;
+}
 
 function Toast({ toast, onClose }) { useEffect(() => { const timer = setTimeout(onClose, 5200); return () => clearTimeout(timer); }, [onClose]); return <div className="food-toast" role="status"><Check size={17} /><span>{toast.text}</span>{toast.action && <button onClick={() => { toast.onAction?.(); onClose(); }}>{toast.action}</button>}<button aria-label="Dismiss" onClick={onClose}><X size={16} /></button></div>; }
 
@@ -1157,6 +1227,21 @@ function mergeFoodShouts(current, incoming) {
   return [...fresh, ...current.filter((item) => !freshIds.has(item.id))].slice(0, 500);
 }
 function readBounds(map) { const value = map.getBounds(); return { west: round(value.getWest()), south: round(value.getSouth()), east: round(value.getEast()), north: round(value.getNorth()) }; }
+function expandBounds(bounds, ratio = .4) {
+  const longitudePadding = Math.max(.01, (bounds.east - bounds.west) * ratio / 2);
+  const latitudePadding = Math.max(.01, (bounds.north - bounds.south) * ratio / 2);
+  return {
+    west: round(Math.max(-180, bounds.west - longitudePadding)),
+    south: round(Math.max(-90, bounds.south - latitudePadding)),
+    east: round(Math.min(180, bounds.east + longitudePadding)),
+    north: round(Math.min(90, bounds.north + latitudePadding)),
+  };
+}
+function foodAreaCacheKey(bounds, filters) {
+  const grid = (value) => (Math.round(Number(value) * 50) / 50).toFixed(2);
+  return [grid(bounds.west), grid(bounds.south), grid(bounds.east), grid(bounds.north), filters.cuisine, filters.foodType, filters.budget ? 1 : 0, filters.mine ? 1 : 0, filters.saved ? 1 : 0].join(":");
+}
+function trimFoodAreaCache(cache) { while (cache.size > 40) cache.delete(cache.keys().next().value); }
 function round(value) { return Math.round(value * 100000) / 100000; }
 function photoIconName(id) { return `food-photo-${String(id).replace(/[^a-z0-9-]/gi, "")}`; }
 function fallbackFoodIcon(type) { return type === "drink" || type === "cafe" ? "food-icon-drink" : type === "snack" ? "food-icon-snack" : type === "dessert" ? "food-icon-dessert" : type === "market" ? "food-icon-market" : "food-icon-default"; }

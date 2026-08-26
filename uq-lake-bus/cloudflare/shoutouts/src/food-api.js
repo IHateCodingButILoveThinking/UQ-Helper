@@ -77,6 +77,9 @@ export async function handleFoodRequest({ request, env, ctx, url, path, respond 
   if (request.method === "GET" && path === "/api/places/search") {
     return searchFoodPlaces(request, env, url, respond);
   }
+  if (request.method === "GET" && path === "/api/places/reverse") {
+    return reverseFoodPlace(request, env, url, respond);
+  }
 
   if (request.method === "GET" && path === "/api/shouts") {
     return listFoodShouts(request, env, url, respond);
@@ -895,6 +898,69 @@ async function searchFoodPlaces(request, env, url, respond) {
       )`,
   ).run();
   return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, mapBiasApplied: hasMapBias, boundedToMap: hasViewbox && !unbounded, results });
+}
+
+async function reverseFoodPlace(request, env, url, respond) {
+  const latitude = optionalSearchCoordinate(url.searchParams.get("lat"), -90, 90);
+  const longitude = optionalSearchCoordinate(url.searchParams.get("lon"), -180, 180);
+  if (latitude === null || longitude === null) throw new FoodError(400, "Choose a valid photo location.");
+  const cacheKey = `nominatim:reverse:v1:${latitude.toFixed(4)}:${longitude.toFixed(4)}`;
+  const now = unixNow();
+  const cached = await env.DB.prepare(
+    "SELECT response_json FROM food_place_cache WHERE cache_key = ? AND expires_at > ?",
+  ).bind(cacheKey, now).first();
+  if (cached?.response_json) {
+    return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: true, place: JSON.parse(cached.response_json) });
+  }
+
+  const lastRequest = await env.DB.prepare("SELECT last_request_at_ms FROM food_provider_limits WHERE provider = 'nominatim'").first();
+  const nowMs = Date.now();
+  if (lastRequest && nowMs - Number(lastRequest.last_request_at_ms) < 1100) {
+    throw new FoodError(429, "Place detection is busy. You can edit the location manually.");
+  }
+  await env.DB.prepare(
+    `INSERT INTO food_provider_limits (provider, last_request_at_ms) VALUES ('nominatim', ?)
+     ON CONFLICT(provider) DO UPDATE SET last_request_at_ms = excluded.last_request_at_ms`,
+  ).bind(nowMs).run();
+
+  const endpoint = String(env.GEOCODER_URL || "https://nominatim.openstreetmap.org").replace(/\/$/, "");
+  const reverseUrl = new URL(`${endpoint}/reverse`);
+  reverseUrl.searchParams.set("lat", String(latitude));
+  reverseUrl.searchParams.set("lon", String(longitude));
+  reverseUrl.searchParams.set("format", "jsonv2");
+  reverseUrl.searchParams.set("zoom", "18");
+  reverseUrl.searchParams.set("addressdetails", "1");
+  reverseUrl.searchParams.set("namedetails", "1");
+  reverseUrl.searchParams.set("accept-language", "en,zh-CN,zh");
+  const response = await fetch(reverseUrl, {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "UQ-Helper-Food-Shout/1.0 (student project; uq-helper-api)",
+      Referer: request.headers.get("origin") || "https://uq-bus-time-board-gxyx.vercel.app/",
+    },
+  });
+  if (!response.ok) throw new FoodError(502, "We found photo GPS, but could not name the place yet.");
+  const item = await response.json();
+  const details = item.namedetails || {};
+  const address = item.address || {};
+  const name = String(details["name:en"] || details.name || item.name || address.amenity || address.shop || address.tourism || "").trim();
+  const label = String(item.display_name || [address.road, address.suburb, address.city, address.state, address.country].filter(Boolean).join(", ")).trim();
+  const place = {
+    provider: "osm",
+    providerPlaceId: item.osm_type && item.osm_id ? `${item.osm_type}:${item.osm_id}` : null,
+    latitude,
+    longitude,
+    name: name.slice(0, 100),
+    label: (label || "Location detected from photo").slice(0, 120),
+    countryCode: String(address.country_code || "").toLowerCase(),
+  };
+  await env.DB.prepare(
+    `INSERT INTO food_place_cache (cache_key, response_json, created_at, expires_at)
+     VALUES (?, ?, ?, ?)
+     ON CONFLICT(cache_key) DO UPDATE SET response_json = excluded.response_json,
+       created_at = excluded.created_at, expires_at = excluded.expires_at`,
+  ).bind(cacheKey, JSON.stringify(place), now, now + 30 * 24 * 60 * 60).run();
+  return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, place });
 }
 
 function optionalSearchCoordinate(value, min, max) {

@@ -338,6 +338,43 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Deployed Cloudflare Worker version `99d68961-e393-4801-8e49-4284a034ce96`. A live no-op smoke request against a nonexistent UUID returned `{ accepted: true, updated: 0 }`; no user data was created or changed.
 - No paid Cloudflare feature or new storage was introduced. Frontend production build, Worker syntax validation, and `git diff --check` pass.
 
+### Photo-location magic and automatic map loading (completed and Worker deployed)
+
+- EXIF GPS is no longer shown as raw developer-style coordinates. A new cached OpenStreetMap reverse-geocoding endpoint converts photo GPS into a venue/address and keeps the original precise photo coordinates for the post.
+- Step 1 now shows a compact **Location detected from photo** card with a human-readable place, an **Edit** action, and a short camera-location tip. When photo GPS succeeds, Continue skips the location-search step and goes directly to Details.
+- The venue search field is explicitly optional because GPS and map-pin alternatives exist. Short/empty searches no longer show a contradictory validation error, and **Bring a Google location back** is now **Paste a Google Maps link**.
+- Mobile sheets now lock background scrolling to prevent the double-scrollbar/focus trap. Details fields use softer fills, selected vibe tags use the coral brand fill with white text, and **Share find** remains sticky near the bottom while optional fields expand.
+- Map posts still load automatically on initial map load. After movement, a 320 ms debounced fetch now runs automatically; the old required **Search this area** action was removed.
+- Map requests fetch a 40% padded viewport, reuse a two-minute/40-area in-memory cache, abort the previous network request, merge new posts without clearing existing markers, and preserve the existing MapLibre clustering. The manual refresh icon bypasses the cache to request the newest posts.
+- D1 still receives bounded north/south/east/west queries and does not send the whole database. The existing 500-pin client cap and Cloudflare storage/upload red line remain unchanged.
+- Decorative mascot, price badges on pins, and a permanent bottom carousel were intentionally not added in this pass because they would increase crowding and compete with the map's primary search/post actions.
+- Deployed Cloudflare Worker version `f326c8fd-d579-4f15-ba36-44aa3108ca3d`. Live smoke test resolved the known coordinate to **Haidilao Hot Pot, 341 Mains Road, Sunnybank**. No paid API or subscription was added; successful reverse results use the existing D1 cache for 30 days.
+- Frontend production build, Worker syntax validation, deployment, live reverse-geocoding smoke test, and `git diff --check` pass.
+
+### Honest unrated-store state (completed locally)
+
+- New food finds no longer preselect a misleading 5.0-star rating for a user who has not rated them.
+- The rating panel starts with empty stars, **Not rated yet · be the first**, and a disabled **Select a rating** action. Save becomes available only after the user deliberately chooses a 0.5–5.0 value.
+- Existing users still see their previously saved personal rating when reopening the panel, and the public average remains hidden until at least one real rating exists.
+- Frontend production build and `git diff --check` pass; this is frontend-only and needs no Worker or paid service change.
+
+### Optional Google Maps link guidance (completed locally)
+
+- The Google Maps import is now clearly labelled **Optional** so users understand that store search, GPS, and Drop a pin remain the simpler primary choices.
+- Expanding it shows one compact instruction: **Open the place → Share → Copy link**, followed by a clearly labelled paste field.
+- The Use action stays disabled until something is pasted, and an invalid value now explains exactly how to obtain the correct link instead of returning a technical coordinate-focused error.
+- The helper closes with **No link? Search above, use GPS, or drop a pin**, preventing the feature from becoming a blocker.
+- Frontend production build and `git diff --check` pass; no backend, paid API, or deployment change is required.
+
+### Compact mobile photo upload and place step (completed locally)
+
+- The first photo still uses a clear large chooser, but once a photo is selected it collapses into a fixed three-slot thumbnail tray. Users can review, remove, and add all 1–3 photos without scrolling through a tall gallery.
+- Photo preparation now reports **Preparing X of Y** and explains that images are being compressed for faster upload.
+- Step 2 is renamed **Set the place** and starts with the currently detected/selected location plus a one-tap **Keep** action. Search stays primary, GPS and Drop a pin are grouped as equal quick actions, and Google Maps import sits below them as an optional secondary method.
+- The composer header remains visible while scrolling. During publishing, a compact status card reports **Uploading photo X of Y** and **Saving your find**, with aggregate percentage and a progress bar.
+- Mobile browser QA opened the updated Step 1 at the live local server: the composer had matching `clientHeight`/`scrollHeight` (368 px) with document/body scrolling locked, confirming no initial double scroll.
+- Frontend production build and `git diff --check` pass; no backend, storage, paid API, or deployment change is required.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.

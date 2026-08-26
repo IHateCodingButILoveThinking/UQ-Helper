@@ -44,6 +44,11 @@ export function searchFoodPlaces(query, center = {}, signal) {
   return request(`/api/places/search?${params}`, { signal });
 }
 
+export function reverseFoodLocation(latitude, longitude, signal) {
+  const params = new URLSearchParams({ lat: String(latitude), lon: String(longitude) });
+  return request(`/api/places/reverse?${params}`, { signal });
+}
+
 export function listFoodComments(id, signal) {
   return request(`/api/shouts/${encodeURIComponent(id)}/comments`, { signal });
 }
