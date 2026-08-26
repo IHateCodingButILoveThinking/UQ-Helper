@@ -426,6 +426,13 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Added a compact **How to grow** hint to the profile. The three EXP rules and daily cap now open in a small dismissible dialog instead of occupying the profile card permanently.
 - No tests were run for this follow-up, per user request.
 
+### Mobile profile dialog visibility (completed in code; user will verify)
+
+- Added the missing display-name editor form. Tapping the profile name/pencil now opens a centered dialog with an auto-focused input, Cancel, and Save actions.
+- Rendered the name editor and EXP guide through a document-level React portal so iPhone Safari cannot clip them inside the animated, scrollable profile sheet.
+- Replaced the sparkle icon on **How to grow** with a clear checklist icon that reads as an EXP guide rather than an AI effect.
+- No tests were run for this follow-up, per user request.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.

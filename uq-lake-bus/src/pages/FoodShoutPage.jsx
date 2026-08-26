@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { createPortal } from "react-dom";
 import "maplibre-gl/dist/maplibre-gl.css";
 import {
   ArrowLeft,
@@ -20,6 +21,7 @@ import {
   Map as MapIcon,
   MapPin,
   MessageCircle,
+  ListChecks,
   Navigation,
   Pencil,
   Plus,
@@ -1181,11 +1183,17 @@ function ProfileSheet({ displayName, progress = emptyFoodProfileProgress(), onCl
       <div className="food-level-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress.progressPercent}><i style={{ width: `${progress.progressPercent}%` }} /></div>
       <div className="food-level-daily"><span><strong>Today</strong><small>{progress.daily.xp}/{progress.daily.cap} EXP</small></span><span><strong>{progress.daily.scoringPosts}/{progress.daily.postLimit}</strong><small>rewarded posts</small></span></div>
     </section>
-    <button className="food-exp-hint" type="button" onClick={() => setRulesOpen(true)}><Sparkles size={17} /><span><strong>How to grow</strong><small>Quick EXP rules</small></span><ChevronRight size={17} /></button>
+    <button className="food-exp-hint" type="button" onClick={() => setRulesOpen(true)}><ListChecks size={17} /><span><strong>How to grow</strong><small>Quick EXP rules</small></span><ChevronRight size={17} /></button>
     <details className="food-xp-history"><summary><span><Clock3 size={16} /> EXP history</span><small>{progress.history.length ? `${progress.history.length} recent` : "No EXP yet"}</small><ChevronRight size={16} /></summary>{progress.history.length ? <div>{progress.history.map((item) => <article key={item.id}><span><strong>{item.title}</strong><small>{relativeTime(item.createdAt)}{item.bonuses.length ? ` · ${item.bonuses.map((bonus) => bonus.label).join(" + ")}` : item.capped ? " · Daily limit reached" : ""}</small></span><b className={item.xp ? "" : "muted"}>+{item.xp}</b></article>)}</div> : <p>Share a valid food find to earn your first EXP.</p>}</details>
     <button className="food-profile-finds" type="button" onClick={() => { releaseFocus(); onOpenFinds(); }}><Utensils size={18} /><span><strong>My posts</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
-    {rulesOpen && <div className="food-exp-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setRulesOpen(false); }}><section className="food-exp-dialog" role="dialog" aria-modal="true" aria-label="How to earn EXP"><div className="food-name-dialog-head"><span><small>PROGRESS</small><strong>How to grow</strong></span><button type="button" onClick={() => setRulesOpen(false)} aria-label="Close EXP rules"><X size={17} /></button></div><p>Small, useful finds earn more when they add something new.</p><div className="food-xp-rules"><span><b>+{progress.rules.postXp}</b><small>Valid find</small></span><span><b>+{progress.rules.newAreaXp}</b><small>New area</small></span><span><b>+{progress.rules.trailXp}</b><small>3-stop trail</small></span></div><small className="food-exp-limit">First {progress.rules.dailyPostLimit} posts per day can earn EXP · daily cap {progress.rules.dailyXpCap}.</small></section></div>}
+    {editingName && <BodyPortal><div className="food-name-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) cancelEdit(); }}><form className="food-name-dialog" role="dialog" aria-modal="true" aria-label="Edit display name" onSubmit={(event) => { event.preventDefault(); save(); }}><div className="food-name-dialog-head"><span><small>YOUR PROFILE</small><strong>Edit display name</strong></span><button type="button" onClick={cancelEdit} aria-label="Close name editor"><X size={17} /></button></div><label><span>Name</span><input autoFocus value={name} maxLength={24} onChange={(event) => setName(event.target.value)} placeholder="Enter a display name" /></label><div className="food-name-dialog-actions"><button type="button" onClick={cancelEdit}>Cancel</button><button type="submit" disabled={!nameChanged}>Save</button></div></form></div></BodyPortal>}
+    {rulesOpen && <BodyPortal><div className="food-exp-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setRulesOpen(false); }}><section className="food-exp-dialog" role="dialog" aria-modal="true" aria-label="How to earn EXP"><div className="food-name-dialog-head"><span><small>PROGRESS</small><strong>How to grow</strong></span><button type="button" onClick={() => setRulesOpen(false)} aria-label="Close EXP rules"><X size={17} /></button></div><p>Small, useful finds earn more when they add something new.</p><div className="food-xp-rules"><span><b>+{progress.rules.postXp}</b><small>Valid find</small></span><span><b>+{progress.rules.newAreaXp}</b><small>New area</small></span><span><b>+{progress.rules.trailXp}</b><small>3-stop trail</small></span></div><small className="food-exp-limit">First {progress.rules.dailyPostLimit} posts per day can earn EXP · daily cap {progress.rules.dailyXpCap}.</small></section></div></BodyPortal>}
   </Sheet>;
+}
+
+function BodyPortal({ children }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(children, document.body);
 }
 
 function RecentLocations({ onSelect }) { const places = readRecentLocations(); if (!places.length) return null; return <div className="food-recent-locations"><span>RECENT PLACES</span>{places.map((place, index) => <button type="button" key={`${place.latitude}-${place.longitude}-${index}`} onClick={() => onSelect(place)}><Clock3 size={15} /> {place.name || place.label}</button>)}</div>; }
