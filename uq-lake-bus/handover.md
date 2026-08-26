@@ -375,6 +375,57 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Mobile browser QA opened the updated Step 1 at the live local server: the composer had matching `clientHeight`/`scrollHeight` (368 px) with document/body scrolling locked, confirming no initial double scroll.
 - Frontend production build and `git diff --check` pass; no backend, storage, paid API, or deployment change is required.
 
+### Foodie XP levels and compact profile (completed and Worker deployed)
+
+- Added anonymous, device-based Foodie XP derived from valid active food posts; no account, new table, or additional storage service is required.
+- XP rules: **+20** per valid find, **+10** the first time that device posts in a new roughly 1 km geohash area, and **+5** when the third distinct place is posted within a 30-minute food trail.
+- Anti-spam limits: only the first **5 posts per local day** can earn XP and daily XP is capped at **120**. Posting remains allowed after the cap, but the profile history records **Daily limit reached** and awards 0 XP.
+- Level thresholds grow progressively. Titles begin **Noodle Newbie**, **Snack Scout**, **Dish Hunter**, **Flavour Mapper**, **City Taster**, and **Food Trailblazer**.
+- The top profile/name capsule now has a compact `Lv N` badge. Opening it shows a compact editable nickname row, level card, animated progress bar, XP needed for the next level, today's XP/post limits, three rule cards, expandable recent XP history, and My finds.
+- Deleting a post removes its derived XP, preventing post-delete farming. Progress refreshes after a successful post or deletion.
+- Deployed Cloudflare Worker version `ad7b9a84-001b-4725-a17f-471054f6fcf2`. A read-only live smoke test returned the correct new-device Level 1/0 XP profile.
+- Mobile browser QA at 381 px showed the complete 517 px profile with matching client/scroll width (381 px), no horizontal overflow, and the `Lv 1` name badge visible. Frontend production build, Worker syntax checks, deployment, live API check, and `git diff --check` pass.
+
+### Lightweight map/list header and ranked EXP profile (completed locally)
+
+- Removed the oversized combined header capsule. Back, profile, country, Map/List, and notifications are now independent 40 px controls with consistent rounding and spacing.
+- The profile is a circular initials avatar with a tiny overlaid `Lv N` badge. The country control is now a standalone flag only, and refresh moved to the reachable bottom action dock beside Locate and Post.
+- Added a compact, accessible Map/List segmented control. List mode presents food-first cards from the current padded map area with photo, post type, relative time, venue, and honest rating state; it does not trigger another paid service or duplicate storage.
+- Collapsed the long category strip behind one **Filters** control. Expanding it reveals meal/drink/snack, cuisine, budget, Near me, and Rated picks in the existing horizontal strip.
+- Renamed **My finds** to **My posts** and added clear icons to Near me, My posts, and Saved.
+- Changed user-facing XP copy to **EXP** and replaced novelty titles with a staged original rank ladder: Bronze, Silver, Gold, Plat, Diamond, and Aurora, each with IV–I divisions (Aurora becomes a star tier). Existing progressively harder level thresholds and anti-spam daily limits remain intact.
+- Rank presentation is isolated in `src/lib/food-ranks.js`. Rank color now styles the avatar ring, compact gem, progress bar, and profile accents. The display name is read-only by default and opens an edit row only when tapped; save, Escape, and sheet close release mobile keyboard focus.
+- The newest current-user map pulse and the user's own list cards inherit the current rank accent. A first rating from another device now creates a compact **New rating** bell item using the existing notification table; updates to the same rating do not create repeated notifications.
+- Worker progress responses now include the rank metadata and return the rank label as the profile title. This Worker change is local and has **not** been deployed in this pass; the frontend remains backward compatible with the currently deployed progress response.
+- Mobile browser QA at 381 × 747 confirmed: no horizontal overflow (`body` and header both 381 px), Map/List switching works, 26 current-area list cards render, filters expand without widening the page, and the complete Bronze IV/EXP profile is readable. `npm run build` and `git diff --check` pass.
+- Design direction was informed by open-source segmented-control and gamification UI patterns, but no third-party runtime, asset, paid API, or copied game identity was added.
+
+### Compact search, filter sheet, and existing-post EXP reconciliation (completed locally)
+
+- Search is now a header icon that opens the existing store/address lookup only when needed. The map stays unobstructed by a permanent input, while List mode uses the same search icon without spending vertical space on a search bar.
+- Filters are now a bottom sheet instead of a horizontal expansion. Type, cuisine, budget, Near me, and Rated picks remain available, but the map only shows one compact Filters control and an active-filter count.
+- List mode now reduces its top inset when search is closed, keeping more food cards visible on a phone. Search and filter interactions were checked at 381 px with no horizontal overflow.
+- The profile progress endpoint already recalculates EXP from the full active post history on each request, so older posts are included automatically with the same base, new-area, and food-trail rules; deleting a post removes its derived EXP. No per-account migration or extra table is required.
+- Existing device-owned post cards and the latest owned pulse inherit the current rank accent. This keeps the rank identity visible without adding labels to every community post.
+- Frontend production build, Worker syntax validation, and `git diff --check` pass. No new paid service or subscription was introduced.
+
+### Filter apply flow and grid-only search (completed in code; user will verify)
+
+- Filter choices are now draft values inside the bottom sheet. Selecting Meals, Drinks, Snacks, cuisine, or Budget no longer changes the active query immediately; only **Show finds** commits all staged values and closes the sheet.
+- Removed the Find icon from the map header. The map header remains focused on navigation, profile, country, view, and notifications.
+- List/Grid view now places the existing store/address search field beside the Filters control in one compact top row. The map has no persistent search field, while list search still supports place candidates and Google Maps fallback.
+- The search submit control remains visually distinct from the map/list navigation controls and the input's leading search affordance.
+- Display-name editing now opens a dedicated centered dialog with a focused input, Cancel, Save name, Escape handling, and outside-click close. Saving and cancelling explicitly release keyboard focus to avoid the mobile viewport staying zoomed.
+- Per request, this follow-up was code-focused; the user will perform the next visual/device check.
+
+### Search deduplication and retrospective EXP clarity (completed in code; user will verify)
+
+- Removed the duplicate trailing search icon from the List/Grid search form. The single leading magnifier remains the search affordance and Enter submits the query.
+- Kept the List/Grid search field and Filters control on the same 44 px baseline/radius so the top row reads as one consistent control group.
+- The profile level card now distinguishes the two cases cleanly: newer progress responses show the total number of active posts counted, while older deployed responses show **EXP from all active posts** instead of incorrectly displaying zero. The Worker calculation already walks all active posts, including posts made before the ranking feature existed.
+- Added a compact **How to grow** hint to the profile. The three EXP rules and daily cap now open in a small dismissible dialog instead of occupying the profile card permanently.
+- No tests were run for this follow-up, per user request.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.

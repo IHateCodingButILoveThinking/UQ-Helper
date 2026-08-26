@@ -15,7 +15,9 @@ import {
   Flag,
   Globe2,
   Heart,
+  List,
   LocateFixed,
+  Map as MapIcon,
   MapPin,
   MessageCircle,
   Navigation,
@@ -36,11 +38,13 @@ import {
 } from "lucide-react";
 
 import { compressFoodImage, readFoodPhotoLocation } from "../lib/image-compression";
+import { foodRankForLevel, foodRankStyle } from "../lib/food-ranks";
 import {
   createFoodComment,
   createFoodShout,
   deleteFoodComment,
   deleteFoodShout,
+  getFoodProfileProgress,
   getFoodShout,
   listFoodActivity,
   listFoodComments,
@@ -118,6 +122,7 @@ export default function FoodShoutPage({ onHome }) {
   const areaCacheRef = useRef(new Map());
   const [initialMapView] = useState(() => readFoodMapView() || recentFoodMapView());
   const [mapReady, setMapReady] = useState(false);
+  const [viewMode, setViewMode] = useState("map");
   const [mapError, setMapError] = useState("");
   const [bounds, setBounds] = useState(null);
   const [pendingBounds, setPendingBounds] = useState(null);
@@ -126,7 +131,6 @@ export default function FoodShoutPage({ onHome }) {
   const [loadError, setLoadError] = useState("");
   const [selected, setSelected] = useState(null);
   const [composerOpen, setComposerOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
   const [regionOpen, setRegionOpen] = useState(false);
   const [browseRegion, setBrowseRegion] = useState(() => regionById(initialMapView?.regionId || "au"));
   const browseRegionRef = useRef(browseRegion);
@@ -134,6 +138,7 @@ export default function FoodShoutPage({ onHome }) {
   const [topOpen, setTopOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState(() => readDisplayName());
+  const [profileProgress, setProfileProgress] = useState(() => emptyFoodProfileProgress());
   const [activityOpen, setActivityOpen] = useState(false);
   const [activityEnabled, setActivityEnabled] = useState(() => readActivityEnabled());
   const [activityLoading, setActivityLoading] = useState(false);
@@ -147,6 +152,7 @@ export default function FoodShoutPage({ onHome }) {
   const [composerLocation, setComposerLocation] = useState(null);
   const [cuisine, setCuisine] = useState("All");
   const [foodType, setFoodType] = useState("all");
+  const [filtersExpanded, setFiltersExpanded] = useState(false);
   const [budget, setBudget] = useState(false);
   const [mine, setMine] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -183,6 +189,22 @@ export default function FoodShoutPage({ onHome }) {
     const timer = window.setInterval(() => { if (!document.hidden) loadActivity(); }, 5 * 60_000);
     return () => { controller.abort(); window.clearInterval(timer); };
   }, [activityEnabled, loadActivity]);
+
+  const loadProfileProgress = useCallback(async (signal) => {
+    try {
+      const payload = await getFoodProfileProgress(signal);
+      setProfileProgress(payload);
+      return payload;
+    } catch (error) {
+      if (error.name !== "AbortError") setProfileProgress((current) => ({ ...current, unavailable: true }));
+    }
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    loadProfileProgress(controller.signal);
+    return () => controller.abort();
+  }, [loadProfileProgress]);
 
   const fetchVisible = useCallback(async (nextBounds = bounds, signal, { replace = false, force = false } = {}) => {
     if (!nextBounds) return;
@@ -282,7 +304,7 @@ export default function FoodShoutPage({ onHome }) {
         });
         map.addLayer({
           id: "food-latest-pulse", type: "circle", source: "food-shouts", filter: ["all", ["!", ["has", "point_count"]], ["==", ["get", "latest"], 1]],
-          paint: { "circle-color": "#ff8a4c", "circle-radius": 16, "circle-opacity": .24, "circle-blur": .45, "circle-stroke-width": 2, "circle-stroke-color": "rgba(255,255,255,.85)" },
+          paint: { "circle-color": ["case", ["!=", ["get", "rankColor"], ""], ["get", "rankColor"], "#ff8a4c"], "circle-radius": 16, "circle-opacity": .24, "circle-blur": .45, "circle-stroke-width": 2, "circle-stroke-color": "rgba(255,255,255,.85)" },
         });
         map.addLayer({
           id: "food-pins", type: "circle", source: "food-shouts", filter: ["!", ["has", "point_count"]],
@@ -359,11 +381,12 @@ export default function FoodShoutPage({ onHome }) {
       const createdAt = new Date(shout.createdAt).getTime();
       return !latest || createdAt > latest.createdAt ? { id: shout.id, createdAt } : latest;
     }, null)?.id;
+    const viewerRank = foodRankForLevel(profileProgress.level);
     const setMapData = () => source.setData({
       type: "FeatureCollection", features: shouts.map((shout) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [shout.longitude, shout.latitude] },
-        properties: { id: shout.id, type: shout.shoutType, icon: map.hasImage(photoIconName(shout.id)) ? photoIconName(shout.id) : fallbackFoodIcon(shout.shoutType), selected: shout.id === selected?.id ? 1 : 0, latest: shout.id === latestShoutId ? 1 : 0 },
+        properties: { id: shout.id, type: shout.shoutType, icon: map.hasImage(photoIconName(shout.id)) ? photoIconName(shout.id) : fallbackFoodIcon(shout.shoutType), selected: shout.id === selected?.id ? 1 : 0, latest: shout.id === latestShoutId ? 1 : 0, rankColor: shout.viewerOwned ? viewerRank.color : "" },
       })),
     });
     setMapData();
@@ -373,7 +396,7 @@ export default function FoodShoutPage({ onHome }) {
       try { map.addImage(name, await makeMapPhotoIcon(shout.imageUrl), { pixelRatio: 2 }); } catch { /* keep the food-type fallback */ }
     })).then(() => { if (!cancelled && map.getSource("food-shouts")) setMapData(); });
     return () => { cancelled = true; };
-  }, [selected?.id, shouts]);
+  }, [profileProgress.level, selected?.id, shouts]);
 
   useEffect(() => {
     const source = mapRef.current?.getSource("food-place-result");
@@ -425,6 +448,7 @@ export default function FoodShoutPage({ onHome }) {
   };
 
   const selectMapPlace = (place) => {
+    setViewMode("map");
     setSearchedPlace(place);
     setPlaceResults([]);
     setQuery(place.name || place.label);
@@ -495,6 +519,7 @@ export default function FoodShoutPage({ onHome }) {
     setMine(false);
     setSaved(false);
     setShouts((items) => [shout, ...items.filter((item) => item.id !== shout.id)]);
+    loadProfileProgress();
     const map = mapRef.current;
     let synced = false;
     let refreshTimer;
@@ -529,43 +554,42 @@ export default function FoodShoutPage({ onHome }) {
     const next = map ? expandBounds(readBounds(map), .4) : bounds;
     if (next) fetchVisible(next, undefined, { force: true });
   };
+  const listShouts = useMemo(() => shouts
+    .filter((shout) => !bounds || shoutInsideBounds(shout, bounds))
+    .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt)), [bounds, shouts]);
+  const profileRank = foodRankForLevel(profileProgress.level);
+  const activeFilterCount = Number(foodType !== "all") + Number(cuisine !== "All") + Number(budget);
 
   return (
     <section className="food-page" aria-label="Foodie Finds map">
       <header className="food-topbar">
         <button className="food-icon-button" type="button" onClick={onHome} aria-label="Back to home"><ArrowLeft size={21} /></button>
-        <div className="food-topbar-context">
-          <button className="food-profile-summary" type="button" onClick={() => setProfileOpen(true)} aria-label={`Edit profile for ${profileName}`}><span>{displayInitials(profileName)}</span><strong>{profileName}</strong></button>
-          <button className={`food-topbar-refresh ${loading ? "loading" : ""}`} type="button" onClick={refreshMap} disabled={loading || !bounds} aria-label={loading ? "Refreshing food posts" : "Refresh food posts"}><RefreshCw size={15} aria-hidden="true" /></button>
-          <button className="food-country-topbar" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><span className="food-country-flag" aria-hidden="true">{regionFlag(browseRegion.id)}</span><strong>{regionShortCode(browseRegion)}</strong><ChevronDown size={13} aria-hidden="true" /></button>
-        </div>
+        <button className={`food-profile-summary compact rank-${profileRank.key}`} style={foodRankStyle(profileRank)} type="button" onClick={() => setProfileOpen(true)} aria-label={`Open profile for ${profileName}, ${profileRank.label}, level ${profileProgress.level}`}><span>{displayInitials(profileName)}<em>Lv {profileProgress.level}</em></span></button>
+        <span className="food-topbar-spacer" />
+        <button className="food-country-topbar flag-only" onClick={() => setRegionOpen(true)} type="button" aria-label={`Change map country, currently ${browseRegion.label}`}><span className="food-country-flag" aria-hidden="true">{regionFlag(browseRegion.id)}</span></button>
+        <div className="food-view-toggle" role="group" aria-label="Choose map or list view"><button className={viewMode === "map" ? "active" : ""} type="button" onClick={() => setViewMode("map")} aria-label="Map view" aria-pressed={viewMode === "map"}><MapIcon size={17} /></button><button className={viewMode === "list" ? "active" : ""} type="button" onClick={() => setViewMode("list")} aria-label="List view" aria-pressed={viewMode === "list"}><List size={17} /></button></div>
         <button className="food-icon-button food-notification-button" type="button" onClick={openActivity} aria-label={`Notifications${activity.unreadCount ? `, ${activity.unreadCount} unread` : ""}`}><Bell size={20} />{activity.unreadCount > 0 && <span className="food-notification-badge" aria-hidden="true">{activity.unreadCount > 9 ? "9+" : activity.unreadCount}</span>}</button>
       </header>
 
-      <div className={`food-map-shell ${searchedPlace ? "has-place-selection" : ""}`}>
+      <div className={`food-map-shell ${searchedPlace ? "has-place-selection" : ""} ${viewMode === "list" ? "list-mode" : "map-mode"}`}>
         <div ref={mapContainerRef} className="food-map" aria-label="Interactive food discovery map" />
-        <form className={`food-search ${searchedPlace ? "active" : ""}`} onSubmit={submitSearch}>
+        {viewMode === "list" && <section className="food-list-view" aria-label="Food finds in this area">{listShouts.length ? <div className="food-list-view-grid">{listShouts.map((shout) => <button className={shout.viewerOwned ? "viewer-ranked" : ""} style={shout.viewerOwned ? foodRankStyle(profileRank) : undefined} type="button" onClick={() => setSelected(shout)} key={shout.id}><img src={shout.imageUrl} alt="" /><span><small>{shout.shoutType === "drink" ? "DRINK" : shout.shoutType === "snack" ? "SNACK" : "FOOD FIND"} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={11} /> {foodPlaceLabel(shout)}</em>}<b>{shout.rating?.count ? <><Star size={12} fill="currentColor" /> {shout.rating.average.toFixed(1)} <i>({shout.rating.count})</i></> : "Not rated"}</b></span><ChevronRight size={18} /></button>)}</div> : <div className="food-list-empty"><Utensils size={24} /><strong>No finds in this area</strong><span>Move the map or share the first one.</span></div>}</section>}
+        {viewMode === "list" && <form className={`food-search ${searchedPlace ? "active" : ""}`} onSubmit={submitSearch}>
           <Search size={18} aria-hidden="true" />
           <input value={query} onChange={(event) => { setQuery(event.target.value); setPlaceResults([]); setSearchedPlace(null); setGoogleReturnOpen(false); }} placeholder="Find a store or address" aria-label="Find a store or address" inputMode="search" enterKeyHint="search" autoComplete="street-address" />
           {query && <button type="button" onClick={() => { setQuery(""); setPlaceResults([]); setSearchedPlace(null); setGoogleReturnOpen(false); }} aria-label="Clear search"><X size={17} /></button>}
-          <button className="food-search-submit" type="submit" disabled={!query.trim() || placeSearching} aria-label="Search stores">{placeSearching ? <span className="food-mini-spinner" /> : <Search size={16} />}</button>
-        </form>
+        </form>}
 
-        <div className="food-filter-row" aria-label="Food filters">
-          {TYPE_FILTERS.map(([value, label]) => <button className={foodType === value ? "active" : ""} onClick={() => setFoodType(value)} type="button" key={value}>{label}</button>)}
-          <button className={cuisine !== "All" ? "active" : ""} onClick={() => setFilterOpen(true)} type="button"><SlidersHorizontal size={15} /> {cuisine === "All" ? "Cuisine" : cuisine}</button>
-          <button className={budget ? "active" : ""} onClick={() => setBudget((value) => !value)} type="button"><CircleDollarSign size={15} /> Budget</button>
-          <button onClick={() => setFeedOpen(true)} type="button"><Radar size={15} strokeWidth={2.2} /> Near me</button>
-          <button onClick={() => setTopOpen(true)} type="button"><Trophy size={15} /> Rated picks</button>
-        </div>
+        <div className="food-filter-row collapsed" aria-label="Food filters"><button className={`food-filter-menu-toggle ${activeFilterCount ? "active" : ""}`} aria-label="Open food filters" onClick={() => setFiltersExpanded(true)} type="button"><SlidersHorizontal size={16} /> {activeFilterCount ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"}` : "Filters"}<ChevronDown size={14} /></button></div>
 
-        {placeResults.length > 0 && <div className="food-map-place-results" aria-live="polite"><div className="food-place-results-count">{placeResults.length} matching location{placeResults.length === 1 ? "" : "s"}</div>{placeResults.map((place) => <button type="button" onClick={() => selectMapPlace(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{placeResultName(place)}</strong><small>{placeResultLabel(place)}</small></span><ChevronRight size={15} /></button>)}</div>}
-        {!placeSearching && query.trim().length > 1 && !searchedPlace && placeResults.length === 0 && <div className="food-google-search-actions"><a className="food-google-search-link" href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer" onClick={() => setGoogleReturnOpen(true)}><Navigation size={15} /> Open Google Maps</a><button type="button" onClick={() => setGoogleReturnOpen((value) => !value)}>Paste location</button></div>}
-        {googleReturnOpen && !searchedPlace && <form className="food-map-google-return" onSubmit={importGoogleMapPlace}><input value={googleReturnValue} onChange={(event) => setGoogleReturnValue(event.target.value)} placeholder="Full Maps link or -27.47, 153.02" aria-label="Return a Google Maps location" autoCapitalize="off" autoCorrect="off" /><button type="submit">Use</button><button type="button" onClick={() => setGoogleReturnOpen(false)} aria-label="Close Google location field"><X size={15} /></button></form>}
+        {viewMode === "list" && placeResults.length > 0 && <div className="food-map-place-results" aria-live="polite"><div className="food-place-results-count">{placeResults.length} matching location{placeResults.length === 1 ? "" : "s"}</div>{placeResults.map((place) => <button type="button" onClick={() => selectMapPlace(place)} key={place.providerPlaceId}><MapPin size={16} /><span><strong>{placeResultName(place)}</strong><small>{placeResultLabel(place)}</small></span><ChevronRight size={15} /></button>)}</div>}
+        {viewMode === "list" && !placeSearching && query.trim().length > 1 && !searchedPlace && placeResults.length === 0 && <div className="food-google-search-actions"><a className="food-google-search-link" href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer" onClick={() => setGoogleReturnOpen(true)}><Navigation size={15} /> Open Google Maps</a><button type="button" onClick={() => setGoogleReturnOpen((value) => !value)}>Paste location</button></div>}
+        {viewMode === "list" && googleReturnOpen && !searchedPlace && <form className="food-map-google-return" onSubmit={importGoogleMapPlace}><input value={googleReturnValue} onChange={(event) => setGoogleReturnValue(event.target.value)} placeholder="Full Maps link or -27.47, 153.02" aria-label="Return a Google Maps location" autoCapitalize="off" autoCorrect="off" /><button type="submit">Use</button><button type="button" onClick={() => setGoogleReturnOpen(false)} aria-label="Close Google location field"><X size={15} /></button></form>}
         {searchedPlace && <div className="food-searched-place"><span><strong>{searchedPlace.name || "Chosen location"}</strong><small>{searchedPlace.label}</small></span><a href={googleMapsSearchUrl(searchedPlace)} target="_blank" rel="noreferrer" aria-label="Open in Google Maps"><Navigation size={16} /></a><button type="button" onClick={() => postAtPlace(searchedPlace)}><Plus size={16} /> Post here</button></div>}
 
         <div className="food-map-actions">
-          <button type="button" onClick={locate} aria-label="Find my location" className={locating ? "loading" : ""}><LocateFixed size={21} /></button>
+          <button type="button" onClick={refreshMap} disabled={loading || !bounds} aria-label={loading ? "Refreshing this area" : "Refresh this area"} className={loading ? "loading" : ""}><RefreshCw size={19} /></button>
+          <button type="button" onClick={() => { setViewMode("map"); locate(); }} aria-label="Find my location" className={locating ? "loading" : ""}><LocateFixed size={21} /></button>
           <button type="button" onClick={() => { setComposerLocation(null); setComposerOpen(true); }} className="food-post-fab"><Plus size={23} /> Post</button>
         </div>
 
@@ -574,14 +598,14 @@ export default function FoodShoutPage({ onHome }) {
       </div>
 
       <AnimatePresence>
-        {selected && <FoodDetail key={selected.id} shout={selected} map={mapRef.current} countryCode={browseRegion.id} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); }} />}
+        {selected && <FoodDetail key={selected.id} shout={selected} map={mapRef.current} countryCode={browseRegion.id} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); loadProfileProgress(); }} />}
         {composerOpen && <FoodComposer map={mapRef.current} initialLocation={composerLocation} countryCode={browseRegion.id} onClose={() => { setComposerOpen(false); setComposerLocation(null); }} onCreated={refreshAfterCreate} />}
-        {filterOpen && <FilterSheet cuisine={cuisine} onCuisine={(value) => { setCuisine(value); setFilterOpen(false); }} onClose={() => setFilterOpen(false)} />}
+        {filtersExpanded && <FilterMenuSheet foodType={foodType} cuisine={cuisine} budget={budget} onApply={({ type, selectedCuisine, selectedBudget }) => { setFoodType(type); setCuisine(selectedCuisine); setBudget(selectedBudget); setFiltersExpanded(false); }} onNear={() => { setFiltersExpanded(false); setFeedOpen(true); }} onRated={() => { setFiltersExpanded(false); setTopOpen(true); }} onClose={() => setFiltersExpanded(false)} />}
         {regionOpen && <RegionSheet selected={browseRegion} onSelect={selectBrowseRegion} onClose={() => setRegionOpen(false)} />}
         {activityOpen && <ActivitySheet activity={activity} enabled={activityEnabled} loading={activityLoading} onToggle={toggleActivity} onSelect={openActivityItem} onClose={() => setActivityOpen(false)} />}
         {feedOpen && <FoodFeed shouts={shouts} mine={mine} saved={saved} onMode={(mode) => { setMine(mode === "mine"); setSaved(mode === "saved"); }} onClose={() => { setFeedOpen(false); setMine(false); setSaved(false); }} onSelect={(shout) => { setSelected(shout); setFeedOpen(false); }} />}
         {topOpen && <TopPicks shouts={shouts} onClose={() => setTopOpen(false)} onSelect={(shout) => { setSelected(shout); setTopOpen(false); }} />}
-        {profileOpen && <ProfileSheet displayName={profileName} onClose={() => setProfileOpen(false)} onSaved={(name) => { setProfileName(name); setProfileOpen(false); setToast({ text: "Nickname saved" }); }} onOpenFinds={() => { setProfileOpen(false); setMine(true); setSaved(false); setFeedOpen(true); }} />}
+        {profileOpen && <ProfileSheet displayName={profileName} progress={profileProgress} onClose={() => setProfileOpen(false)} onSaved={(name) => { setProfileName(name); setToast({ text: "Nickname saved" }); }} onOpenFinds={() => { setProfileOpen(false); setMine(true); setSaved(false); setFeedOpen(true); }} />}
       </AnimatePresence>
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
     </section>
@@ -1085,7 +1109,19 @@ function TopPickGroup({ title, icon, items, onSelect, variant = "good" }) {
   return <section className={`food-top-group ${variant}`}><h3>{icon}{title}</h3>{items.length === 0 ? <p>{variant === "bad" ? "No low-rated finds here." : "No 4-star picks here yet."}</p> : items.map((item, index) => <button type="button" onClick={() => onSelect(item)} key={item.id}><b>{variant === "bad" ? "!" : index + 1}</b><img src={item.imageUrl} alt="" /><span><strong>{item.title}</strong>{foodPlaceLabel(item) && <small>{foodPlaceLabel(item)}</small>}<em><Star size={12} fill="currentColor" /> {item.rating.average.toFixed(1)} · {item.rating.count} rating{item.rating.count === 1 ? "" : "s"}</em></span><ChevronRight size={18} /></button>)}</section>;
 }
 
-function FilterSheet({ cuisine, onCuisine, onClose }) { return <Sheet className="food-filter-sheet" onClose={onClose} label="Cuisine filter"><div className="food-sheet-head"><div><span>FILTER</span><h2>What sounds good?</h2></div><button onClick={onClose}><X /></button></div><div className="food-cuisine-grid">{CUISINES.map((item) => <button className={cuisine === item ? "active" : ""} onClick={() => onCuisine(item)} key={item}>{item === "All" ? "Everything" : item}</button>)}</div></Sheet>; }
+function FilterMenuSheet({ foodType, cuisine, budget, onApply, onNear, onRated, onClose }) {
+  const [draftType, setDraftType] = useState(foodType);
+  const [draftCuisine, setDraftCuisine] = useState(cuisine);
+  const [draftBudget, setDraftBudget] = useState(budget);
+  const [cuisineOpen, setCuisineOpen] = useState(false);
+  return <Sheet className="food-filter-menu-sheet" onClose={onClose} label="Food filters">
+    <div className="food-sheet-head"><div><span>DISCOVER</span><h2>Filter finds</h2></div><button type="button" onClick={onClose} aria-label="Close filters"><X /></button></div>
+    <div className="food-filter-menu-section"><span>TYPE</span><div className="food-filter-menu-grid">{TYPE_FILTERS.map(([value, label]) => <button className={draftType === value ? "active" : ""} type="button" onClick={() => setDraftType(value)} key={value}>{label}</button>)}</div></div>
+    <div className="food-filter-menu-section"><span>MORE</span><div className="food-filter-menu-grid"><button className={draftCuisine !== "All" ? "active" : ""} type="button" onClick={() => setCuisineOpen((value) => !value)}>{draftCuisine === "All" ? "Cuisine" : draftCuisine}<ChevronDown size={14} /></button><button className={draftBudget ? "active" : ""} type="button" onClick={() => setDraftBudget((value) => !value)}><CircleDollarSign size={15} /> Budget</button><button type="button" onClick={onNear}><LocateFixed size={15} /> Near me</button><button type="button" onClick={onRated}><Trophy size={15} /> Rated picks</button></div></div>
+    {cuisineOpen && <div className="food-filter-cuisine-grid" aria-label="Cuisine choices">{CUISINES.map((item) => <button className={draftCuisine === item ? "active" : ""} type="button" onClick={() => { setDraftCuisine(item); setCuisineOpen(false); }} key={item}>{item === "All" ? "Everything" : item}</button>)}</div>}
+    <button className="food-filter-done" type="button" onClick={() => onApply({ type: draftType, selectedCuisine: draftCuisine, selectedBudget: draftBudget })}>Show finds</button>
+  </Sheet>;
+}
 
 function RegionSheet({ selected, onSelect, onClose }) {
   const [query, setQuery] = useState("");
@@ -1104,7 +1140,7 @@ function RegionSheet({ selected, onSelect, onClose }) {
   </Sheet>;
 }
 
-function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}>Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}>My finds</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}>Saved</button></div>{shouts.length > 0 && <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={12} /> {foodPlaceLabel(shout)}</em>}</span><ChevronRight /></button>)}</div>}</Sheet>; }
+function FoodFeed({ shouts, mine, saved, onMode, onClose, onSelect }) { return <Sheet className="food-feed" onClose={onClose} label="Foodie Finds feed"><div className="food-sheet-head"><div><span>YOUR MAP</span><h2>Foodie finds</h2></div><button onClick={onClose}><X /></button></div><div className="food-feed-tabs"><button className={!mine && !saved ? "active" : ""} onClick={() => onMode("nearby")}><LocateFixed size={15} />Near me</button><button className={mine ? "active" : ""} onClick={() => onMode("mine")}><Utensils size={15} />My posts</button><button className={saved ? "active" : ""} onClick={() => onMode("saved")}><Bookmark size={15} />Saved</button></div>{shouts.length > 0 && <div className="food-feed-list">{shouts.map((shout) => <button key={shout.id} onClick={() => onSelect(shout)}><img src={shout.imageUrl} alt="" /><span><small>{shout.cuisine} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={12} /> {foodPlaceLabel(shout)}</em>}</span><ChevronRight /></button>)}</div>}</Sheet>; }
 
 function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose }) {
   return <Sheet className="food-activity" onClose={onClose} label="Foodie Finds notifications">
@@ -1113,14 +1149,18 @@ function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose
     {!enabled && <div className="food-activity-empty"><Bell /><strong>Alerts off</strong></div>}
     {enabled && loading && <div className="food-activity-empty"><span className="food-photo-spinner" /><strong>Checking activity…</strong></div>}
     {enabled && !loading && activity.notifications.length === 0 && <div className="food-activity-empty"><Bell /><strong>No new replies</strong></div>}
-    {enabled && !loading && activity.notifications.length > 0 && <div className="food-activity-list">{activity.notifications.map((item) => <button type="button" className={item.read ? "" : "unread"} onClick={() => onSelect(item)} aria-label={`${item.read ? "Read" : "Unread"} ${item.type === "reaction" ? "reaction" : "reply"}`} key={item.id}><span className="food-activity-icon">{item.type === "reaction" ? <Heart size={17} /> : <MessageCircle size={17} />}</span><span><strong>{item.type === "reaction" ? "New reaction" : "New reply"}{!item.read && <i className="food-unread-dot" aria-hidden="true" />}</strong><small>{item.message ? `${item.contextTitle ? `${item.contextTitle}: ` : ""}${item.message}` : relativeTime(item.createdAt)}</small></span><ChevronRight size={17} /></button>)}</div>}
+    {enabled && !loading && activity.notifications.length > 0 && <div className="food-activity-list">{activity.notifications.map((item) => { const ratingValue = item.messageId?.startsWith("rating:") ? item.messageId.slice(7) : ""; return <button type="button" className={item.read ? "" : "unread"} onClick={() => onSelect(item)} aria-label={`${item.read ? "Read" : "Unread"} ${ratingValue ? "rating" : item.type === "reaction" ? "reaction" : "reply"}`} key={item.id}><span className="food-activity-icon">{ratingValue ? <Star size={17} /> : item.type === "reaction" ? <Heart size={17} /> : <MessageCircle size={17} />}</span><span><strong>{ratingValue ? "New rating" : item.type === "reaction" ? "New reaction" : "New reply"}{!item.read && <i className="food-unread-dot" aria-hidden="true" />}</strong><small>{ratingValue ? `${ratingValue} stars${item.contextTitle ? ` · ${item.contextTitle}` : ""}` : item.message ? `${item.contextTitle ? `${item.contextTitle}: ` : ""}${item.message}` : relativeTime(item.createdAt)}</small></span><ChevronRight size={17} /></button>; })}</div>}
     <p className="food-activity-note">In-app only</p>
   </Sheet>;
 }
 
-function ProfileSheet({ displayName, onClose, onSaved, onOpenFinds }) {
+function ProfileSheet({ displayName, progress = emptyFoodProfileProgress(), onClose, onSaved, onOpenFinds }) {
   const [name, setName] = useState(displayName);
+  const [editingName, setEditingName] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const cleanName = name.trim().slice(0, 24);
+  const nameChanged = cleanName && cleanName !== displayName;
+  const rank = foodRankForLevel(progress.level);
   const releaseFocus = () => {
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   };
@@ -1129,17 +1169,22 @@ function ProfileSheet({ displayName, onClose, onSaved, onOpenFinds }) {
     releaseFocus();
     saveDisplayName(cleanName);
     onSaved(cleanName);
+    setEditingName(false);
   };
+  const cancelEdit = () => { releaseFocus(); setName(displayName); setEditingName(false); };
 
-  return <Sheet className="food-profile" onClose={onClose} label="Edit Foodie Finds profile">
-    <div className="food-sheet-head"><div><span>YOUR PROFILE</span><h2>Pick a fun name</h2></div><button type="button" onClick={() => { releaseFocus(); onClose(); }} aria-label="Close profile"><X /></button></div>
-    <div className="food-profile-card">
-      <span className="food-profile-avatar" aria-hidden="true">{displayInitials(cleanName || displayName)}</span>
-      <label><span>Display name</span><div><Pencil size={16} /><input maxLength={24} value={name} onChange={(event) => setName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); save(); } }} enterKeyHint="done" placeholder="e.g. Noodle Fox" /></div></label>
-      <small>This name appears on new finds and comments. No account needed.</small>
-    </div>
-    <button className="food-primary" disabled={!cleanName} type="button" onClick={save}>Save nickname <Check size={18} /></button>
-    <button className="food-profile-finds" type="button" onClick={() => { releaseFocus(); onOpenFinds(); }}><Utensils size={18} /><span><strong>My finds</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
+  return <Sheet className={`food-profile rank-${rank.key}`} onClose={onClose} label="Foodie Finds profile and rank">
+    <div className="food-sheet-head"><div><span>YOUR FOODIE PROFILE</span><h2>{rank.label}</h2></div><button type="button" onClick={() => { releaseFocus(); onClose(); }} aria-label="Close profile"><X /></button></div>
+    <button className="food-profile-name-button" type="button" onClick={() => setEditingName(true)}><span className="food-profile-avatar" aria-hidden="true">{displayInitials(displayName)}</span><span><small>DISPLAY NAME</small><strong>{displayName}</strong></span><Pencil size={16} /></button>
+    <section className="food-level-card" style={foodRankStyle(rank)} aria-label={`Level ${progress.level}, ${rank.label}`}>
+      <div className="food-level-head"><span className="food-rank-gem"><i /><b>{rank.division}</b></span><div><strong>{rank.label}</strong><small>Level {progress.level} · {progress.totalXp} EXP</small><small>{progress.totalPosts == null ? "EXP from all active posts" : `${progress.totalPosts} posts counted`}</small></div><em>{progress.xpToNextLevel} EXP<br />to next</em></div>
+      <div className="food-level-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress.progressPercent}><i style={{ width: `${progress.progressPercent}%` }} /></div>
+      <div className="food-level-daily"><span><strong>Today</strong><small>{progress.daily.xp}/{progress.daily.cap} EXP</small></span><span><strong>{progress.daily.scoringPosts}/{progress.daily.postLimit}</strong><small>rewarded posts</small></span></div>
+    </section>
+    <button className="food-exp-hint" type="button" onClick={() => setRulesOpen(true)}><Sparkles size={17} /><span><strong>How to grow</strong><small>Quick EXP rules</small></span><ChevronRight size={17} /></button>
+    <details className="food-xp-history"><summary><span><Clock3 size={16} /> EXP history</span><small>{progress.history.length ? `${progress.history.length} recent` : "No EXP yet"}</small><ChevronRight size={16} /></summary>{progress.history.length ? <div>{progress.history.map((item) => <article key={item.id}><span><strong>{item.title}</strong><small>{relativeTime(item.createdAt)}{item.bonuses.length ? ` · ${item.bonuses.map((bonus) => bonus.label).join(" + ")}` : item.capped ? " · Daily limit reached" : ""}</small></span><b className={item.xp ? "" : "muted"}>+{item.xp}</b></article>)}</div> : <p>Share a valid food find to earn your first EXP.</p>}</details>
+    <button className="food-profile-finds" type="button" onClick={() => { releaseFocus(); onOpenFinds(); }}><Utensils size={18} /><span><strong>My posts</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
+    {rulesOpen && <div className="food-exp-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setRulesOpen(false); }}><section className="food-exp-dialog" role="dialog" aria-modal="true" aria-label="How to earn EXP"><div className="food-name-dialog-head"><span><small>PROGRESS</small><strong>How to grow</strong></span><button type="button" onClick={() => setRulesOpen(false)} aria-label="Close EXP rules"><X size={17} /></button></div><p>Small, useful finds earn more when they add something new.</p><div className="food-xp-rules"><span><b>+{progress.rules.postXp}</b><small>Valid find</small></span><span><b>+{progress.rules.newAreaXp}</b><small>New area</small></span><span><b>+{progress.rules.trailXp}</b><small>3-stop trail</small></span></div><small className="food-exp-limit">First {progress.rules.dailyPostLimit} posts per day can earn EXP · daily cap {progress.rules.dailyXpCap}.</small></section></div>}
   </Sheet>;
 }
 
@@ -1226,6 +1271,7 @@ function mergeFoodShouts(current, incoming) {
   const freshIds = new Set(fresh.map((item) => item.id));
   return [...fresh, ...current.filter((item) => !freshIds.has(item.id))].slice(0, 500);
 }
+function shoutInsideBounds(shout, bounds) { return Number(shout.latitude) >= bounds.south && Number(shout.latitude) <= bounds.north && Number(shout.longitude) >= bounds.west && Number(shout.longitude) <= bounds.east; }
 function readBounds(map) { const value = map.getBounds(); return { west: round(value.getWest()), south: round(value.getSouth()), east: round(value.getEast()), north: round(value.getNorth()) }; }
 function expandBounds(bounds, ratio = .4) {
   const longitudePadding = Math.max(.01, (bounds.east - bounds.west) * ratio / 2);
@@ -1290,6 +1336,7 @@ function rankRecommended(items) { return items.filter((item) => Number(item.rati
 function rankNotRecommended(items) { return items.filter((item) => Number(item.rating?.count || 0) > 0 && Number(item.rating?.average || 0) < 3).sort((a, b) => Number(a.rating.average) - Number(b.rating.average) || Number(b.rating.count) - Number(a.rating.count) || new Date(b.createdAt) - new Date(a.createdAt)); }
 function toneLabel(tone) { return tone === "loved_it" ? "Loved it" : tone === "needs_update" ? "Needs update" : "Helpful"; }
 function readDisplayName() { try { const saved = localStorage.getItem(DISPLAY_NAME_KEY); if (saved) return saved; const first = ["Noodle", "Mango", "Chilli", "Bento", "Mochi"][Math.floor(Math.random() * 5)]; const second = ["Fox", "Otter", "Koala", "Panda", "Gecko"][Math.floor(Math.random() * 5)]; const value = `${first} ${second}`; localStorage.setItem(DISPLAY_NAME_KEY, value); return value; } catch { return "Food explorer"; } }
+function emptyFoodProfileProgress() { return { totalXp: 0, totalPosts: 0, level: 1, title: "Bronze IV", currentLevelXp: 0, nextLevelXp: 50, xpToNextLevel: 50, progressPercent: 0, daily: { xp: 0, cap: 120, scoringPosts: 0, postLimit: 5 }, rules: { postXp: 20, newAreaXp: 10, trailXp: 5, trailMinutes: 30, dailyPostLimit: 5, dailyXpCap: 120 }, history: [] }; }
 function saveDisplayName(value) { try { const clean = value.trim().slice(0, 24); if (clean) localStorage.setItem(DISPLAY_NAME_KEY, clean); } catch { /* optional */ } }
 function readActivityEnabled() { try { return localStorage.getItem(ACTIVITY_ENABLED_KEY) !== "0"; } catch { return true; } }
 function displayInitials(value) { const parts = String(value || "ME").trim().split(/\s+/).filter(Boolean); return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "ME"; }

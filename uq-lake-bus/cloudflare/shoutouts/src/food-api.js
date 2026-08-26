@@ -51,6 +51,11 @@ const MAX_NETWORK_UPLOADS_PER_DAY = 900;
 const MAX_NETWORK_UPLOAD_BYTES_PER_DAY = 750 * 1024 * 1024;
 const MAX_NETWORK_WRITES_PER_DAY = 600;
 const DEFAULT_STORAGE_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
+const FOOD_XP_BASE = 20;
+const FOOD_XP_NEW_AREA = 10;
+const FOOD_XP_TRAIL = 5;
+const FOOD_XP_DAILY_POST_LIMIT = 5;
+const FOOD_XP_DAILY_CAP = 120;
 const ASIA_PACIFIC_BOUNDS = { south: -90, north: 90, west: -180, east: 180 };
 const FORMAT_CONTROL_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
 const LINK_PATTERN = /\b(?:https?|hxxps?|ftp):\/\/|\bwww\s*\.|\b[a-z0-9][a-z0-9-]*\s*\.\s*(?:com|net|org|io|app|dev|xyz|info|co|me|gg|ai|site|online|link)\b/i;
@@ -79,6 +84,9 @@ export async function handleFoodRequest({ request, env, ctx, url, path, respond 
   }
   if (request.method === "GET" && path === "/api/places/reverse") {
     return reverseFoodPlace(request, env, url, respond);
+  }
+  if (request.method === "GET" && path === "/api/profile/progress") {
+    return getFoodProfileProgress(request, env, url, respond);
   }
 
   if (request.method === "GET" && path === "/api/shouts") {
@@ -641,7 +649,7 @@ async function toggleFoodReaction(request, env, shoutId, kind, respond) {
 }
 
 async function rateFoodShout(request, env, shoutId, respond) {
-  await requireActiveShout(env.DB, shoutId);
+  const shout = await requireActiveShout(env.DB, shoutId);
   const payload = await readJson(request);
   const rating = Number(payload.rating);
   const ratingX2 = Math.round(rating * 2);
@@ -650,12 +658,25 @@ async function rateFoodShout(request, env, shoutId, respond) {
   }
   const clientHash = await getClientHash(request);
   const now = unixNow();
+  const previousRating = await env.DB.prepare(
+    "SELECT rating_x2 FROM food_ratings WHERE shout_id = ? AND client_hash = ?",
+  ).bind(shoutId, clientHash).first();
   await env.DB.prepare(
     `INSERT INTO food_ratings (shout_id, client_hash, rating_x2, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(shout_id, client_hash)
      DO UPDATE SET rating_x2 = excluded.rating_x2, updated_at = excluded.updated_at`,
   ).bind(shoutId, clientHash, ratingX2, now, now).run();
+  if (!previousRating && shout.author_hash && shout.author_hash !== clientHash) {
+    await env.DB.prepare(
+      `INSERT INTO notifications
+         (id, recipient_hash, actor_hash, type, message_id, parent_message_id, created_at, expires_at)
+       VALUES (?, ?, ?, 'reaction', ?, ?, ?, ?)`,
+    ).bind(
+      crypto.randomUUID(), shout.author_hash, clientHash, `rating:${ratingX2 / 2}`,
+      shoutId, now, shout.expires_at ?? now + 30 * 24 * 60 * 60,
+    ).run();
+  }
   const result = await env.DB.prepare(
     "SELECT COUNT(*) AS rating_count, AVG(rating_x2) / 2.0 AS rating_average FROM food_ratings WHERE shout_id = ?",
   ).bind(shoutId).first();
@@ -961,6 +982,101 @@ async function reverseFoodPlace(request, env, url, respond) {
        created_at = excluded.created_at, expires_at = excluded.expires_at`,
   ).bind(cacheKey, JSON.stringify(place), now, now + 30 * 24 * 60 * 60).run();
   return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, place });
+}
+
+async function getFoodProfileProgress(request, env, url, respond) {
+  const clientHash = await getClientHash(request);
+  const requestedOffset = Number(url.searchParams.get("tzOffset"));
+  const timezoneOffset = Number.isFinite(requestedOffset) ? Math.max(-840, Math.min(840, Math.trunc(requestedOffset))) : 0;
+  const { results = [] } = await env.DB.prepare(
+    `SELECT id, title, place_name, location_label, geohash, created_at
+       FROM food_shouts
+      WHERE author_hash = ? AND status = 'active'
+      ORDER BY created_at ASC
+      LIMIT 1000`,
+  ).bind(clientHash).all();
+  const days = new Map();
+  const seenAreas = new Set();
+  const recent = [];
+  const history = [];
+  let totalXp = 0;
+
+  for (const row of results) {
+    const createdAt = Number(row.created_at || 0);
+    const dayKey = Math.floor((createdAt - timezoneOffset * 60) / 86400);
+    const day = days.get(dayKey) || { posts: 0, xp: 0 };
+    const areaKey = String(row.geohash || "").slice(0, 6) || `post:${row.id}`;
+    const locationKey = String(row.place_name || areaKey).toLowerCase();
+    const newArea = !seenAreas.has(areaKey);
+    const withinTrailWindow = recent.length >= 2 && createdAt - recent[recent.length - 2].createdAt <= 30 * 60;
+    const trailLocations = withinTrailWindow ? new Set([recent[recent.length - 2].locationKey, recent[recent.length - 1].locationKey, locationKey]) : new Set();
+    const trailBonus = trailLocations.size === 3;
+    const earnsXp = day.posts < FOOD_XP_DAILY_POST_LIMIT && day.xp < FOOD_XP_DAILY_CAP;
+    const requestedXp = earnsXp ? FOOD_XP_BASE + (newArea ? FOOD_XP_NEW_AREA : 0) + (trailBonus ? FOOD_XP_TRAIL : 0) : 0;
+    const xp = Math.max(0, Math.min(requestedXp, FOOD_XP_DAILY_CAP - day.xp));
+    const bonuses = [];
+    if (xp > 0 && newArea) bonuses.push({ label: "New area", xp: FOOD_XP_NEW_AREA });
+    if (xp > 0 && trailBonus) bonuses.push({ label: "3-stop food trail", xp: FOOD_XP_TRAIL });
+    day.posts += 1;
+    day.xp += xp;
+    days.set(dayKey, day);
+    seenAreas.add(areaKey);
+    recent.push({ createdAt, locationKey });
+    totalXp += xp;
+    history.push({
+      id: row.id,
+      title: row.title,
+      placeName: row.place_name || row.location_label || "Food find",
+      createdAt: new Date(createdAt * 1000).toISOString(),
+      xp,
+      bonuses,
+      capped: !earnsXp,
+    });
+  }
+
+  const level = foodLevelForXp(totalXp);
+  const currentLevelXp = foodLevelThreshold(level);
+  const nextLevelXp = foodLevelThreshold(level + 1);
+  const todayKey = Math.floor((unixNow() - timezoneOffset * 60) / 86400);
+  const today = days.get(todayKey) || { posts: 0, xp: 0 };
+  return respond({
+    totalXp,
+    totalPosts: results.length,
+    countedPosts: history.filter((item) => item.xp > 0).length,
+    level,
+    title: foodRankForLevel(level).label,
+    rank: foodRankForLevel(level),
+    currentLevelXp,
+    nextLevelXp,
+    xpToNextLevel: Math.max(0, nextLevelXp - totalXp),
+    progressPercent: Math.max(0, Math.min(100, Math.round((totalXp - currentLevelXp) / Math.max(1, nextLevelXp - currentLevelXp) * 100))),
+    daily: {
+      xp: today.xp,
+      cap: FOOD_XP_DAILY_CAP,
+      scoringPosts: Math.min(today.posts, FOOD_XP_DAILY_POST_LIMIT),
+      postLimit: FOOD_XP_DAILY_POST_LIMIT,
+    },
+    rules: {
+      postXp: FOOD_XP_BASE,
+      newAreaXp: FOOD_XP_NEW_AREA,
+      trailXp: FOOD_XP_TRAIL,
+      trailMinutes: 30,
+      dailyPostLimit: FOOD_XP_DAILY_POST_LIMIT,
+      dailyXpCap: FOOD_XP_DAILY_CAP,
+    },
+    history: history.slice(-10).reverse(),
+  });
+}
+
+function foodLevelThreshold(level) { return level <= 1 ? 0 : Math.round(50 * ((level - 1) ** 1.55)); }
+function foodLevelForXp(xp) { let level = 1; while (level < 99 && xp >= foodLevelThreshold(level + 1)) level += 1; return level; }
+function foodRankForLevel(level) {
+  const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora"];
+  const divisions = ["IV", "III", "II", "I"];
+  const safeLevel = Math.max(1, Math.min(99, Number(level) || 1));
+  const rankIndex = Math.min(ranks.length - 1, Math.floor((safeLevel - 1) / 4));
+  const division = rankIndex === ranks.length - 1 && safeLevel >= 24 ? "★" : divisions[(safeLevel - 1) % divisions.length];
+  return { key: ranks[rankIndex].toLowerCase(), name: ranks[rankIndex], division, label: `${ranks[rankIndex]} ${division}` };
 }
 
 function optionalSearchCoordinate(value, min, max) {

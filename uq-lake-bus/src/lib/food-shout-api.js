@@ -49,6 +49,11 @@ export function reverseFoodLocation(latitude, longitude, signal) {
   return request(`/api/places/reverse?${params}`, { signal });
 }
 
+export function getFoodProfileProgress(signal) {
+  const params = new URLSearchParams({ tzOffset: String(new Date().getTimezoneOffset()) });
+  return request(`/api/profile/progress?${params}`, { signal });
+}
+
 export function listFoodComments(id, signal) {
   return request(`/api/shouts/${encodeURIComponent(id)}/comments`, { signal });
 }
