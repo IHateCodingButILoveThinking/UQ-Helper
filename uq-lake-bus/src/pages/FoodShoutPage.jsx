@@ -170,6 +170,7 @@ export default function FoodShoutPage({ onHome }) {
   const [mine, setMine] = useState(false);
   const [saved, setSaved] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [userLocation, setUserLocation] = useState(null);
   const [toast, setToast] = useState(null);
 
   selectedRef.current = selected;
@@ -325,9 +326,11 @@ export default function FoodShoutPage({ onHome }) {
           "food-icon-snack": ["🥟", "#fff8dc", "#d58b20"],
           "food-icon-dessert": ["🍰", "#fff1fb", "#c466d8"],
           "food-icon-market": ["🥕", "#f3f8eb", "#6b8e42"],
+          "food-icon-you": ["🦎", "#e5fff5", "#168466"],
         }).forEach(([name, values]) => map.addImage(name, makeMapFoodIcon(...values), { pixelRatio: 2 }));
         map.addSource("food-shouts", { type: "geojson", data: emptyGeoJson(), cluster: true, clusterRadius: 62, clusterMaxZoom: 16 });
         map.addSource("food-place-result", { type: "geojson", data: emptyGeoJson() });
+        map.addSource("food-user-location", { type: "geojson", data: emptyGeoJson() });
         map.addLayer({
           id: "food-clusters", type: "circle", source: "food-shouts", filter: ["has", "point_count"],
           paint: { "circle-color": "#ff7043", "circle-radius": ["step", ["get", "point_count"], 18, 10, 22, 30, 26], "circle-stroke-width": 3, "circle-stroke-color": "#fff" },
@@ -360,6 +363,8 @@ export default function FoodShoutPage({ onHome }) {
         });
         map.addLayer({ id: "food-place-result-pulse", type: "circle", source: "food-place-result", paint: { "circle-color": "#28735e", "circle-radius": 22, "circle-opacity": .14, "circle-stroke-width": 2, "circle-stroke-color": "#fff" } });
         map.addLayer({ id: "food-place-result-pin", type: "symbol", source: "food-place-result", layout: { "icon-image": "food-icon-market", "icon-size": 1.08, "icon-allow-overlap": true } });
+        map.addLayer({ id: "food-user-location-halo", type: "circle", source: "food-user-location", paint: { "circle-color": "#1bb88e", "circle-radius": 20, "circle-opacity": .18, "circle-stroke-width": 2, "circle-stroke-color": "rgba(255,255,255,.95)" } });
+        map.addLayer({ id: "food-user-location-pin", type: "symbol", source: "food-user-location", layout: { "icon-image": "food-icon-you", "icon-size": 1.08, "icon-allow-overlap": true, "icon-ignore-placement": true, "text-field": "You’re here", "text-size": 11, "text-offset": [0, 2.4], "text-anchor": "top", "text-allow-overlap": true, "text-ignore-placement": true }, paint: { "text-color": "#145847", "text-halo-color": "rgba(255,255,255,.96)", "text-halo-width": 2 } });
         map.on("click", "food-clusters", async (event) => {
           const feature = map.queryRenderedFeatures(event.point, { layers: ["food-clusters"] })[0];
           if (!feature) return;
@@ -381,6 +386,8 @@ export default function FoodShoutPage({ onHome }) {
             const phase = (Math.sin(time / 620) + 1) / 2;
             map.setPaintProperty("food-latest-pulse", "circle-radius", 14 + phase * 11);
             map.setPaintProperty("food-latest-pulse", "circle-opacity", .3 - phase * .24);
+            map.setPaintProperty("food-user-location-halo", "circle-radius", 17 + phase * 8);
+            map.setPaintProperty("food-user-location-halo", "circle-opacity", .26 - phase * .17);
             pulseFrame = requestAnimationFrame(animatePulse);
           };
           pulseFrame = requestAnimationFrame(animatePulse);
@@ -438,11 +445,21 @@ export default function FoodShoutPage({ onHome }) {
     source.setData(searchedPlace ? { type: "FeatureCollection", features: [{ type: "Feature", geometry: { type: "Point", coordinates: [searchedPlace.longitude, searchedPlace.latitude] }, properties: {} }] } : emptyGeoJson());
   }, [mapReady, searchedPlace]);
 
+  useEffect(() => {
+    const source = mapRef.current?.getSource("food-user-location");
+    if (!source) return;
+    source.setData(userLocation ? {
+      type: "FeatureCollection",
+      features: [{ type: "Feature", geometry: { type: "Point", coordinates: [userLocation.longitude, userLocation.latitude] }, properties: {} }],
+    } : emptyGeoJson());
+  }, [mapReady, userLocation]);
+
   const locate = () => {
     if (!navigator.geolocation) return setToast({ text: "Location is not supported by this browser." });
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
+        setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
         const map = mapRef.current;
         if (map) {
           let fallbackTimer;
