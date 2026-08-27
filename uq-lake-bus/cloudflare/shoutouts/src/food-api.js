@@ -54,6 +54,7 @@ const DEFAULT_STORAGE_LIMIT_BYTES = 8 * 1024 * 1024 * 1024;
 const FOOD_XP_BASE = 20;
 const FOOD_XP_NEW_AREA = 10;
 const FOOD_XP_TRAIL = 5;
+const FOOD_XP_FIRST_ENGAGEMENT = 50;
 const FOOD_XP_DAILY_POST_LIMIT = 5;
 const FOOD_XP_DAILY_CAP = 120;
 const ASIA_PACIFIC_BOUNDS = { south: -90, north: 90, west: -180, east: 180 };
@@ -595,7 +596,10 @@ async function createFoodComment(request, env, shoutId, respond) {
   await enforceNetworkWriteLimit(env.DB, networkHash, clientHash, now);
   await enforceFoodRateLimit(env.DB, clientHash, now, 5);
   const id = crypto.randomUUID();
-  await env.DB.batch([
+  const previousComment = await env.DB.prepare(
+    "SELECT id FROM food_comments WHERE author_hash = ? LIMIT 1",
+  ).bind(clientHash).first();
+  const operations = [
     env.DB.prepare(
       `INSERT INTO food_comments
          (id, shout_id, author_hash, display_name, tone, parent_comment_id, body, created_at, status)
@@ -603,7 +607,12 @@ async function createFoodComment(request, env, shoutId, respond) {
     ).bind(id, shoutId, clientHash, displayName, tone, parentId, body, now),
     env.DB.prepare("UPDATE food_shouts SET comment_count = comment_count + 1, updated_at = ? WHERE id = ?")
       .bind(now, shoutId),
-  ]);
+  ];
+  if (!previousComment) operations.push(env.DB.prepare(
+    "INSERT OR IGNORE INTO food_engagement_rewards (author_hash, reward_type, xp, created_at) VALUES (?, 'first_comment', ?, ?)",
+  ).bind(clientHash, FOOD_XP_FIRST_ENGAGEMENT, now));
+  const outcomes = await env.DB.batch(operations);
+  const earnedXp = previousComment ? 0 : Number(outcomes.at(-1)?.meta?.changes || 0) * FOOD_XP_FIRST_ENGAGEMENT;
 
   if (notificationRecipient && notificationRecipient !== clientHash) {
     await env.DB.prepare(
@@ -614,7 +623,7 @@ async function createFoodComment(request, env, shoutId, respond) {
       .bind(crypto.randomUUID(), notificationRecipient, clientHash, id, shoutId, now, shout.expires_at ?? now + 30 * 24 * 60 * 60)
       .run();
   }
-  return respond({ comment: serializeFoodComment({ id, shout_id: shoutId, display_name: displayName, tone, parent_comment_id: parentId, body, created_at: now, viewer_owned: 1 }) }, 201);
+  return respond({ comment: serializeFoodComment({ id, shout_id: shoutId, display_name: displayName, tone, parent_comment_id: parentId, body, created_at: now, viewer_owned: 1 }), earnedXp }, 201);
 }
 
 async function deleteFoodComment(request, env, commentId, respond) {
@@ -676,12 +685,20 @@ async function rateFoodShout(request, env, shoutId, respond) {
   const previousRating = await env.DB.prepare(
     "SELECT rating_x2 FROM food_ratings WHERE shout_id = ? AND client_hash = ?",
   ).bind(shoutId, clientHash).first();
-  await env.DB.prepare(
+  const hasRatedBefore = previousRating || await env.DB.prepare(
+    "SELECT shout_id FROM food_ratings WHERE client_hash = ? LIMIT 1",
+  ).bind(clientHash).first();
+  const operations = [env.DB.prepare(
     `INSERT INTO food_ratings (shout_id, client_hash, rating_x2, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?)
      ON CONFLICT(shout_id, client_hash)
      DO UPDATE SET rating_x2 = excluded.rating_x2, updated_at = excluded.updated_at`,
-  ).bind(shoutId, clientHash, ratingX2, now, now).run();
+  ).bind(shoutId, clientHash, ratingX2, now, now)];
+  if (!hasRatedBefore) operations.push(env.DB.prepare(
+    "INSERT OR IGNORE INTO food_engagement_rewards (author_hash, reward_type, xp, created_at) VALUES (?, 'first_rating', ?, ?)",
+  ).bind(clientHash, FOOD_XP_FIRST_ENGAGEMENT, now));
+  const outcomes = await env.DB.batch(operations);
+  const earnedXp = hasRatedBefore ? 0 : Number(outcomes.at(-1)?.meta?.changes || 0) * FOOD_XP_FIRST_ENGAGEMENT;
   if (!previousRating && shout.author_hash && shout.author_hash !== clientHash) {
     await env.DB.prepare(
       `INSERT INTO notifications
@@ -699,6 +716,7 @@ async function rateFoodShout(request, env, shoutId, respond) {
     average: Number(Number(result?.rating_average || 0).toFixed(1)),
     count: Number(result?.rating_count || 0),
     viewerValue: ratingX2 / 2,
+    earnedXp,
   });
 }
 
@@ -1107,7 +1125,7 @@ async function getFoodProfileProgress(request, env, url, respond) {
   const clientHash = await getClientHash(request);
   const requestedOffset = Number(url.searchParams.get("tzOffset"));
   const timezoneOffset = Number.isFinite(requestedOffset) ? Math.max(-840, Math.min(840, Math.trunc(requestedOffset))) : 0;
-  const [{ results = [] }, override] = await Promise.all([
+  const [{ results = [] }, override, { results: engagementRewards = [] }] = await Promise.all([
     env.DB.prepare(
     `SELECT id, title, place_name, location_label, geohash, created_at
        FROM food_shouts
@@ -1116,6 +1134,7 @@ async function getFoodProfileProgress(request, env, url, respond) {
       LIMIT 1000`,
     ).bind(clientHash).all(),
     env.DB.prepare("SELECT xp_bonus, label, updated_at FROM food_profile_overrides WHERE author_hash = ?").bind(clientHash).first(),
+    env.DB.prepare("SELECT reward_type, xp, created_at FROM food_engagement_rewards WHERE author_hash = ? ORDER BY created_at ASC").bind(clientHash).all(),
   ]);
   const days = new Map();
   const seenAreas = new Set();
@@ -1124,6 +1143,7 @@ async function getFoodProfileProgress(request, env, url, respond) {
   const history = [];
   const bonusXp = Math.max(0, Math.min(50000, Math.trunc(Number(override?.xp_bonus || 0))));
   let totalXp = bonusXp;
+  let earnedPostCount = 0;
 
   for (const row of results) {
     const createdAt = Number(row.created_at || 0);
@@ -1151,6 +1171,7 @@ async function getFoodProfileProgress(request, env, url, respond) {
     seenAreas.add(areaKey);
     recent.push({ createdAt, locationKey });
     totalXp += xp;
+    if (xp > 0) earnedPostCount += 1;
     history.push({
       id: row.id,
       title: row.title,
@@ -1169,6 +1190,20 @@ async function getFoodProfileProgress(request, env, url, respond) {
       placeName: "Profile reward",
       createdAt: new Date(Number(override?.updated_at || unixNow()) * 1000).toISOString(),
       xp: bonusXp,
+      bonuses: [],
+      capped: false,
+    });
+  }
+
+  for (const reward of engagementRewards) {
+    const xp = Math.max(0, Math.min(FOOD_XP_FIRST_ENGAGEMENT, Number(reward.xp || 0)));
+    totalXp += xp;
+    history.push({
+      id: `engagement-${reward.reward_type}`,
+      title: reward.reward_type === "first_rating" ? "First rating" : "First comment",
+      placeName: "Community reward",
+      createdAt: new Date(Number(reward.created_at) * 1000).toISOString(),
+      xp,
       bonuses: [],
       capped: false,
     });
@@ -1200,7 +1235,7 @@ async function getFoodProfileProgress(request, env, url, respond) {
   return respond({
     totalXp,
     totalPosts: results.length,
-    countedPosts: history.filter((item) => item.xp > 0).length,
+    countedPosts: earnedPostCount,
     level,
     title: foodRankForLevel(level).label,
     rank: foodRankForLevel(level),
@@ -1245,11 +1280,11 @@ function foodGuideAreaLabel(locationLabel) {
   return (candidates.at(-1) || "Local").slice(0, 32);
 }
 function foodRankForLevel(level) {
-  const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora"];
+  const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora", "Comet", "Nova", "Nebula", "Celestial", "Mythic", "Eternal"];
   const divisions = ["IV", "III", "II", "I"];
   const safeLevel = Math.max(1, Math.min(99, Number(level) || 1));
   const rankIndex = Math.min(ranks.length - 1, Math.floor((safeLevel - 1) / 4));
-  const division = rankIndex === ranks.length - 1 && safeLevel >= 24 ? "★" : divisions[(safeLevel - 1) % divisions.length];
+  const division = rankIndex === ranks.length - 1 ? `Lv. ${safeLevel}` : divisions[(safeLevel - 1) % divisions.length];
   return { key: ranks[rankIndex].toLowerCase(), name: ranks[rankIndex], division, label: `${ranks[rankIndex]} ${division}` };
 }
 

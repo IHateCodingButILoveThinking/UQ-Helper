@@ -349,7 +349,7 @@ export default function FoodShoutPage({ onHome }) {
             "circle-color": ["case", ["==", ["get", "selected"], 1], "#ff7043", "#fff8ef"],
             "circle-radius": ["case", ["==", ["get", "selected"], 1], 20, 16],
             "circle-stroke-width": ["case", ["==", ["get", "selected"], 1], 4, 3],
-            "circle-stroke-color": ["match", ["get", "type"], "dessert", "#c466d8", "snack", "#d58b20", "drink", "#2c94b5", "market", "#6b8e42", "#ff7043"],
+            "circle-stroke-color": ["case", ["!=", ["get", "rankColor"], ""], ["get", "rankColor"], ["match", ["get", "type"], "dessert", "#c466d8", "snack", "#d58b20", "drink", "#2c94b5", "market", "#6b8e42", "#ff7043"]],
           },
         });
         map.addLayer({
@@ -661,7 +661,7 @@ export default function FoodShoutPage({ onHome }) {
       </div>
 
       <AnimatePresence>
-        {selected && <FoodDetail key={selected.id} shout={selected} map={mapRef.current} countryCode={browseRegion.id} guide={profileProgress.guide} collections={collections} onToggleCollection={toggleCollectionItem} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); loadProfileProgress(); }} />}
+        {selected && <FoodDetail key={selected.id} shout={selected} map={mapRef.current} countryCode={browseRegion.id} guide={profileProgress.guide} rank={foodRankForLevel(profileProgress.level)} collections={collections} onToggleCollection={toggleCollectionItem} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); loadProfileProgress(); }} />}
         {composerOpen && <FoodComposer map={mapRef.current} initialLocation={composerLocation} countryCode={browseRegion.id} onClose={() => { setComposerOpen(false); setComposerLocation(null); }} onCreated={refreshAfterCreate} />}
         {filtersExpanded && <FilterMenuSheet foodType={foodType} cuisine={cuisine} budget={budget} onApply={({ type, selectedCuisine, selectedBudget }) => { setFoodType(type); setCuisine(selectedCuisine); setBudget(selectedBudget); setFiltersExpanded(false); }} onNear={() => { setFiltersExpanded(false); setFeedOpen(true); }} onRated={() => { setFiltersExpanded(false); setTopOpen(true); }} onClose={() => setFiltersExpanded(false)} />}
         {regionOpen && <RegionSheet selected={browseRegion} onSelect={selectBrowseRegion} onClose={() => setRegionOpen(false)} />}
@@ -906,7 +906,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
   );
 }
 
-function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggleCollection, onClose, onChange, onDeleted }) {
+function FoodDetail({ shout, map, countryCode, guide, rank, collections = [], onToggleCollection, onClose, onChange, onDeleted }) {
   const gallery = shout.images?.length ? shout.images : [{ url: shout.imageUrl }];
   const [activePhoto, setActivePhoto] = useState(0);
   const [failedImages, setFailedImages] = useState([]);
@@ -927,6 +927,7 @@ function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggle
   const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue ?? null);
   const [ratingBusy, setRatingBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
+  const [rewardMessage, setRewardMessage] = useState("");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
   const [collectionBusy, setCollectionBusy] = useState("");
@@ -962,7 +963,7 @@ function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggle
   const submitComment = async (event) => {
     event.preventDefault(); if (!comment.trim()) return;
     setBusy(true); setError("");
-    try { const result = await createFoodComment(shout.id, comment.trim(), replyTo?.id, displayName.trim() || readDisplayName(), tone); saveDisplayName(displayName); setComments((items) => [...items, result.comment]); setComment(""); setReplyTo(null); releaseMobileFocus(); onChange({ ...shout, commentCount: shout.commentCount + 1 }); }
+    try { const result = await createFoodComment(shout.id, comment.trim(), replyTo?.id, displayName.trim() || readDisplayName(), tone); saveDisplayName(displayName); setComments((items) => [...items, result.comment]); setComment(""); setReplyTo(null); releaseMobileFocus(); if (result.earnedXp) setRewardMessage(`+${result.earnedXp} EXP · First comment`); onChange({ ...shout, commentCount: shout.commentCount + 1 }); }
     catch (nextError) { setError(nextError.message); } finally { setBusy(false); }
   };
   const roots = comments.filter((item) => !item.parentCommentId);
@@ -1033,7 +1034,7 @@ function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggle
   };
   const submitRating = async () => {
     setRatingBusy(true); setError("");
-    try { onChange({ ...shout, rating: await rateFoodShout(shout.id, ratingValue) }); }
+    try { const rating = await rateFoodShout(shout.id, ratingValue); if (rating.earnedXp) setRewardMessage(`+${rating.earnedXp} EXP · First rating`); onChange({ ...shout, rating }); }
     catch (nextError) { setError(nextError.message); }
     finally { setRatingBusy(false); }
   };
@@ -1069,9 +1070,10 @@ function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggle
     }
   };
   const activeImage = gallery[activePhoto];
+  const showRankSeal = shout.viewerOwned && rank?.key && rank.key !== "bronze";
   return <Sheet className="food-detail" onClose={onClose} label={shout.title}>
     <div className="food-detail-media food-detail-player">
-      <figure><button type="button" className="food-detail-image-button" onClick={() => setGalleryOpen(true)} aria-label="View photo full screen">{failedImages.includes(activePhoto) || !(activeImage?.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <motion.img key={activePhoto} initial={{ opacity: .35, scale: 1.025 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .22 }} src={activeImage?.url || shout.imageUrl} alt={`${shout.title}, photo ${activePhoto + 1}`} onError={() => setFailedImages((items) => items.includes(activePhoto) ? items : [...items, activePhoto])} />}</button></figure>
+      <figure>{failedImages.includes(activePhoto) || !(activeImage?.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <motion.img key={activePhoto} initial={{ opacity: .35, scale: 1.025 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .22 }} src={activeImage?.url || shout.imageUrl} alt={`${shout.title}, photo ${activePhoto + 1}`} onError={() => setFailedImages((items) => items.includes(activePhoto) ? items : [...items, activePhoto])} />}</figure>
       <div className="food-detail-top-actions"><button type="button" onClick={sharePost} aria-label="Share this food find"><Share2 size={18} /></button><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>{shareStatus && <b className="food-share-status">{shareStatus}</b>}<span>{typeLabel(shout.shoutType)}</span>
       <button type="button" className="food-detail-expand-photo" onClick={() => setGalleryOpen(true)} aria-label="View photo gallery"><Maximize2 size={17} /></button>
       {gallery.length > 1 && <div className="food-detail-thumbnails" aria-label="Choose food photo">{gallery.slice(0, 3).map((image, index) => <button type="button" className={activePhoto === index ? "active" : ""} onClick={() => setActivePhoto(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activePhoto === index} key={image.objectKey || index}>{failedImages.includes(index) || !(image.url || shout.imageUrl) ? <Utensils size={15} /> : <img src={image.url || shout.imageUrl} alt="" onError={() => setFailedImages((items) => items.includes(index) ? items : [...items, index])} />}</button>)}</div>}
@@ -1089,12 +1091,14 @@ function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggle
       </div> : <><h2>{shout.title}</h2>{shout.caption && <p className="food-caption">{shout.caption}</p>}</>}
       {readablePlace && <div className="food-location-line"><MapPin size={17} /><span><strong>{readablePlace}</strong></span><a href={googleMapsSearchUrl(shout)} target="_blank" rel="noreferrer" aria-label="Open this place in Google Maps"><Navigation size={14} /> Google</a></div>}
       <div className="food-meta-row"><span>{shout.cuisine}</span><span><Clock3 size={13} /> {relativeTime(shout.createdAt)}</span>{shout.priceText && <span><CircleDollarSign size={15} /> {shout.priceText}</span>}{shout.vibeTags.map((tag) => <span key={tag}>{tag.replaceAll("-", " ")}</span>)}</div>
+      {showRankSeal && <span className="food-post-rank" style={foodRankStyle(rank)}><Trophy size={13} /> {rank.label}</span>}
       {shout.viewerOwned && guide && <span className="food-guide-title"><Compass size={13} /> {guide.title}</span>}
       <div className="food-engagement-bar" aria-label="Food feedback">
         <button type="button" className={feedbackMode === "rating" ? "active" : ""} onClick={() => setFeedbackMode((mode) => mode === "rating" ? null : "rating")} aria-expanded={feedbackMode === "rating"}><Star size={19} fill={shout.rating?.count ? "currentColor" : "none"} /><span><strong>{shout.rating?.count ? shout.rating.average : "Rate"}</strong><small>{shout.rating?.count ? `${shout.rating.count} rating${shout.rating.count === 1 ? "" : "s"}` : "Your taste"}</small></span></button>
         <button type="button" className={feedbackMode === "comments" ? "active" : ""} onClick={toggleComments} aria-expanded={feedbackMode === "comments"}><MessageCircle size={19} /><span><strong>{shout.commentCount || "Comment"}</strong><small>{shout.commentCount ? `${shout.commentCount} comment${shout.commentCount === 1 ? "" : "s"}` : "Say something"}</small></span></button>
         <button type="button" className={shout.viewerSaved ? "active" : ""} onClick={() => react("save")}><Bookmark size={19} fill={shout.viewerSaved ? "currentColor" : "none"} /><span><strong>{shout.viewerSaved ? "Saved" : "Save"}</strong><small>For later</small></span></button>
       </div>
+      {rewardMessage && <p className="food-engagement-reward" role="status">{rewardMessage}</p>}
       {collections.length > 0 && <button type="button" className="food-collection-link" onClick={() => setCollectionPickerOpen(true)}><BookmarkPlus size={17} /><span><strong>Add to a list</strong><small>Save this find in a collection</small></span><ChevronRight size={17} /></button>}
       <AnimatePresence mode="wait">
         {feedbackMode === "rating" && <motion.section className="food-feedback-popover food-rating-popover" key="rating" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .18 }}>
@@ -1320,13 +1324,23 @@ function CollectionPicker({ collections, shoutId, busyId, onToggle, onClose }) {
 function FoodPhotoGallery({ gallery, activePhoto, onSelect, onClose, title }) {
   const total = gallery.length;
   const image = gallery[activePhoto];
+  const [cleanImageUrl, setCleanImageUrl] = useState("");
   const previous = () => onSelect((activePhoto - 1 + total) % total);
   const next = () => onSelect((activePhoto + 1) % total);
+  useEffect(() => {
+    let cancelled = false;
+    const sourceUrl = image?.url || "";
+    setCleanImageUrl(sourceUrl);
+    if (!sourceUrl) return undefined;
+    trimGalleryBlackBars(sourceUrl).then((nextUrl) => { if (!cancelled && nextUrl) setCleanImageUrl(nextUrl); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [image?.url]);
   return <BodyPortal><div className="food-photo-gallery-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
     <motion.section className="food-photo-gallery" role="dialog" aria-modal="true" aria-label={`Photos for ${title}`} initial={{ opacity: 0, scale: .98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: .98 }} transition={{ duration: .18 }}>
+      {cleanImageUrl && <div className="food-photo-gallery-ambient" aria-hidden="true"><img src={cleanImageUrl} alt="" /></div>}
       <div className="food-photo-gallery-head"><span>{activePhoto + 1} of {total}</span><button type="button" onClick={onClose} aria-label="Close photo gallery"><X size={22} /></button></div>
       <motion.div className="food-photo-gallery-frame" drag={total > 1 ? "x" : false} dragConstraints={{ left: 0, right: 0 }} dragElastic={.2} onDragEnd={(_, info) => { if (info.offset.x <= -45) next(); if (info.offset.x >= 45) previous(); }}>
-        {image?.url ? <motion.img key={image.objectKey || image.url || activePhoto} initial={{ opacity: .35, scale: 1.015 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .18 }} src={image.url} alt={`${title}, photo ${activePhoto + 1}`} /> : <div className="food-photo-fallback"><Utensils size={30} /><span>Photo unavailable</span></div>}
+        {cleanImageUrl ? <motion.img key={image.objectKey || image.url || activePhoto} initial={{ opacity: .35, scale: 1.015 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .18 }} src={cleanImageUrl} alt={`${title}, photo ${activePhoto + 1}`} /> : <div className="food-photo-fallback"><Utensils size={30} /><span>Photo unavailable</span></div>}
       </motion.div>
       {total > 1 && <><button type="button" className="food-photo-gallery-nav previous" onClick={previous} aria-label="Previous photo"><ChevronLeft size={23} /></button><button type="button" className="food-photo-gallery-nav next" onClick={next} aria-label="Next photo"><ChevronRight size={23} /></button><div className="food-photo-gallery-dots" aria-label={`Photo ${activePhoto + 1} of ${total}`}>{gallery.map((item, index) => <button type="button" key={item.objectKey || item.url || index} className={index === activePhoto ? "active" : ""} onClick={() => onSelect(index)} aria-label={`Show photo ${index + 1}`} />)}</div></>}
     </motion.section>
@@ -1365,6 +1379,56 @@ function RatingPicker({ value, onChange }) {
 function releaseMobileFocus() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+}
+
+async function trimGalleryBlackBars(url) {
+  const response = await fetch(url, { mode: "cors" });
+  if (!response.ok) return url;
+  const bitmap = await createImageBitmap(await response.blob(), { imageOrientation: "from-image" });
+  try {
+    const sampleScale = Math.min(1, 220 / Math.max(bitmap.width, bitmap.height));
+    const sampleWidth = Math.max(1, Math.round(bitmap.width * sampleScale));
+    const sampleHeight = Math.max(1, Math.round(bitmap.height * sampleScale));
+    const sample = document.createElement("canvas");
+    sample.width = sampleWidth; sample.height = sampleHeight;
+    const context = sample.getContext("2d", { willReadFrequently: true });
+    if (!context) return url;
+    context.drawImage(bitmap, 0, 0, sampleWidth, sampleHeight);
+    const pixels = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+    const isBlackRow = (row) => {
+      let black = 0;
+      for (let x = 0; x < sampleWidth; x += 1) {
+        const offset = (row * sampleWidth + x) * 4;
+        if (pixels[offset] < 13 && pixels[offset + 1] < 13 && pixels[offset + 2] < 13 && pixels[offset + 3] > 220) black += 1;
+      }
+      return black / sampleWidth > .985;
+    };
+    const isBlackColumn = (column) => {
+      let black = 0;
+      for (let y = 0; y < sampleHeight; y += 1) {
+        const offset = (y * sampleWidth + column) * 4;
+        if (pixels[offset] < 13 && pixels[offset + 1] < 13 && pixels[offset + 2] < 13 && pixels[offset + 3] > 220) black += 1;
+      }
+      return black / sampleHeight > .985;
+    };
+    const scanEdge = (length, at) => { let count = 0; while (count < length * .7 && at(count)) count += 1; return count; };
+    const top = scanEdge(sampleHeight, (index) => isBlackRow(index));
+    const bottom = scanEdge(sampleHeight, (index) => isBlackRow(sampleHeight - 1 - index));
+    const left = scanEdge(sampleWidth, (index) => isBlackColumn(index));
+    const right = scanEdge(sampleWidth, (index) => isBlackColumn(sampleWidth - 1 - index));
+    if (top + bottom < sampleHeight * .06 && left + right < sampleWidth * .06) return url;
+    const x = Math.round(left / sampleWidth * bitmap.width);
+    const y = Math.round(top / sampleHeight * bitmap.height);
+    const width = Math.round((sampleWidth - left - right) / sampleWidth * bitmap.width);
+    const height = Math.round((sampleHeight - top - bottom) / sampleHeight * bitmap.height);
+    if (width < bitmap.width * .45 || height < bitmap.height * .3) return url;
+    const output = document.createElement("canvas");
+    output.width = width; output.height = height;
+    const outputContext = output.getContext("2d", { alpha: false });
+    if (!outputContext) return url;
+    outputContext.drawImage(bitmap, x, y, width, height, 0, 0, width, height);
+    return output.toDataURL("image/jpeg", .92);
+  } finally { bitmap.close?.(); }
 }
 
 function foodLocationErrorMessage(error, fallback = "You can still search or drop a pin.") {

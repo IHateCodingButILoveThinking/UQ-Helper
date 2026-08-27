@@ -59,7 +59,9 @@ function canvasToBlob(canvas, type, quality) {
 async function decodeImage(file) {
   if (typeof createImageBitmap === "function") {
     try {
-      const bitmap = await createImageBitmap(file);
+      // Camera JPEGs often store rotation as EXIF metadata instead of rotating pixels.
+      // Baking that orientation into the compressed output prevents sideways food photos.
+      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
       return { element: bitmap, width: bitmap.width, height: bitmap.height, close: () => bitmap.close?.() };
     } catch {
       // Safari can expose createImageBitmap but still reject HEIC or large camera photos.
