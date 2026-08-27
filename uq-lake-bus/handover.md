@@ -447,6 +447,16 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - The modal is rendered through the existing body portal so the detail sheet’s overflow rules cannot trap scrolling or hide the composer on phones.
 - No tests were run for this follow-up, per user request.
 
+### Comment modal spacing refinement (completed in code; user will verify)
+
+- Reworked the modal header into a stable two-row layout so the section label, title, and count cannot wrap into each other.
+- Added explicit spacing and wrapping rules for the reply banner, feeling buttons, comment input, and action links so text remains readable on narrow phones.
+
+### Reply state refinement (completed in code; user will verify)
+
+- The popup now changes its heading to **Reply** when replying to a comment.
+- The selected comment is shown in a separate, wrapped “Replying to” context card above the composer, and nested replies have their own readable inset styling.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.
