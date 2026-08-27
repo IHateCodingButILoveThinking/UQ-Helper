@@ -457,6 +457,11 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - The popup now changes its heading to **Reply** when replying to a comment.
 - The selected comment is shown in a separate, wrapped “Replying to” context card above the composer, and nested replies have their own readable inset styling.
 
+### Comment modal width regression (fixed in code; user will verify)
+
+- The modal did not inherit the previous full-width anonymous-comment rule, causing comment and reply content to collapse to a narrow column on mobile.
+- Added modal-specific full-width comment layout, normal Chinese/English text wrapping, readable metadata/action spacing, and full-width reply bubbles.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.
