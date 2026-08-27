@@ -462,6 +462,14 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - The modal did not inherit the previous full-width anonymous-comment rule, causing comment and reply content to collapse to a narrow column on mobile.
 - Added modal-specific full-width comment layout, normal Chinese/English text wrapping, readable metadata/action spacing, and full-width reply bubbles.
 
+### Compact contributor rewards and collections (completed locally; deployment still required)
+
+- Added four compact, cute achievement badges to the Foodie profile: **First bite**, **Map muncher**, **Crowd pleaser**, and **Local guide**. They are based on active finds, verified community ratings, and repeated contributions in the same mapped area.
+- Added a Local Guide title once a contributor has shared three active finds in one approximate area. The title appears in the profile and on that user’s own food-find detail card.
+- Added personal curated collections, unlocked at five active finds. Users can create up to 12 lists and add/remove a find from a small collection picker inside the food-detail view.
+- Added local Worker API endpoints, frontend API functions, and D1 migration `cloudflare/shoutouts/migrations/0010_food_collections.sql`. Run the existing migration command and deploy the Worker together with the frontend before expecting collections or server-derived badges to work against production.
+- No build or device testing was run for this work, per the user’s earlier request to focus on code and visual review.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.

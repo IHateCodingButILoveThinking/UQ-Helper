@@ -89,6 +89,21 @@ export async function handleFoodRequest({ request, env, ctx, url, path, respond 
     return getFoodProfileProgress(request, env, url, respond);
   }
 
+  if (request.method === "GET" && path === "/api/collections") {
+    return listFoodCollections(request, env, respond);
+  }
+  if (request.method === "POST" && path === "/api/collections") {
+    return createFoodCollection(request, env, respond);
+  }
+  const collectionMatch = path.match(/^\/api\/collections\/([0-9a-f-]{36})\/items$/i);
+  if (collectionMatch && request.method === "POST") {
+    return addFoodCollectionItem(request, env, collectionMatch[1], respond);
+  }
+  const collectionItemMatch = path.match(/^\/api\/collections\/([0-9a-f-]{36})\/items\/([0-9a-f-]{36})$/i);
+  if (collectionItemMatch && request.method === "DELETE") {
+    return removeFoodCollectionItem(request, env, collectionItemMatch[1], collectionItemMatch[2], respond);
+  }
+
   if (request.method === "GET" && path === "/api/shouts") {
     return listFoodShouts(request, env, url, respond);
   }
@@ -984,6 +999,110 @@ async function reverseFoodPlace(request, env, url, respond) {
   return respond({ provider: "OpenStreetMap", attribution: "© OpenStreetMap contributors", cached: false, place });
 }
 
+async function listFoodCollections(request, env, respond) {
+  const clientHash = await getClientHash(request);
+  const { results = [] } = await env.DB.prepare(
+    `SELECT c.id, c.title, c.is_public, c.created_at, c.updated_at,
+            COUNT(s.id) AS item_count,
+            json_group_array(s.id) AS shout_ids
+       FROM food_collections c
+       LEFT JOIN food_collection_items i ON i.collection_id = c.id
+       LEFT JOIN food_shouts s ON s.id = i.shout_id AND s.status = 'active'
+      WHERE c.author_hash = ? AND c.status = 'active'
+      GROUP BY c.id
+      ORDER BY c.updated_at DESC
+      LIMIT 12`,
+  ).bind(clientHash).all();
+  return respond({ collections: results.map(serializeFoodCollection) });
+}
+
+async function createFoodCollection(request, env, respond) {
+  const payload = await readJson(request);
+  const clientHash = await getClientHash(request);
+  const title = normalizeFoodText(payload.title, "collection name", 48, true);
+  const now = unixNow();
+  const contribution = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM food_shouts WHERE author_hash = ? AND status = 'active'",
+  ).bind(clientHash).first();
+  if (Number(contribution?.count || 0) < 5) {
+    throw new FoodError(403, "Share 5 food finds to unlock collections.", "collection_locked");
+  }
+  const existing = await env.DB.prepare(
+    "SELECT COUNT(*) AS count FROM food_collections WHERE author_hash = ? AND status = 'active'",
+  ).bind(clientHash).first();
+  if (Number(existing?.count || 0) >= 12) throw new FoodError(429, "Keep up to 12 collections for now.", "collection_limit");
+  const id = crypto.randomUUID();
+  await env.DB.prepare(
+    `INSERT INTO food_collections (id, author_hash, title, is_public, created_at, updated_at, status)
+     VALUES (?, ?, ?, 1, ?, ?, 'active')`,
+  ).bind(id, clientHash, title, now, now).run();
+  return respond({ collection: serializeFoodCollection({ id, title, is_public: 1, created_at: now, updated_at: now, item_count: 0, shout_ids: "[]" }) }, 201);
+}
+
+async function addFoodCollectionItem(request, env, collectionId, respond) {
+  const payload = await readJson(request);
+  const clientHash = await getClientHash(request);
+  const shoutId = String(payload.shoutId || "");
+  if (!UUID_PATTERN.test(shoutId)) throw new FoodError(400, "Choose a valid food find.");
+  const collection = await requireOwnedFoodCollection(env.DB, collectionId, clientHash);
+  await requireActiveShout(env.DB, shoutId);
+  const now = unixNow();
+  await env.DB.prepare(
+    "INSERT OR IGNORE INTO food_collection_items (collection_id, shout_id, added_at) VALUES (?, ?, ?)",
+  ).bind(collectionId, shoutId, now).run();
+  await env.DB.prepare(
+    "UPDATE food_collections SET updated_at = ? WHERE id = ? AND author_hash = ?",
+  ).bind(now, collectionId, clientHash).run();
+  return respond({ collection: await getOwnedFoodCollection(env.DB, collection.id, clientHash) });
+}
+
+async function removeFoodCollectionItem(request, env, collectionId, shoutId, respond) {
+  const clientHash = await getClientHash(request);
+  if (!UUID_PATTERN.test(shoutId)) throw new FoodError(400, "Choose a valid food find.");
+  const collection = await requireOwnedFoodCollection(env.DB, collectionId, clientHash);
+  const now = unixNow();
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM food_collection_items WHERE collection_id = ? AND shout_id = ?").bind(collectionId, shoutId),
+    env.DB.prepare("UPDATE food_collections SET updated_at = ? WHERE id = ? AND author_hash = ?").bind(now, collectionId, clientHash),
+  ]);
+  return respond({ collection: await getOwnedFoodCollection(env.DB, collection.id, clientHash) });
+}
+
+async function requireOwnedFoodCollection(database, collectionId, clientHash) {
+  const collection = await database.prepare(
+    "SELECT id FROM food_collections WHERE id = ? AND author_hash = ? AND status = 'active'",
+  ).bind(collectionId, clientHash).first();
+  if (!collection) throw new FoodError(404, "Collection not found or not owned by this device.");
+  return collection;
+}
+
+async function getOwnedFoodCollection(database, collectionId, clientHash) {
+  const row = await database.prepare(
+    `SELECT c.id, c.title, c.is_public, c.created_at, c.updated_at,
+            COUNT(s.id) AS item_count,
+            json_group_array(s.id) AS shout_ids
+       FROM food_collections c
+       LEFT JOIN food_collection_items i ON i.collection_id = c.id
+       LEFT JOIN food_shouts s ON s.id = i.shout_id AND s.status = 'active'
+      WHERE c.id = ? AND c.author_hash = ? AND c.status = 'active'
+      GROUP BY c.id`,
+  ).bind(collectionId, clientHash).first();
+  if (!row) throw new FoodError(404, "Collection not found.");
+  return serializeFoodCollection(row);
+}
+
+function serializeFoodCollection(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    isPublic: Boolean(row.is_public),
+    itemCount: Number(row.item_count || 0),
+    shoutIds: parseJsonArray(row.shout_ids).filter((id) => UUID_PATTERN.test(String(id))),
+    createdAt: new Date(Number(row.created_at) * 1000).toISOString(),
+    updatedAt: new Date(Number(row.updated_at) * 1000).toISOString(),
+  };
+}
+
 async function getFoodProfileProgress(request, env, url, respond) {
   const clientHash = await getClientHash(request);
   const requestedOffset = Number(url.searchParams.get("tzOffset"));
@@ -997,6 +1116,7 @@ async function getFoodProfileProgress(request, env, url, respond) {
   ).bind(clientHash).all();
   const days = new Map();
   const seenAreas = new Set();
+  const areas = new Map();
   const recent = [];
   const history = [];
   let totalXp = 0;
@@ -1006,6 +1126,10 @@ async function getFoodProfileProgress(request, env, url, respond) {
     const dayKey = Math.floor((createdAt - timezoneOffset * 60) / 86400);
     const day = days.get(dayKey) || { posts: 0, xp: 0 };
     const areaKey = String(row.geohash || "").slice(0, 6) || `post:${row.id}`;
+    const area = areas.get(areaKey) || { count: 0, label: foodGuideAreaLabel(row.location_label) };
+    area.count += 1;
+    if (!area.label) area.label = foodGuideAreaLabel(row.location_label);
+    areas.set(areaKey, area);
     const locationKey = String(row.place_name || areaKey).toLowerCase();
     const newArea = !seenAreas.has(areaKey);
     const withinTrailWindow = recent.length >= 2 && createdAt - recent[recent.length - 2].createdAt <= 30 * 60;
@@ -1039,6 +1163,24 @@ async function getFoodProfileProgress(request, env, url, respond) {
   const nextLevelXp = foodLevelThreshold(level + 1);
   const todayKey = Math.floor((unixNow() - timezoneOffset * 60) / 86400);
   const today = days.get(todayKey) || { posts: 0, xp: 0 };
+  const guideArea = [...areas.values()].sort((left, right) => right.count - left.count)[0] || null;
+  const guide = guideArea?.count >= 3 ? {
+    title: `${guideArea.label || "Local"} Guide`,
+    area: guideArea.label || "Local",
+    postCount: guideArea.count,
+  } : null;
+  const loved = await env.DB.prepare(
+    `SELECT COUNT(*) AS count FROM (
+       SELECT s.id
+         FROM food_shouts s
+         JOIN food_ratings r ON r.shout_id = s.id
+        WHERE s.author_hash = ? AND s.status = 'active'
+        GROUP BY s.id
+       HAVING COUNT(r.client_hash) >= 3 AND AVG(r.rating_x2) >= 9
+     ) AS loved_posts`,
+  ).bind(clientHash).first();
+  const crowdPleaserCount = Number(loved?.count || 0);
+  const badges = foodProfileBadges({ totalPosts: results.length, guide, crowdPleaserCount });
   return respond({
     totalXp,
     totalPosts: results.length,
@@ -1064,12 +1206,28 @@ async function getFoodProfileProgress(request, env, url, respond) {
       dailyPostLimit: FOOD_XP_DAILY_POST_LIMIT,
       dailyXpCap: FOOD_XP_DAILY_CAP,
     },
+    guide,
+    badges,
     history: history.slice(-10).reverse(),
   });
 }
 
 function foodLevelThreshold(level) { return level <= 1 ? 0 : Math.round(50 * ((level - 1) ** 1.55)); }
 function foodLevelForXp(xp) { let level = 1; while (level < 99 && xp >= foodLevelThreshold(level + 1)) level += 1; return level; }
+function foodProfileBadges({ totalPosts, guide, crowdPleaserCount }) {
+  return [
+    { key: "first-bite", label: "First bite", hint: "Share your first find", icon: "bite", unlocked: totalPosts >= 1 },
+    { key: "map-muncher", label: "Map muncher", hint: "Share 5 food finds", icon: "map", unlocked: totalPosts >= 5 },
+    { key: "crowd-pleaser", label: "Crowd pleaser", hint: "Earn 4.5+ from 3 ratings", icon: "heart", unlocked: crowdPleaserCount > 0 },
+    { key: "local-guide", label: "Local guide", hint: "Share 3 finds in one area", icon: "guide", unlocked: Boolean(guide) },
+  ];
+}
+function foodGuideAreaLabel(locationLabel) {
+  const ignored = new Set(["australia", "china", "hong kong", "macau", "taiwan", "queensland", "new south wales", "victoria", "western australia", "south australia", "tasmania", "canada", "united states", "united kingdom"]);
+  const parts = String(locationLabel || "").split(",").map((part) => part.trim()).filter(Boolean);
+  const candidates = parts.filter((part) => !ignored.has(part.toLowerCase()) && !/^\d{4,6}$/.test(part) && !/^\d+[\w\s-]*$/.test(part));
+  return (candidates.at(-1) || "Local").slice(0, 32);
+}
 function foodRankForLevel(level) {
   const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora"];
   const divisions = ["IV", "III", "II", "I"];

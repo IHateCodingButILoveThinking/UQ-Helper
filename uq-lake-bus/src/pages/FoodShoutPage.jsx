@@ -6,13 +6,16 @@ import {
   ArrowLeft,
   Bell,
   Bookmark,
+  BookmarkPlus,
   Camera,
   Check,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   CircleDollarSign,
   Clock3,
   Coffee,
+  Compass,
   Flag,
   Globe2,
   Heart,
@@ -42,19 +45,23 @@ import {
 import { compressFoodImage, readFoodPhotoLocation } from "../lib/image-compression";
 import { foodRankForLevel, foodRankStyle } from "../lib/food-ranks";
 import {
+  addFoodCollectionItem,
   createFoodComment,
+  createFoodCollection,
   createFoodShout,
   deleteFoodComment,
   deleteFoodShout,
   getFoodProfileProgress,
   getFoodShout,
   listFoodActivity,
+  listFoodCollections,
   listFoodComments,
   listFoodShouts,
   markFoodActivityRead,
   rateFoodShout,
   reportFoodComment,
   reportFoodShout,
+  removeFoodCollectionItem,
   reverseFoodLocation,
   searchFoodPlaces,
   toggleFoodReaction,
@@ -141,6 +148,9 @@ export default function FoodShoutPage({ onHome }) {
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileName, setProfileName] = useState(() => readDisplayName());
   const [profileProgress, setProfileProgress] = useState(() => emptyFoodProfileProgress());
+  const [collections, setCollections] = useState([]);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
+  const [collectionsOpen, setCollectionsOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
   const [activityEnabled, setActivityEnabled] = useState(() => readActivityEnabled());
   const [activityLoading, setActivityLoading] = useState(false);
@@ -202,11 +212,32 @@ export default function FoodShoutPage({ onHome }) {
     }
   }, []);
 
+  const loadCollections = useCallback(async (signal) => {
+    try {
+      setCollectionsLoading(true);
+      const payload = await listFoodCollections(signal);
+      setCollections(payload.collections || []);
+      return payload.collections || [];
+    } catch (error) {
+      if (error.name !== "AbortError") setToast({ text: "Collections are unavailable right now." });
+      return [];
+    } finally {
+      if (!signal?.aborted) setCollectionsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     loadProfileProgress(controller.signal);
     return () => controller.abort();
   }, [loadProfileProgress]);
+
+  useEffect(() => {
+    if (!profileOpen && !collectionsOpen) return undefined;
+    const controller = new AbortController();
+    loadCollections(controller.signal);
+    return () => controller.abort();
+  }, [collectionsOpen, loadCollections, profileOpen]);
 
   const fetchVisible = useCallback(async (nextBounds = bounds, signal, { replace = false, force = false } = {}) => {
     if (!nextBounds) return;
@@ -424,10 +455,7 @@ export default function FoodShoutPage({ onHome }) {
         } else setLocating(false);
       },
       (error) => {
-        const message = error.code === 1
-          ? "Location is off. In iPhone Settings, allow Safari location, then try again."
-          : "We could not get your location. You can still search or pin the map.";
-        setToast({ text: message });
+        setToast({ text: foodLocationErrorMessage(error) });
         setLocating(false);
       },
       { enableHighAccuracy: false, timeout: 9000, maximumAge: 120000 },
@@ -556,6 +584,21 @@ export default function FoodShoutPage({ onHome }) {
     const next = map ? expandBounds(readBounds(map), .4) : bounds;
     if (next) fetchVisible(next, undefined, { force: true });
   };
+  const createCollection = async (title) => {
+    const payload = await createFoodCollection(title);
+    setCollections((items) => [payload.collection, ...items]);
+    setToast({ text: "Collection created" });
+    return payload.collection;
+  };
+  const toggleCollectionItem = async (collection, shoutId) => {
+    const included = collection.shoutIds?.includes(shoutId);
+    const payload = included
+      ? await removeFoodCollectionItem(collection.id, shoutId)
+      : await addFoodCollectionItem(collection.id, shoutId);
+    setCollections((items) => items.map((item) => item.id === payload.collection.id ? payload.collection : item));
+    setToast({ text: included ? "Removed from collection" : "Added to collection" });
+    return payload.collection;
+  };
   const listShouts = useMemo(() => shouts
     .filter((shout) => !bounds || shoutInsideBounds(shout, bounds))
     .sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt)), [bounds, shouts]);
@@ -600,14 +643,15 @@ export default function FoodShoutPage({ onHome }) {
       </div>
 
       <AnimatePresence>
-        {selected && <FoodDetail key={selected.id} shout={selected} map={mapRef.current} countryCode={browseRegion.id} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); loadProfileProgress(); }} />}
+        {selected && <FoodDetail key={selected.id} shout={selected} map={mapRef.current} countryCode={browseRegion.id} guide={profileProgress.guide} collections={collections} onToggleCollection={toggleCollectionItem} onClose={() => setSelected(null)} onChange={(next) => { setSelected(next); setShouts((items) => items.map((item) => item.id === next.id ? next : item)); }} onDeleted={() => { setSelected(null); fetchVisible(bounds); loadProfileProgress(); }} />}
         {composerOpen && <FoodComposer map={mapRef.current} initialLocation={composerLocation} countryCode={browseRegion.id} onClose={() => { setComposerOpen(false); setComposerLocation(null); }} onCreated={refreshAfterCreate} />}
         {filtersExpanded && <FilterMenuSheet foodType={foodType} cuisine={cuisine} budget={budget} onApply={({ type, selectedCuisine, selectedBudget }) => { setFoodType(type); setCuisine(selectedCuisine); setBudget(selectedBudget); setFiltersExpanded(false); }} onNear={() => { setFiltersExpanded(false); setFeedOpen(true); }} onRated={() => { setFiltersExpanded(false); setTopOpen(true); }} onClose={() => setFiltersExpanded(false)} />}
         {regionOpen && <RegionSheet selected={browseRegion} onSelect={selectBrowseRegion} onClose={() => setRegionOpen(false)} />}
         {activityOpen && <ActivitySheet activity={activity} enabled={activityEnabled} loading={activityLoading} onToggle={toggleActivity} onSelect={openActivityItem} onClose={() => setActivityOpen(false)} />}
         {feedOpen && <FoodFeed shouts={shouts} mine={mine} saved={saved} onMode={(mode) => { setMine(mode === "mine"); setSaved(mode === "saved"); }} onClose={() => { setFeedOpen(false); setMine(false); setSaved(false); }} onSelect={(shout) => { setSelected(shout); setFeedOpen(false); }} />}
         {topOpen && <TopPicks shouts={shouts} onClose={() => setTopOpen(false)} onSelect={(shout) => { setSelected(shout); setTopOpen(false); }} />}
-        {profileOpen && <ProfileSheet displayName={profileName} progress={profileProgress} onClose={() => setProfileOpen(false)} onSaved={(name) => { setProfileName(name); setToast({ text: "Nickname saved" }); }} onOpenFinds={() => { setProfileOpen(false); setMine(true); setSaved(false); setFeedOpen(true); }} />}
+        {profileOpen && <ProfileSheet displayName={profileName} progress={profileProgress} collections={collections} collectionsLoading={collectionsLoading} onClose={() => setProfileOpen(false)} onSaved={(name) => { setProfileName(name); setToast({ text: "Nickname saved" }); }} onOpenCollections={() => { setProfileOpen(false); setCollectionsOpen(true); }} onOpenFinds={() => { setProfileOpen(false); setMine(true); setSaved(false); setFeedOpen(true); }} />}
+        {collectionsOpen && <CollectionSheet collections={collections} loading={collectionsLoading} progress={profileProgress} onCreate={createCollection} onClose={() => setCollectionsOpen(false)} />}
       </AnimatePresence>
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
     </section>
@@ -706,7 +750,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
       setLocation(next); setLocationMode("current"); setStep(3);
       saveRecentLocation(next);
     }, (geoError) => {
-      setError(geoError.code === 1 ? "Location permission is off. Search a past place or pick the map manually." : "Location was unavailable. Search or pick manually.");
+      setError(foodLocationErrorMessage(geoError, "Search a past place or pick the map manually."));
     }, { enableHighAccuracy: false, timeout: 9000, maximumAge: 120000 });
   };
 
@@ -844,7 +888,7 @@ function FoodComposer({ map, initialLocation = null, countryCode = "au", onClose
   );
 }
 
-function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
+function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggleCollection, onClose, onChange, onDeleted }) {
   const gallery = shout.images?.length ? shout.images : [{ url: shout.imageUrl }];
   const [activePhoto, setActivePhoto] = useState(0);
   const [failedImages, setFailedImages] = useState([]);
@@ -865,6 +909,10 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
   const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue ?? null);
   const [ratingBusy, setRatingBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
+  const [sheetExpanded, setSheetExpanded] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
+  const [collectionBusy, setCollectionBusy] = useState("");
   const [editLocation, setEditLocation] = useState(() => ({
     latitude: shout.latitude,
     longitude: shout.longitude,
@@ -981,6 +1029,13 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
     setFeedbackMode("comments");
     window.setTimeout(() => document.getElementById(`comment-${shout.id}`)?.focus(), 220);
   };
+  const toggleCollection = async (collection) => {
+    if (!onToggleCollection) return;
+    setCollectionBusy(collection.id);
+    try { await onToggleCollection(collection, shout.id); }
+    catch (nextError) { setError(nextError.message); }
+    finally { setCollectionBusy(""); }
+  };
   const readablePlace = foodPlaceLabel(shout);
   const sharePost = async () => {
     const shareUrl = foodShareUrl(shout.id);
@@ -997,9 +1052,9 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
     }
   };
   const activeImage = gallery[activePhoto];
-  return <Sheet className="food-detail" onClose={onClose} label={shout.title}>
+  return <Sheet className={`food-detail ${sheetExpanded ? "expanded" : ""}`} onClose={onClose} label={shout.title} onSwipeUp={() => setSheetExpanded(true)} onSwipeDown={() => { if (sheetExpanded) setSheetExpanded(false); else onClose(); }}>
     <div className="food-detail-media food-detail-player">
-      <figure>{failedImages.includes(activePhoto) || !(activeImage?.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <motion.img key={activePhoto} initial={{ opacity: .35, scale: 1.025 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .22 }} src={activeImage?.url || shout.imageUrl} alt={`${shout.title}, photo ${activePhoto + 1}`} onError={() => setFailedImages((items) => items.includes(activePhoto) ? items : [...items, activePhoto])} />}</figure>
+      <figure><button type="button" className="food-detail-image-button" onClick={() => setGalleryOpen(true)} aria-label="View photo full screen">{failedImages.includes(activePhoto) || !(activeImage?.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <motion.img key={activePhoto} initial={{ opacity: .35, scale: 1.025 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .22 }} src={activeImage?.url || shout.imageUrl} alt={`${shout.title}, photo ${activePhoto + 1}`} onError={() => setFailedImages((items) => items.includes(activePhoto) ? items : [...items, activePhoto])} />}</button></figure>
       <div className="food-detail-top-actions"><button type="button" onClick={sharePost} aria-label="Share this food find"><Share2 size={18} /></button><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>{shareStatus && <b className="food-share-status">{shareStatus}</b>}<span>{typeLabel(shout.shoutType)}</span>
       {gallery.length > 1 && <div className="food-detail-thumbnails" aria-label="Choose food photo">{gallery.slice(0, 3).map((image, index) => <button type="button" className={activePhoto === index ? "active" : ""} onClick={() => setActivePhoto(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activePhoto === index} key={image.objectKey || index}>{failedImages.includes(index) || !(image.url || shout.imageUrl) ? <Utensils size={15} /> : <img src={image.url || shout.imageUrl} alt="" onError={() => setFailedImages((items) => items.includes(index) ? items : [...items, index])} />}</button>)}</div>}
     </div>
@@ -1016,11 +1071,13 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
       </div> : <><h2>{shout.title}</h2>{shout.caption && <p className="food-caption">{shout.caption}</p>}</>}
       {readablePlace && <div className="food-location-line"><MapPin size={17} /><span><strong>{readablePlace}</strong></span><a href={googleMapsSearchUrl(shout)} target="_blank" rel="noreferrer" aria-label="Open this place in Google Maps"><Navigation size={14} /> Google</a></div>}
       <div className="food-meta-row"><span>{shout.cuisine}</span><span><Clock3 size={13} /> {relativeTime(shout.createdAt)}</span>{shout.priceText && <span><CircleDollarSign size={15} /> {shout.priceText}</span>}{shout.vibeTags.map((tag) => <span key={tag}>{tag.replaceAll("-", " ")}</span>)}</div>
+      {shout.viewerOwned && guide && <span className="food-guide-title"><Compass size={13} /> {guide.title}</span>}
       <div className="food-engagement-bar" aria-label="Food feedback">
         <button type="button" className={feedbackMode === "rating" ? "active" : ""} onClick={() => setFeedbackMode((mode) => mode === "rating" ? null : "rating")} aria-expanded={feedbackMode === "rating"}><Star size={19} fill={shout.rating?.count ? "currentColor" : "none"} /><span><strong>{shout.rating?.count ? shout.rating.average : "Rate"}</strong><small>{shout.rating?.count ? `${shout.rating.count} rating${shout.rating.count === 1 ? "" : "s"}` : "Your taste"}</small></span></button>
         <button type="button" className={feedbackMode === "comments" ? "active" : ""} onClick={toggleComments} aria-expanded={feedbackMode === "comments"}><MessageCircle size={19} /><span><strong>{shout.commentCount || "Comment"}</strong><small>{shout.commentCount ? `${shout.commentCount} comment${shout.commentCount === 1 ? "" : "s"}` : "Say something"}</small></span></button>
         <button type="button" className={shout.viewerSaved ? "active" : ""} onClick={() => react("save")}><Bookmark size={19} fill={shout.viewerSaved ? "currentColor" : "none"} /><span><strong>{shout.viewerSaved ? "Saved" : "Save"}</strong><small>For later</small></span></button>
       </div>
+      {collections.length > 0 && <button type="button" className="food-collection-link" onClick={() => setCollectionPickerOpen(true)}><BookmarkPlus size={17} /><span><strong>Add to a list</strong><small>Save this find in a collection</small></span><ChevronRight size={17} /></button>}
       <AnimatePresence mode="wait">
         {feedbackMode === "rating" && <motion.section className="food-feedback-popover food-rating-popover" key="rating" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: .18 }}>
           <div className="food-feedback-popover-head"><span><strong>{ratingValue === null ? "Choose your rating" : "Your rating"}</strong><small>{shout.rating?.count ? `Community average ${shout.rating.average}` : "Not rated yet · be the first"}</small></span><b>{ratingValue === null ? "—" : ratingValue.toFixed(1)}</b></div>
@@ -1028,6 +1085,8 @@ function FoodDetail({ shout, map, countryCode, onClose, onChange, onDeleted }) {
           <button className="food-rating-save" type="button" disabled={ratingBusy || ratingValue === null || shout.rating?.viewerValue === ratingValue} onClick={submitRating}>{ratingBusy ? "Saving…" : ratingValue === null ? "Select a rating" : shout.rating?.viewerValue ? "Update rating" : "Save rating"}</button>
         </motion.section>}
       </AnimatePresence>
+      {collectionPickerOpen && <CollectionPicker collections={collections} shoutId={shout.id} busyId={collectionBusy} onToggle={toggleCollection} onClose={() => setCollectionPickerOpen(false)} />}
+      {galleryOpen && <FoodPhotoGallery gallery={gallery} activePhoto={activePhoto} onSelect={setActivePhoto} onClose={() => setGalleryOpen(false)} title={shout.title} />}
       {feedbackMode === "comments" && <BodyPortal><div className="food-comments-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) { setReplyTo(null); setFeedbackMode(null); releaseMobileFocus(); } }}><motion.section className="food-comments-modal" role="dialog" aria-modal="true" aria-label={`Comments for ${shout.title}`} key="comments" initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 18 }} transition={{ duration: .2 }}>
         <div className="food-comments-modal-head"><span><small>{replyTo ? "REPLY" : "FOOD FIND"}</small><strong>{replyTo ? "Reply" : "Comments"}</strong><em>{replyTo ? "Join the conversation" : `${shout.commentCount || comments.length || 0} total`}</em></span><button type="button" onClick={() => { setReplyTo(null); setFeedbackMode(null); releaseMobileFocus(); }} aria-label={replyTo ? "Close reply" : "Close comments"}><X size={19} /></button></div>
         <section className="food-comments-modal-list" aria-label="Comments and replies"><section className="food-comments">{!commentsLoaded && <p className="food-comment-empty">Loading comments…</p>}{commentsLoaded && roots.length === 0 && <p className="food-comment-empty">No comments yet.</p>}{roots.map((item) => <div className="food-comment food-comment-anonymous" key={item.id}><div><div><span className={`food-tone ${item.tone}`}>{toneLabel(item.tone)}</span><time>{relativeTime(item.createdAt)}</time></div><p>{item.body}</p><div className="food-comment-actions"><button type="button" onClick={() => openCommentComposer(item)}>Reply</button><button type="button" onClick={async () => { await reportFoodComment(item.id, "inappropriate"); setError("Comment report received. Thank you."); }}><Flag size={12} /> Report</button>{item.viewerOwned && <button type="button" onClick={async () => { await deleteFoodComment(item.id); setComments((items) => items.filter((entry) => entry.id !== item.id && entry.parentCommentId !== item.id)); }}><Trash2 size={13} /> Delete</button>}</div>{comments.filter((reply) => reply.parentCommentId === item.id).map((reply) => <div className="food-reply" key={reply.id}><span><b>{toneLabel(reply.tone)}</b> · {relativeTime(reply.createdAt)}</span><span>{reply.body}</span></div>)}</div></div>)}</section></section>
@@ -1075,7 +1134,7 @@ function FoodLocationEditor({ map, countryCode, value, onChange }) {
     navigator.geolocation.getCurrentPosition(({ coords }) => {
       onChange({ latitude: coords.latitude, longitude: coords.longitude, label: coordinateLabel(coords.latitude, coords.longitude), name: "" });
       setBusy(false);
-    }, () => { setError("Location permission is off. Search for the store instead."); setBusy(false); }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
+    }, (geoError) => { setError(foodLocationErrorMessage(geoError, "Search for the store instead.")); setBusy(false); }, { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 });
   };
   const useMapCentre = () => {
     const center = map?.getCenter();
@@ -1156,7 +1215,7 @@ function ActivitySheet({ activity, enabled, loading, onToggle, onSelect, onClose
   </Sheet>;
 }
 
-function ProfileSheet({ displayName, progress = emptyFoodProfileProgress(), onClose, onSaved, onOpenFinds }) {
+function ProfileSheet({ displayName, progress = emptyFoodProfileProgress(), collections = [], collectionsLoading, onClose, onSaved, onOpenCollections, onOpenFinds }) {
   const [name, setName] = useState(displayName);
   const [editingName, setEditingName] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -1183,8 +1242,10 @@ function ProfileSheet({ displayName, progress = emptyFoodProfileProgress(), onCl
       <div className="food-level-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress.progressPercent}><i style={{ width: `${progress.progressPercent}%` }} /></div>
       <div className="food-level-daily"><span><strong>Today</strong><small>{progress.daily.xp}/{progress.daily.cap} EXP</small></span><span><strong>{progress.daily.scoringPosts}/{progress.daily.postLimit}</strong><small>rewarded posts</small></span></div>
     </section>
+    <FoodBadgeShelf badges={progress.badges || []} guide={progress.guide} />
     <button className="food-exp-hint" type="button" onClick={() => setRulesOpen(true)}><ListChecks size={17} /><span><strong>How to grow</strong><small>Quick EXP rules</small></span><ChevronRight size={17} /></button>
     <details className="food-xp-history"><summary><span><Clock3 size={16} /> EXP history</span><small>{progress.history.length ? `${progress.history.length} recent` : "No EXP yet"}</small><ChevronRight size={16} /></summary>{progress.history.length ? <div>{progress.history.map((item) => <article key={item.id}><span><strong>{item.title}</strong><small>{relativeTime(item.createdAt)}{item.bonuses.length ? ` · ${item.bonuses.map((bonus) => bonus.label).join(" + ")}` : item.capped ? " · Daily limit reached" : ""}</small></span><b className={item.xp ? "" : "muted"}>+{item.xp}</b></article>)}</div> : <p>Share a valid food find to earn your first EXP.</p>}</details>
+    <button className="food-profile-collections" type="button" onClick={() => { releaseFocus(); onOpenCollections(); }}><BookmarkPlus size={18} /><span><strong>Collections</strong><small>{progress.totalPosts < 5 ? `Unlock at 5 finds · ${progress.totalPosts}/5` : collectionsLoading ? "Loading lists…" : collections.length ? `${collections.length} curated list${collections.length === 1 ? "" : "s"}` : "Create your first list"}</small></span><ChevronRight size={18} /></button>
     <button className="food-profile-finds" type="button" onClick={() => { releaseFocus(); onOpenFinds(); }}><Utensils size={18} /><span><strong>My posts</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
     {editingName && <BodyPortal><div className="food-name-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) cancelEdit(); }}><form className="food-name-dialog" role="dialog" aria-modal="true" aria-label="Edit display name" onSubmit={(event) => { event.preventDefault(); save(); }}><div className="food-name-dialog-head"><span><small>YOUR PROFILE</small><strong>Edit display name</strong></span><button type="button" onClick={cancelEdit} aria-label="Close name editor"><X size={17} /></button></div><label><span>Name</span><input autoFocus value={name} maxLength={24} onChange={(event) => setName(event.target.value)} placeholder="Enter a display name" /></label><div className="food-name-dialog-actions"><button type="button" onClick={cancelEdit}>Cancel</button><button type="submit" disabled={!nameChanged}>Save</button></div></form></div></BodyPortal>}
     {rulesOpen && <BodyPortal><div className="food-exp-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setRulesOpen(false); }}><section className="food-exp-dialog" role="dialog" aria-modal="true" aria-label="How to earn EXP"><div className="food-name-dialog-head"><span><small>PROGRESS</small><strong>How to grow</strong></span><button type="button" onClick={() => setRulesOpen(false)} aria-label="Close EXP rules"><X size={17} /></button></div><p>Small, useful finds earn more when they add something new.</p><div className="food-xp-rules"><span><b>+{progress.rules.postXp}</b><small>Valid find</small></span><span><b>+{progress.rules.newAreaXp}</b><small>New area</small></span><span><b>+{progress.rules.trailXp}</b><small>3-stop trail</small></span></div><small className="food-exp-limit">First {progress.rules.dailyPostLimit} posts per day can earn EXP · daily cap {progress.rules.dailyXpCap}.</small></section></div></BodyPortal>}
@@ -1196,9 +1257,67 @@ function BodyPortal({ children }) {
   return createPortal(children, document.body);
 }
 
+function FoodBadgeShelf({ badges, guide }) {
+  if (!badges.length) return null;
+  return <section className="food-badge-shelf" aria-label="Foodie achievements">
+    <div className="food-badge-shelf-head"><span><strong>Badge shelf</strong><small>{badges.filter((badge) => badge.unlocked).length}/{badges.length} earned</small></span>{guide && <em><Compass size={13} /> {guide.title}</em>}</div>
+    <div className="food-badge-row">{badges.map((badge) => <span className={`food-badge ${badge.unlocked ? "earned" : "locked"} ${badge.key}`} title={badge.hint} key={badge.key}><FoodBadgeIcon badge={badge} /><span><strong>{badge.label}</strong><small>{badge.unlocked ? "Earned" : badge.hint}</small></span></span>)}</div>
+  </section>;
+}
+
+function FoodBadgeIcon({ badge }) {
+  if (badge.icon === "map") return <MapIcon size={18} />;
+  if (badge.icon === "heart") return <Heart size={18} fill="currentColor" />;
+  if (badge.icon === "guide") return <Compass size={18} />;
+  return <Utensils size={18} />;
+}
+
+function CollectionSheet({ collections, loading, progress, onCreate, onClose }) {
+  const [title, setTitle] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const unlocked = Number(progress.totalPosts || 0) >= 5;
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!title.trim() || busy) return;
+    setBusy(true); setError("");
+    try { await onCreate(title.trim()); setTitle(""); }
+    catch (nextError) { setError(nextError.message); }
+    finally { setBusy(false); }
+  };
+  return <Sheet className="food-collections-sheet" onClose={onClose} label="Your food collections">
+    <div className="food-sheet-head"><div><span>CURATED LISTS</span><h2>Collections</h2></div><button type="button" onClick={onClose} aria-label="Close collections"><X /></button></div>
+    {!unlocked ? <section className="food-collections-lock"><span><BookmarkPlus size={21} /></span><div><strong>Keep sharing to unlock lists</strong><small>{progress.totalPosts || 0}/5 finds · Save your best spots into a compact collection.</small></div></section> : <>
+      <form className="food-collection-create" onSubmit={submit}><input value={title} maxLength={48} onChange={(event) => setTitle(event.target.value)} placeholder="e.g. Sunnybank noodle run" aria-label="Collection name" /><button type="submit" disabled={busy || !title.trim()} aria-label="Create collection"><Plus size={18} /></button></form>
+      {error && <p className="food-form-error" role="alert">{error}</p>}
+      {loading ? <div className="food-collections-empty"><span className="food-photo-spinner" /><strong>Loading your lists…</strong></div> : collections.length ? <div className="food-collection-list">{collections.map((collection) => <article key={collection.id}><span><Bookmark size={17} /><i>{collection.itemCount}</i></span><div><strong>{collection.title}</strong><small>{collection.itemCount ? `${collection.itemCount} saved find${collection.itemCount === 1 ? "" : "s"}` : "Ready for your first find"}</small></div><em>List</em></article>)}</div> : <div className="food-collections-empty"><BookmarkPlus size={22} /><strong>Make your first list</strong><small>Keep favourites together without cluttering the map.</small></div>}
+    </>}
+  </Sheet>;
+}
+
+function CollectionPicker({ collections, shoutId, busyId, onToggle, onClose }) {
+  return <BodyPortal><div className="food-collection-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}><section className="food-collection-picker" role="dialog" aria-modal="true" aria-label="Add food find to a collection"><div className="food-name-dialog-head"><span><small>CURATED LISTS</small><strong>Save to a list</strong></span><button type="button" onClick={onClose} aria-label="Close collection picker"><X size={17} /></button></div><div className="food-collection-picker-list">{collections.map((collection) => { const included = collection.shoutIds?.includes(shoutId); return <button type="button" className={included ? "added" : ""} disabled={busyId === collection.id} onClick={() => onToggle(collection)} key={collection.id}><span><Bookmark size={16} fill={included ? "currentColor" : "none"} /></span><strong>{collection.title}</strong><em>{busyId === collection.id ? "Saving…" : included ? "Added" : "Add"}</em></button>; })}</div></section></div></BodyPortal>;
+}
+
+function FoodPhotoGallery({ gallery, activePhoto, onSelect, onClose, title }) {
+  const total = gallery.length;
+  const image = gallery[activePhoto];
+  const previous = () => onSelect((activePhoto - 1 + total) % total);
+  const next = () => onSelect((activePhoto + 1) % total);
+  return <BodyPortal><div className="food-photo-gallery-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}>
+    <motion.section className="food-photo-gallery" role="dialog" aria-modal="true" aria-label={`Photos for ${title}`} initial={{ opacity: 0, scale: .98 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: .98 }} transition={{ duration: .18 }}>
+      <div className="food-photo-gallery-head"><span>{activePhoto + 1} of {total}</span><button type="button" onClick={onClose} aria-label="Close photo gallery"><X size={22} /></button></div>
+      <motion.div className="food-photo-gallery-frame" drag={total > 1 ? "x" : false} dragConstraints={{ left: 0, right: 0 }} dragElastic={.2} onDragEnd={(_, info) => { if (info.offset.x <= -45) next(); if (info.offset.x >= 45) previous(); }}>
+        {image?.url ? <motion.img key={image.objectKey || image.url || activePhoto} initial={{ opacity: .35, scale: 1.015 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .18 }} src={image.url} alt={`${title}, photo ${activePhoto + 1}`} /> : <div className="food-photo-fallback"><Utensils size={30} /><span>Photo unavailable</span></div>}
+      </motion.div>
+      {total > 1 && <><button type="button" className="food-photo-gallery-nav previous" onClick={previous} aria-label="Previous photo"><ChevronLeft size={23} /></button><button type="button" className="food-photo-gallery-nav next" onClick={next} aria-label="Next photo"><ChevronRight size={23} /></button><div className="food-photo-gallery-dots" aria-label={`Photo ${activePhoto + 1} of ${total}`}>{gallery.map((item, index) => <button type="button" key={item.objectKey || item.url || index} className={index === activePhoto ? "active" : ""} onClick={() => onSelect(index)} aria-label={`Show photo ${index + 1}`} />)}</div></>}
+    </motion.section>
+  </div></BodyPortal>;
+}
+
 function RecentLocations({ onSelect }) { const places = readRecentLocations(); if (!places.length) return null; return <div className="food-recent-locations"><span>RECENT PLACES</span>{places.map((place, index) => <button type="button" key={`${place.latitude}-${place.longitude}-${index}`} onClick={() => onSelect(place)}><Clock3 size={15} /> {place.name || place.label}</button>)}</div>; }
 
-function Sheet({ children, className, label, onClose }) {
+function Sheet({ children, className, label, onClose, onSwipeUp, onSwipeDown }) {
   useEffect(() => {
     const closeOnEscape = (event) => { if (event.key === "Escape") onClose?.(); };
     const previousBodyOverflow = document.body.style.overflow;
@@ -1212,7 +1331,7 @@ function Sheet({ children, className, label, onClose }) {
       document.documentElement.style.overflow = previousRootOverflow;
     };
   }, [onClose]);
-  return <motion.div className="food-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section role="dialog" aria-modal="true" aria-label={label} className={`food-sheet ${className}`} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 390, damping: 38 }}><div className="food-sheet-grabber" />{children}</motion.section></motion.div>;
+  return <motion.div className="food-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section role="dialog" aria-modal="true" aria-label={label} className={`food-sheet ${className}`} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 390, damping: 38 }}><motion.div className="food-sheet-grabber" drag={(onSwipeUp || onSwipeDown) ? "y" : false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={.28} onDragEnd={(_, info) => { if (info.offset.y < -54) onSwipeUp?.(); if (info.offset.y > 70) onSwipeDown?.(); }} />{children}</motion.section></motion.div>;
 }
 
 function Toast({ toast, onClose }) { useEffect(() => { const timer = setTimeout(onClose, 5200); return () => clearTimeout(timer); }, [onClose]); return <div className="food-toast" role="status"><Check size={17} /><span>{toast.text}</span>{toast.action && <button onClick={() => { toast.onAction?.(); onClose(); }}>{toast.action}</button>}<button aria-label="Dismiss" onClick={onClose}><X size={16} /></button></div>; }
@@ -1228,6 +1347,18 @@ function RatingPicker({ value, onChange }) {
 function releaseMobileFocus() {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   window.requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "auto" }));
+}
+
+function foodLocationErrorMessage(error, fallback = "You can still search or drop a pin.") {
+  if (!window.isSecureContext) return "Location needs the secure website version. Open the HTTPS app link, then try again.";
+  if (error?.code === 1) {
+    const installed = window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+    return installed
+      ? `Location is blocked for this Home Screen app. In iPhone Settings, allow Location Services for this app or website, then close and reopen it. ${fallback}`
+      : `Location permission is off. Allow it in Safari settings, then try again. ${fallback}`;
+  }
+  if (error?.code === 3) return `Location took too long. Check signal and try again. ${fallback}`;
+  return `We could not get your location. ${fallback}`;
 }
 
 async function makeMapPhotoIcon(url) {
@@ -1344,7 +1475,7 @@ function rankRecommended(items) { return items.filter((item) => Number(item.rati
 function rankNotRecommended(items) { return items.filter((item) => Number(item.rating?.count || 0) > 0 && Number(item.rating?.average || 0) < 3).sort((a, b) => Number(a.rating.average) - Number(b.rating.average) || Number(b.rating.count) - Number(a.rating.count) || new Date(b.createdAt) - new Date(a.createdAt)); }
 function toneLabel(tone) { return tone === "loved_it" ? "Loved it" : tone === "needs_update" ? "Needs update" : "Helpful"; }
 function readDisplayName() { try { const saved = localStorage.getItem(DISPLAY_NAME_KEY); if (saved) return saved; const first = ["Noodle", "Mango", "Chilli", "Bento", "Mochi"][Math.floor(Math.random() * 5)]; const second = ["Fox", "Otter", "Koala", "Panda", "Gecko"][Math.floor(Math.random() * 5)]; const value = `${first} ${second}`; localStorage.setItem(DISPLAY_NAME_KEY, value); return value; } catch { return "Food explorer"; } }
-function emptyFoodProfileProgress() { return { totalXp: 0, totalPosts: 0, level: 1, title: "Bronze IV", currentLevelXp: 0, nextLevelXp: 50, xpToNextLevel: 50, progressPercent: 0, daily: { xp: 0, cap: 120, scoringPosts: 0, postLimit: 5 }, rules: { postXp: 20, newAreaXp: 10, trailXp: 5, trailMinutes: 30, dailyPostLimit: 5, dailyXpCap: 120 }, history: [] }; }
+function emptyFoodProfileProgress() { return { totalXp: 0, totalPosts: 0, level: 1, title: "Bronze IV", currentLevelXp: 0, nextLevelXp: 50, xpToNextLevel: 50, progressPercent: 0, daily: { xp: 0, cap: 120, scoringPosts: 0, postLimit: 5 }, rules: { postXp: 20, newAreaXp: 10, trailXp: 5, trailMinutes: 30, dailyPostLimit: 5, dailyXpCap: 120 }, guide: null, badges: [{ key: "first-bite", label: "First bite", hint: "Share your first find", icon: "bite", unlocked: false }, { key: "map-muncher", label: "Map muncher", hint: "Share 5 food finds", icon: "map", unlocked: false }, { key: "crowd-pleaser", label: "Crowd pleaser", hint: "Earn 4.5+ from 3 ratings", icon: "heart", unlocked: false }, { key: "local-guide", label: "Local guide", hint: "Share 3 finds in one area", icon: "guide", unlocked: false }], history: [] }; }
 function saveDisplayName(value) { try { const clean = value.trim().slice(0, 24); if (clean) localStorage.setItem(DISPLAY_NAME_KEY, clean); } catch { /* optional */ } }
 function readActivityEnabled() { try { return localStorage.getItem(ACTIVITY_ENABLED_KEY) !== "0"; } catch { return true; } }
 function displayInitials(value) { const parts = String(value || "ME").trim().split(/\s+/).filter(Boolean); return parts.slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "ME"; }

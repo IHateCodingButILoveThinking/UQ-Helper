@@ -54,6 +54,22 @@ export function getFoodProfileProgress(signal) {
   return request(`/api/profile/progress?${params}`, { signal });
 }
 
+export function listFoodCollections(signal) {
+  return request("/api/collections", { signal });
+}
+
+export function createFoodCollection(title) {
+  return request("/api/collections", { method: "POST", body: { title } });
+}
+
+export function addFoodCollectionItem(collectionId, shoutId) {
+  return request(`/api/collections/${encodeURIComponent(collectionId)}/items`, { method: "POST", body: { shoutId } });
+}
+
+export function removeFoodCollectionItem(collectionId, shoutId) {
+  return request(`/api/collections/${encodeURIComponent(collectionId)}/items/${encodeURIComponent(shoutId)}`, { method: "DELETE" });
+}
+
 export function listFoodComments(id, signal) {
   return request(`/api/shouts/${encodeURIComponent(id)}/comments`, { signal });
 }
