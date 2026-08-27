@@ -395,6 +395,7 @@ export default function FoodShoutPage({ onHome }) {
         const initial = expandBounds(readBounds(map), .4);
         saveFoodMapView(map, browseRegionRef.current.id);
         setBounds(initial);
+        setMapError("");
         fetchVisibleRef.current?.(initial);
         setMapReady(true);
       });
@@ -406,7 +407,10 @@ export default function FoodShoutPage({ onHome }) {
         window.clearTimeout(moveFetchTimer);
         moveFetchTimer = window.setTimeout(() => fetchVisibleRef.current?.(next), 320);
       });
-      map.on("error", () => setMapError("The map could not finish loading. Check your connection and try again."));
+      // MapLibre also emits `error` for an individual tile that fails and then
+      // retries successfully. Treating those as fatal covered the map with a
+      // warning even though the map itself was usable, so only surface errors
+      // from the browser import above.
     }).catch(() => setMapError("The map is unavailable in this browser."));
     return () => { cancelled = true; if (pulseFrame) cancelAnimationFrame(pulseFrame); window.clearTimeout(moveFetchTimer); fetchAbortRef.current?.abort(); map?.remove(); mapRef.current = null; };
   }, []);
@@ -657,7 +661,15 @@ export default function FoodShoutPage({ onHome }) {
         </div>
 
         {loading && <div className="food-map-status">Finding good food…</div>}
-        {(mapError || loadError) && <div className="food-map-error"><span>{mapError || loadError}</span><button type="button" onClick={() => fetchVisible(pendingBounds || bounds)}>Try again</button></div>}
+        {(mapError || loadError) && (
+          <div className="food-map-error" role="status">
+            <span>{mapError || loadError}</span>
+            <div className="food-map-error-actions">
+              <button type="button" onClick={() => fetchVisible(pendingBounds || bounds)}>Try again</button>
+              <button className="quiet" type="button" onClick={() => { setMapError(""); setLoadError(""); }}>Dismiss</button>
+            </div>
+          </div>
+        )}
       </div>
 
       <AnimatePresence>
@@ -1241,6 +1253,7 @@ function ProfileSheet({ displayName, progress = emptyFoodProfileProgress(), coll
   const [name, setName] = useState(displayName);
   const [editingName, setEditingName] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [badgesOpen, setBadgesOpen] = useState(false);
   const cleanName = name.trim().slice(0, 24);
   const nameChanged = cleanName && cleanName !== displayName;
   const rank = foodRankForLevel(progress.level);
@@ -1260,16 +1273,16 @@ function ProfileSheet({ displayName, progress = emptyFoodProfileProgress(), coll
     <div className="food-sheet-head"><div><span>YOUR FOODIE PROFILE</span><h2>{rank.label}</h2></div><button type="button" onClick={() => { releaseFocus(); onClose(); }} aria-label="Close profile"><X /></button></div>
     <button className="food-profile-name-button" type="button" onClick={() => setEditingName(true)}><span className="food-profile-avatar" aria-hidden="true">{displayInitials(displayName)}</span><span><small>DISPLAY NAME</small><strong>{displayName}</strong></span><Pencil size={16} /></button>
     <section className="food-level-card" style={foodRankStyle(rank)} aria-label={`Level ${progress.level}, ${rank.label}`}>
-      <div className="food-level-head"><span className="food-rank-gem"><i /><b>{rank.division}</b></span><div><strong>{rank.label}</strong><small>Level {progress.level} · {progress.totalXp} EXP</small><small>{progress.totalPosts == null ? "EXP from all active posts" : `${progress.totalPosts} posts counted`}</small></div><em>{progress.xpToNextLevel} EXP<br />to next</em></div>
+      <div className="food-level-head"><span className="food-rank-gem"><i /><b>{rank.division}</b></span><div><div className="food-rank-title-row"><strong>{rank.label}</strong>{progress.badges?.length > 0 && <button className="food-badge-wardrobe-trigger" type="button" onClick={() => setBadgesOpen(true)} aria-label="Open badge wardrobe"><Trophy size={12} /><span>{progress.badges.filter((badge) => badge.unlocked).length}</span></button>}</div><small>Level {progress.level} · {progress.totalXp} EXP</small><small>{progress.totalPosts == null ? "EXP from all active posts" : `${progress.totalPosts} posts counted`}</small></div><em>{progress.xpToNextLevel} EXP<br />to next</em></div>
       <div className="food-level-progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow={progress.progressPercent}><i style={{ width: `${progress.progressPercent}%` }} /></div>
       <div className="food-level-daily"><span><strong>Today</strong><small>{progress.daily.xp}/{progress.daily.cap} EXP</small></span><span><strong>{progress.daily.scoringPosts}/{progress.daily.postLimit}</strong><small>rewarded posts</small></span></div>
     </section>
-    <FoodBadgeShelf badges={progress.badges || []} guide={progress.guide} />
     <button className="food-exp-hint" type="button" onClick={() => setRulesOpen(true)}><ListChecks size={17} /><span><strong>How to grow</strong><small>Quick EXP rules</small></span><ChevronRight size={17} /></button>
     <details className="food-xp-history"><summary><span><Clock3 size={16} /> EXP history</span><small>{progress.history.length ? `${progress.history.length} recent` : "No EXP yet"}</small><ChevronRight size={16} /></summary>{progress.history.length ? <div>{progress.history.map((item) => <article key={item.id}><span><strong>{item.title}</strong><small>{relativeTime(item.createdAt)}{item.bonuses.length ? ` · ${item.bonuses.map((bonus) => bonus.label).join(" + ")}` : item.capped ? " · Daily limit reached" : ""}</small></span><b className={item.xp ? "" : "muted"}>+{item.xp}</b></article>)}</div> : <p>Share a valid food find to earn your first EXP.</p>}</details>
     <button className="food-profile-collections" type="button" onClick={() => { releaseFocus(); onOpenCollections(); }}><BookmarkPlus size={18} /><span><strong>Collections</strong><small>{progress.totalPosts < 5 ? `Unlock at 5 finds · ${progress.totalPosts}/5` : collectionsLoading ? "Loading lists…" : collections.length ? `${collections.length} curated list${collections.length === 1 ? "" : "s"}` : "Create your first list"}</small></span><ChevronRight size={18} /></button>
     <button className="food-profile-finds" type="button" onClick={() => { releaseFocus(); onOpenFinds(); }}><Utensils size={18} /><span><strong>My posts</strong><small>See everything you shared</small></span><ChevronRight size={18} /></button>
     {editingName && <BodyPortal><div className="food-name-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) cancelEdit(); }}><form className="food-name-dialog" role="dialog" aria-modal="true" aria-label="Edit display name" onSubmit={(event) => { event.preventDefault(); save(); }}><div className="food-name-dialog-head"><span><small>YOUR PROFILE</small><strong>Edit display name</strong></span><button type="button" onClick={cancelEdit} aria-label="Close name editor"><X size={17} /></button></div><label><span>Name</span><input autoFocus value={name} maxLength={24} onChange={(event) => setName(event.target.value)} placeholder="Enter a display name" /></label><div className="food-name-dialog-actions"><button type="button" onClick={cancelEdit}>Cancel</button><button type="submit" disabled={!nameChanged}>Save</button></div></form></div></BodyPortal>}
+    {badgesOpen && <FoodBadgeWardrobe badges={progress.badges || []} guide={progress.guide} onClose={() => setBadgesOpen(false)} />}
     {rulesOpen && <BodyPortal><div className="food-exp-dialog-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) setRulesOpen(false); }}><section className="food-exp-dialog" role="dialog" aria-modal="true" aria-label="How to earn EXP"><div className="food-name-dialog-head"><span><small>PROGRESS</small><strong>How to grow</strong></span><button type="button" onClick={() => setRulesOpen(false)} aria-label="Close EXP rules"><X size={17} /></button></div><p>Small, useful finds earn more when they add something new.</p><div className="food-xp-rules"><span><b>+{progress.rules.postXp}</b><small>Valid find</small></span><span><b>+{progress.rules.newAreaXp}</b><small>New area</small></span><span><b>+{progress.rules.trailXp}</b><small>3-stop trail</small></span></div><small className="food-exp-limit">First {progress.rules.dailyPostLimit} posts per day can earn EXP · daily cap {progress.rules.dailyXpCap}.</small></section></div></BodyPortal>}
   </Sheet>;
 }
@@ -1279,12 +1292,9 @@ function BodyPortal({ children }) {
   return createPortal(children, document.body);
 }
 
-function FoodBadgeShelf({ badges, guide }) {
+function FoodBadgeWardrobe({ badges, guide, onClose }) {
   if (!badges.length) return null;
-  return <section className="food-badge-shelf" aria-label="Foodie achievements">
-    <div className="food-badge-shelf-head"><span><strong>Badge shelf</strong><small>{badges.filter((badge) => badge.unlocked).length}/{badges.length} earned</small></span>{guide && <em><Compass size={13} /> {guide.title}</em>}</div>
-    <div className="food-badge-row">{badges.map((badge) => <span className={`food-badge ${badge.unlocked ? "earned" : "locked"} ${badge.key}`} title={badge.hint} key={badge.key}><FoodBadgeIcon badge={badge} /><span><strong>{badge.label}</strong><small>{badge.unlocked ? "Earned" : badge.hint}</small></span></span>)}</div>
-  </section>;
+  return <BodyPortal><div className="food-badge-wardrobe-backdrop" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target) onClose(); }}><section className="food-badge-wardrobe" role="dialog" aria-modal="true" aria-label="Badge wardrobe"><div className="food-name-dialog-head"><span><small>YOUR COLLECTION</small><strong>Badge wardrobe</strong></span><button type="button" onClick={onClose} aria-label="Close badge wardrobe"><X size={17} /></button></div><p>{badges.filter((badge) => badge.unlocked).length}/{badges.length} earned{guide ? ` · ${guide.title}` : ""}</p><div className="food-badge-wardrobe-grid">{badges.map((badge) => <span className={`food-badge ${badge.unlocked ? "earned" : "locked"} ${badge.key}`} key={badge.key}><FoodBadgeIcon badge={badge} /><span><strong>{badge.label}</strong><small>{badge.unlocked ? "Earned" : badge.hint}</small></span></span>)}</div></section></div></BodyPortal>;
 }
 
 function FoodBadgeIcon({ badge }) {
