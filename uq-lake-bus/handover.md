@@ -440,6 +440,13 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - User/device management remains intentionally privacy-safe: the Worker stores an anonymous SHA-256 client hash, not a phone model or raw device identifier. There is no safe basis for showing “all users by phone series” in the public app; an authenticated admin-only view would be needed for moderation data.
 - No tests were run for this follow-up, per user request.
 
+### Comments moved to a mobile modal (completed in code; user will verify)
+
+- Replaced the inline comments panel in a food post with a dedicated document-level modal.
+- The modal contains the full comment/reply list, a dedicated scroll region, reply actions, comment composer, feeling choices, and report action in one place.
+- The modal is rendered through the existing body portal so the detail sheet’s overflow rules cannot trap scrolling or hide the composer on phones.
+- No tests were run for this follow-up, per user request.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.
