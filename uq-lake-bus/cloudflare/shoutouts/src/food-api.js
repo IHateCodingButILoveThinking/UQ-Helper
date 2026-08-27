@@ -57,6 +57,7 @@ const FOOD_XP_TRAIL = 5;
 const FOOD_XP_FIRST_ENGAGEMENT = 50;
 const FOOD_XP_DAILY_POST_LIMIT = 5;
 const FOOD_XP_DAILY_CAP = 120;
+const FOOD_XP_MAX_BONUS = 100_000;
 const ASIA_PACIFIC_BOUNDS = { south: -90, north: 90, west: -180, east: 180 };
 const FORMAT_CONTROL_PATTERN = /[\u200B-\u200F\u202A-\u202E\u2060\u2066-\u2069\uFEFF]/g;
 const LINK_PATTERN = /\b(?:https?|hxxps?|ftp):\/\/|\bwww\s*\.|\b[a-z0-9][a-z0-9-]*\s*\.\s*(?:com|net|org|io|app|dev|xyz|info|co|me|gg|ai|site|online|link)\b/i;
@@ -1157,7 +1158,7 @@ async function getFoodProfileProgress(request, env, url, respond) {
   const areas = new Map();
   const recent = [];
   const history = [];
-  const bonusXp = Math.max(0, Math.min(50000, Math.trunc(Number(override?.xp_bonus || 0))));
+  const bonusXp = Math.max(0, Math.min(FOOD_XP_MAX_BONUS, Math.trunc(Number(override?.xp_bonus || 0))));
   let totalXp = bonusXp;
   let earnedPostCount = 0;
 
@@ -1676,7 +1677,7 @@ function publicRankInfo(row) {
   const postXp = Math.max(0, Number(row.author_post_count || 0)) * FOOD_XP_BASE;
   const areaXp = Math.max(0, Number(row.author_area_count || 0)) * FOOD_XP_NEW_AREA;
   const engagementXp = Math.max(0, Math.min(10_000, Number(row.author_engagement_xp || 0)));
-  const bonusXp = Math.max(0, Math.min(50_000, Number(row.author_xp_bonus || 0)));
+  const bonusXp = Math.max(0, Math.min(FOOD_XP_MAX_BONUS, Number(row.author_xp_bonus || 0)));
   const level = foodLevelForXp(postXp + areaXp + engagementXp + bonusXp);
   const rankIndex = Math.floor((level - 1) / 4);
   const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora", "Comet", "Nova", "Nebula", "Celestial", "Mythic", "Eternal", "Starlight", "Orbit", "Cosmic", "Prism", "Legend"];
