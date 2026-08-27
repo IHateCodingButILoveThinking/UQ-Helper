@@ -1679,8 +1679,8 @@ function publicRankInfo(row) {
   const engagementXp = Math.max(0, Math.min(10_000, Number(row.author_engagement_xp || 0)));
   const bonusXp = Math.max(0, Math.min(FOOD_XP_MAX_BONUS, Number(row.author_xp_bonus || 0)));
   const level = foodLevelForXp(postXp + areaXp + engagementXp + bonusXp);
-  const rankIndex = Math.floor((level - 1) / 4);
   const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora", "Comet", "Nova", "Nebula", "Celestial", "Mythic", "Eternal", "Starlight", "Orbit", "Cosmic", "Prism", "Legend"];
+  const rankIndex = Math.min(ranks.length - 1, Math.floor((level - 1) / 4));
   const accent = ["", "", "", "", "#7564d8", "#d44c91", "#3287d9", "#ef6b38", "#7a57d2", "#159eaa", "#bd3f6e", "#6f4db7", "#4f88dc", "#2a9d83", "#9b58cf", "#e26370", "#ba8518"][rankIndex] || "";
   // Keep the person anonymous: this is a post status, never an account identity.
   return accent ? { accent, label: `${ranks[rankIndex]} food find` } : { accent: "", label: "" };
