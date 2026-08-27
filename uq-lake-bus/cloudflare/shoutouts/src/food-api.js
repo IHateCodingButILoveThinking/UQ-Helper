@@ -1107,19 +1107,23 @@ async function getFoodProfileProgress(request, env, url, respond) {
   const clientHash = await getClientHash(request);
   const requestedOffset = Number(url.searchParams.get("tzOffset"));
   const timezoneOffset = Number.isFinite(requestedOffset) ? Math.max(-840, Math.min(840, Math.trunc(requestedOffset))) : 0;
-  const { results = [] } = await env.DB.prepare(
+  const [{ results = [] }, override] = await Promise.all([
+    env.DB.prepare(
     `SELECT id, title, place_name, location_label, geohash, created_at
        FROM food_shouts
       WHERE author_hash = ? AND status = 'active'
       ORDER BY created_at ASC
       LIMIT 1000`,
-  ).bind(clientHash).all();
+    ).bind(clientHash).all(),
+    env.DB.prepare("SELECT xp_bonus, label, updated_at FROM food_profile_overrides WHERE author_hash = ?").bind(clientHash).first(),
+  ]);
   const days = new Map();
   const seenAreas = new Set();
   const areas = new Map();
   const recent = [];
   const history = [];
-  let totalXp = 0;
+  const bonusXp = Math.max(0, Math.min(50000, Math.trunc(Number(override?.xp_bonus || 0))));
+  let totalXp = bonusXp;
 
   for (const row of results) {
     const createdAt = Number(row.created_at || 0);
@@ -1155,6 +1159,18 @@ async function getFoodProfileProgress(request, env, url, respond) {
       xp,
       bonuses,
       capped: !earnsXp,
+    });
+  }
+
+  if (bonusXp) {
+    history.push({
+      id: "profile-bonus",
+      title: String(override?.label || "Founder bonus").slice(0, 48),
+      placeName: "Profile reward",
+      createdAt: new Date(Number(override?.updated_at || unixNow()) * 1000).toISOString(),
+      xp: bonusXp,
+      bonuses: [],
+      capped: false,
     });
   }
 
