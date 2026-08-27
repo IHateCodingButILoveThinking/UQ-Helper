@@ -433,6 +433,13 @@ The immediate work in progress is final mobile visual QA and frontend deployment
 - Replaced the sparkle icon on **How to grow** with a clear checklist icon that reads as an EXP guide rather than an AI effect.
 - No tests were run for this follow-up, per user request.
 
+### Long comment threads (completed in code; user will verify)
+
+- Added a dedicated, touch-friendly scroll area for the comments list inside a food post. Long replies can now be swiped independently without getting trapped behind the composer or the detail sheet.
+- The list keeps a bounded mobile height, preserves the reply composer, and uses momentum scrolling on iOS.
+- User/device management remains intentionally privacy-safe: the Worker stores an anonymous SHA-256 client hash, not a phone model or raw device identifier. There is no safe basis for showing “all users by phone series” in the public app; an authenticated admin-only view would be needed for moderation data.
+- No tests were run for this follow-up, per user request.
+
 ## Recommended next implementation order
 
 1. Visually verify Shout Out at 390 × 844, including New nearby, 1 km boundary, denied location, out-of-range pin, details, and reduced motion.
