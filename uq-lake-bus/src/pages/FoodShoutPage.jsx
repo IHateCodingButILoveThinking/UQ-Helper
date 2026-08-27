@@ -23,6 +23,7 @@ import {
   LocateFixed,
   Map as MapIcon,
   MapPin,
+  Maximize2,
   MessageCircle,
   ListChecks,
   Navigation,
@@ -909,7 +910,6 @@ function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggle
   const [ratingValue, setRatingValue] = useState(() => shout.rating?.viewerValue ?? null);
   const [ratingBusy, setRatingBusy] = useState(false);
   const [shareStatus, setShareStatus] = useState("");
-  const [sheetExpanded, setSheetExpanded] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
   const [collectionBusy, setCollectionBusy] = useState("");
@@ -1052,10 +1052,11 @@ function FoodDetail({ shout, map, countryCode, guide, collections = [], onToggle
     }
   };
   const activeImage = gallery[activePhoto];
-  return <Sheet className={`food-detail ${sheetExpanded ? "expanded" : ""}`} onClose={onClose} label={shout.title} onSwipeUp={() => setSheetExpanded(true)} onSwipeDown={() => { if (sheetExpanded) setSheetExpanded(false); else onClose(); }}>
+  return <Sheet className="food-detail" onClose={onClose} label={shout.title}>
     <div className="food-detail-media food-detail-player">
       <figure><button type="button" className="food-detail-image-button" onClick={() => setGalleryOpen(true)} aria-label="View photo full screen">{failedImages.includes(activePhoto) || !(activeImage?.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <motion.img key={activePhoto} initial={{ opacity: .35, scale: 1.025 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .22 }} src={activeImage?.url || shout.imageUrl} alt={`${shout.title}, photo ${activePhoto + 1}`} onError={() => setFailedImages((items) => items.includes(activePhoto) ? items : [...items, activePhoto])} />}</button></figure>
       <div className="food-detail-top-actions"><button type="button" onClick={sharePost} aria-label="Share this food find"><Share2 size={18} /></button><button type="button" onClick={onClose} aria-label="Close"><X /></button></div>{shareStatus && <b className="food-share-status">{shareStatus}</b>}<span>{typeLabel(shout.shoutType)}</span>
+      <button type="button" className="food-detail-expand-photo" onClick={() => setGalleryOpen(true)} aria-label="View photo gallery"><Maximize2 size={17} /></button>
       {gallery.length > 1 && <div className="food-detail-thumbnails" aria-label="Choose food photo">{gallery.slice(0, 3).map((image, index) => <button type="button" className={activePhoto === index ? "active" : ""} onClick={() => setActivePhoto(index)} aria-label={`Show photo ${index + 1}`} aria-pressed={activePhoto === index} key={image.objectKey || index}>{failedImages.includes(index) || !(image.url || shout.imageUrl) ? <Utensils size={15} /> : <img src={image.url || shout.imageUrl} alt="" onError={() => setFailedImages((items) => items.includes(index) ? items : [...items, index])} />}</button>)}</div>}
     </div>
     <div className="food-detail-body">
@@ -1317,7 +1318,7 @@ function FoodPhotoGallery({ gallery, activePhoto, onSelect, onClose, title }) {
 
 function RecentLocations({ onSelect }) { const places = readRecentLocations(); if (!places.length) return null; return <div className="food-recent-locations"><span>RECENT PLACES</span>{places.map((place, index) => <button type="button" key={`${place.latitude}-${place.longitude}-${index}`} onClick={() => onSelect(place)}><Clock3 size={15} /> {place.name || place.label}</button>)}</div>; }
 
-function Sheet({ children, className, label, onClose, onSwipeUp, onSwipeDown }) {
+function Sheet({ children, className, label, onClose }) {
   useEffect(() => {
     const closeOnEscape = (event) => { if (event.key === "Escape") onClose?.(); };
     const previousBodyOverflow = document.body.style.overflow;
@@ -1331,7 +1332,7 @@ function Sheet({ children, className, label, onClose, onSwipeUp, onSwipeDown }) 
       document.documentElement.style.overflow = previousRootOverflow;
     };
   }, [onClose]);
-  return <motion.div className="food-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section role="dialog" aria-modal="true" aria-label={label} className={`food-sheet ${className}`} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 390, damping: 38 }}><motion.div className="food-sheet-grabber" drag={(onSwipeUp || onSwipeDown) ? "y" : false} dragConstraints={{ top: 0, bottom: 0 }} dragElastic={.28} onDragEnd={(_, info) => { if (info.offset.y < -54) onSwipeUp?.(); if (info.offset.y > 70) onSwipeDown?.(); }} />{children}</motion.section></motion.div>;
+  return <motion.div className="food-sheet-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.section role="dialog" aria-modal="true" aria-label={label} className={`food-sheet ${className}`} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 390, damping: 38 }}>{children}</motion.section></motion.div>;
 }
 
 function Toast({ toast, onClose }) { useEffect(() => { const timer = setTimeout(onClose, 5200); return () => clearTimeout(timer); }, [onClose]); return <div className="food-toast" role="status"><Check size={17} /><span>{toast.text}</span>{toast.action && <button onClick={() => { toast.onAction?.(); onClose(); }}>{toast.action}</button>}<button aria-label="Dismiss" onClick={onClose}><X size={16} /></button></div>; }
