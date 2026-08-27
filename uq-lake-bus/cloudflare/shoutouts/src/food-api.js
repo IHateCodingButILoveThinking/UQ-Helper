@@ -551,8 +551,24 @@ function foodSelectSql() {
             FROM food_shout_images
            WHERE shout_id = s.id
            ORDER BY sort_order
-        ) AS ordered) AS images_json
-    FROM food_shouts AS s`;
+        ) AS ordered) AS images_json,
+      COALESCE(author_stats.post_count, 0) AS author_post_count,
+      COALESCE(author_stats.area_count, 0) AS author_area_count,
+      COALESCE(author_rewards.engagement_xp, 0) AS author_engagement_xp,
+      COALESCE(author_override.xp_bonus, 0) AS author_xp_bonus
+    FROM food_shouts AS s
+    LEFT JOIN (
+      SELECT author_hash, COUNT(*) AS post_count, COUNT(DISTINCT substr(geohash, 1, 6)) AS area_count
+        FROM food_shouts
+       WHERE status = 'active'
+       GROUP BY author_hash
+    ) AS author_stats ON author_stats.author_hash = s.author_hash
+    LEFT JOIN (
+      SELECT author_hash, SUM(xp) AS engagement_xp
+        FROM food_engagement_rewards
+       GROUP BY author_hash
+    ) AS author_rewards ON author_rewards.author_hash = s.author_hash
+    LEFT JOIN food_profile_overrides AS author_override ON author_override.author_hash = s.author_hash`;
 }
 
 async function listFoodComments(request, env, shoutId, respond) {
@@ -1280,7 +1296,7 @@ function foodGuideAreaLabel(locationLabel) {
   return (candidates.at(-1) || "Local").slice(0, 32);
 }
 function foodRankForLevel(level) {
-  const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora", "Comet", "Nova", "Nebula", "Celestial", "Mythic", "Eternal"];
+  const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora", "Comet", "Nova", "Nebula", "Celestial", "Mythic", "Eternal", "Starlight", "Orbit", "Cosmic", "Prism", "Legend"];
   const divisions = ["IV", "III", "II", "I"];
   const safeLevel = Math.max(1, Math.min(99, Number(level) || 1));
   const rankIndex = Math.min(ranks.length - 1, Math.floor((safeLevel - 1) / 4));
@@ -1607,6 +1623,7 @@ function serializeFoodShout(row, request, clientHash) {
     ...image,
     url: `${origin}/api/images/${encodeURIComponent(image.objectKey)}`,
   }));
+  const publicRank = publicRankInfo(row);
   return {
     id: row.id,
     title: row.title,
@@ -1640,6 +1657,10 @@ function serializeFoodShout(row, request, clientHash) {
     viewerLiked: Boolean(row.viewer_liked),
     viewerSaved: Boolean(row.viewer_saved),
     viewerOwned: row.author_hash === clientHash,
+    // This is deliberately only a visual treatment. It carries no author id,
+    // name, level, or exact rank—just a subtle colour for veteran food finds.
+    rankAccent: publicRank.accent,
+    rankLabel: publicRank.label,
     rating: {
       average: Number(Number(row.rating_average || 0).toFixed(1)),
       count: Number(row.rating_count || 0),
@@ -1649,6 +1670,19 @@ function serializeFoodShout(row, request, clientHash) {
     tried,
     activityTier: activityTier(row),
   };
+}
+
+function publicRankInfo(row) {
+  const postXp = Math.max(0, Number(row.author_post_count || 0)) * FOOD_XP_BASE;
+  const areaXp = Math.max(0, Number(row.author_area_count || 0)) * FOOD_XP_NEW_AREA;
+  const engagementXp = Math.max(0, Math.min(10_000, Number(row.author_engagement_xp || 0)));
+  const bonusXp = Math.max(0, Math.min(50_000, Number(row.author_xp_bonus || 0)));
+  const level = foodLevelForXp(postXp + areaXp + engagementXp + bonusXp);
+  const rankIndex = Math.floor((level - 1) / 4);
+  const ranks = ["Bronze", "Silver", "Gold", "Plat", "Diamond", "Aurora", "Comet", "Nova", "Nebula", "Celestial", "Mythic", "Eternal", "Starlight", "Orbit", "Cosmic", "Prism", "Legend"];
+  const accent = ["", "", "", "", "#7564d8", "#d44c91", "#3287d9", "#ef6b38", "#7a57d2", "#159eaa", "#bd3f6e", "#6f4db7", "#4f88dc", "#2a9d83", "#9b58cf", "#e26370", "#ba8518"][rankIndex] || "";
+  // Keep the person anonymous: this is a post status, never an account identity.
+  return accent ? { accent, label: `${ranks[rankIndex]} food find` } : { accent: "", label: "" };
 }
 
 function parseFoodImages(value, row) {

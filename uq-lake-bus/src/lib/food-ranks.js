@@ -11,6 +11,11 @@ const RANKS = [
   { key: "celestial", name: "Celestial", color: "#159eaa", glow: "rgba(21,158,170,.24)" },
   { key: "mythic", name: "Mythic", color: "#bd3f6e", glow: "rgba(189,63,110,.27)" },
   { key: "eternal", name: "Eternal", color: "#6f4db7", glow: "rgba(111,77,183,.30)" },
+  { key: "starlight", name: "Starlight", color: "#4f88dc", glow: "rgba(79,136,220,.29)" },
+  { key: "orbit", name: "Orbit", color: "#2a9d83", glow: "rgba(42,157,131,.27)" },
+  { key: "cosmic", name: "Cosmic", color: "#9b58cf", glow: "rgba(155,88,207,.3)" },
+  { key: "prism", name: "Prism", color: "#e26370", glow: "rgba(226,99,112,.29)" },
+  { key: "legend", name: "Legend", color: "#ba8518", glow: "rgba(186,133,24,.32)" },
 ];
 
 const DIVISIONS = ["IV", "III", "II", "I"];

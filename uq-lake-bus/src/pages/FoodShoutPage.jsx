@@ -171,6 +171,7 @@ export default function FoodShoutPage({ onHome }) {
   const [saved, setSaved] = useState(false);
   const [locating, setLocating] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
+  const userLocationTimerRef = useRef(null);
   const [toast, setToast] = useState(null);
 
   selectedRef.current = selected;
@@ -246,6 +247,11 @@ export default function FoodShoutPage({ onHome }) {
     fetchAbortRef.current?.abort();
     const requestController = new AbortController();
     fetchAbortRef.current = requestController;
+    let timedOut = false;
+    const requestTimeout = window.setTimeout(() => {
+      timedOut = true;
+      requestController.abort();
+    }, 12_000);
     if (signal) {
       if (signal.aborted) requestController.abort();
       else signal.addEventListener("abort", () => requestController.abort(), { once: true });
@@ -259,6 +265,7 @@ export default function FoodShoutPage({ onHome }) {
       setBounds(nextBounds);
       setPendingBounds(null);
       setLoading(false);
+      window.clearTimeout(requestTimeout);
       if (fetchAbortRef.current === requestController) fetchAbortRef.current = null;
       return;
     }
@@ -283,9 +290,11 @@ export default function FoodShoutPage({ onHome }) {
         setPendingBounds(null);
       }
     } catch (error) {
-      if (error.name !== "AbortError" && requestId === fetchSequenceRef.current) setLoadError(error.message);
+      if (requestId === fetchSequenceRef.current && timedOut) setLoadError("This area took too long to load. Tap Refresh this area to try again.");
+      else if (error.name !== "AbortError" && requestId === fetchSequenceRef.current) setLoadError(error.message);
     } finally {
-      if (!requestController.signal.aborted && requestId === fetchSequenceRef.current) setLoading(false);
+      window.clearTimeout(requestTimeout);
+      if (requestId === fetchSequenceRef.current) setLoading(false);
       if (fetchAbortRef.current === requestController) fetchAbortRef.current = null;
     }
   }, [bounds, budget, cuisine, foodType, mine, saved]);
@@ -426,12 +435,11 @@ export default function FoodShoutPage({ onHome }) {
       const createdAt = new Date(shout.createdAt).getTime();
       return !latest || createdAt > latest.createdAt ? { id: shout.id, createdAt } : latest;
     }, null)?.id;
-    const viewerRank = foodRankForLevel(profileProgress.level);
     const setMapData = () => source.setData({
       type: "FeatureCollection", features: shouts.map((shout) => ({
         type: "Feature",
         geometry: { type: "Point", coordinates: [shout.longitude, shout.latitude] },
-        properties: { id: shout.id, type: shout.shoutType, icon: map.hasImage(photoIconName(shout.id)) ? photoIconName(shout.id) : fallbackFoodIcon(shout.shoutType), selected: shout.id === selected?.id ? 1 : 0, latest: shout.id === latestShoutId ? 1 : 0, rankColor: shout.viewerOwned ? viewerRank.color : "" },
+        properties: { id: shout.id, type: shout.shoutType, icon: map.hasImage(photoIconName(shout.id)) ? photoIconName(shout.id) : fallbackFoodIcon(shout.shoutType), selected: shout.id === selected?.id ? 1 : 0, latest: shout.id === latestShoutId ? 1 : 0, rankColor: shout.rankAccent || "" },
       })),
     });
     setMapData();
@@ -458,12 +466,16 @@ export default function FoodShoutPage({ onHome }) {
     } : emptyGeoJson());
   }, [mapReady, userLocation]);
 
+  useEffect(() => () => window.clearTimeout(userLocationTimerRef.current), []);
+
   const locate = () => {
     if (!navigator.geolocation) return setToast({ text: "Location is not supported by this browser." });
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
         setUserLocation({ latitude: coords.latitude, longitude: coords.longitude });
+        window.clearTimeout(userLocationTimerRef.current);
+        userLocationTimerRef.current = window.setTimeout(() => setUserLocation(null), 4200);
         const map = mapRef.current;
         if (map) {
           let fallbackTimer;
@@ -525,8 +537,18 @@ export default function FoodShoutPage({ onHome }) {
     setRegionOpen(false);
     const map = mapRef.current;
     if (!map) return;
-    setLoading(true);
+    let settled = false;
+    const refreshRegion = () => {
+      if (settled) return;
+      settled = true;
+      const next = expandBounds(readBounds(map), .4);
+      setBounds(next);
+      setPendingBounds(null);
+      fetchVisibleRef.current?.(next, undefined, { replace: true });
+    };
+    map.once("moveend", refreshRegion);
     map.easeTo({ center: region.center, zoom: region.zoom, duration: 650 });
+    window.setTimeout(refreshRegion, 950);
   };
 
   const openActivity = async () => {
@@ -640,7 +662,7 @@ export default function FoodShoutPage({ onHome }) {
 
       <div className={`food-map-shell ${searchedPlace ? "has-place-selection" : ""} ${viewMode === "list" ? "list-mode" : "map-mode"}`}>
         <div ref={mapContainerRef} className="food-map" aria-label="Interactive food discovery map" />
-        {viewMode === "list" && <section className="food-list-view" aria-label="Food finds in this area">{listShouts.length ? <div className="food-list-view-grid">{listShouts.map((shout) => <button className={shout.viewerOwned ? "viewer-ranked" : ""} style={shout.viewerOwned ? foodRankStyle(profileRank) : undefined} type="button" onClick={() => setSelected(shout)} key={shout.id}><img src={shout.imageUrl} alt="" /><span><small>{shout.shoutType === "drink" ? "DRINK" : shout.shoutType === "snack" ? "SNACK" : "FOOD FIND"} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={11} /> {foodPlaceLabel(shout)}</em>}<b>{shout.rating?.count ? <><Star size={12} fill="currentColor" /> {shout.rating.average.toFixed(1)} <i>({shout.rating.count})</i></> : "Not rated"}</b></span><ChevronRight size={18} /></button>)}</div> : <div className="food-list-empty"><Utensils size={24} /><strong>No finds in this area</strong><span>Move the map or share the first one.</span></div>}</section>}
+        {viewMode === "list" && <section className="food-list-view" aria-label="Food finds in this area">{listShouts.length ? <div className="food-list-view-grid">{listShouts.map((shout) => <button className={shout.rankAccent ? "ranked-post" : ""} style={shout.rankAccent ? { "--food-rank": shout.rankAccent } : undefined} type="button" onClick={() => setSelected(shout)} key={shout.id}><img src={shout.imageUrl} alt="" /><span><small>{shout.shoutType === "drink" ? "DRINK" : shout.shoutType === "snack" ? "SNACK" : "FOOD FIND"} · {relativeTime(shout.createdAt)}</small><strong>{shout.title}</strong>{foodPlaceLabel(shout) && <em><MapPin size={11} /> {foodPlaceLabel(shout)}</em>}<b>{shout.rating?.count ? <><Star size={12} fill="currentColor" /> {shout.rating.average.toFixed(1)} <i>({shout.rating.count})</i></> : "Not rated"}</b></span><ChevronRight size={18} /></button>)}</div> : <div className="food-list-empty"><Utensils size={24} /><strong>No finds in this area</strong><span>Move the map or share the first one.</span></div>}</section>}
         {viewMode === "list" && <form className={`food-search ${searchedPlace ? "active" : ""}`} onSubmit={submitSearch}>
           <Search size={18} aria-hidden="true" />
           <input value={query} onChange={(event) => { setQuery(event.target.value); setPlaceResults([]); setSearchedPlace(null); setGoogleReturnOpen(false); }} placeholder="Find a store or address" aria-label="Find a store or address" inputMode="search" enterKeyHint="search" autoComplete="street-address" />
@@ -1082,7 +1104,7 @@ function FoodDetail({ shout, map, countryCode, guide, rank, collections = [], on
     }
   };
   const activeImage = gallery[activePhoto];
-  const showRankSeal = shout.viewerOwned && rank?.key && rank.key !== "bronze";
+  const showRankSeal = Boolean(shout.rankAccent);
   return <Sheet className="food-detail" onClose={onClose} label={shout.title}>
     <div className="food-detail-media food-detail-player">
       <figure>{failedImages.includes(activePhoto) || !(activeImage?.url || shout.imageUrl) ? <div className="food-photo-fallback"><Utensils size={25} /><span>Photo unavailable</span></div> : <motion.img key={activePhoto} initial={{ opacity: .35, scale: 1.025 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: .22 }} src={activeImage?.url || shout.imageUrl} alt={`${shout.title}, photo ${activePhoto + 1}`} onError={() => setFailedImages((items) => items.includes(activePhoto) ? items : [...items, activePhoto])} />}</figure>
@@ -1103,7 +1125,7 @@ function FoodDetail({ shout, map, countryCode, guide, rank, collections = [], on
       </div> : <><h2>{shout.title}</h2>{shout.caption && <p className="food-caption">{shout.caption}</p>}</>}
       {readablePlace && <div className="food-location-line"><MapPin size={17} /><span><strong>{readablePlace}</strong></span><a href={googleMapsSearchUrl(shout)} target="_blank" rel="noreferrer" aria-label="Open this place in Google Maps"><Navigation size={14} /> Google</a></div>}
       <div className="food-meta-row"><span>{shout.cuisine}</span><span><Clock3 size={13} /> {relativeTime(shout.createdAt)}</span>{shout.priceText && <span><CircleDollarSign size={15} /> {shout.priceText}</span>}{shout.vibeTags.map((tag) => <span key={tag}>{tag.replaceAll("-", " ")}</span>)}</div>
-      {showRankSeal && <span className="food-post-rank" style={foodRankStyle(rank)}><Trophy size={13} /> {rank.label}</span>}
+      {showRankSeal && <span className="food-post-rank" style={{ "--food-rank": shout.rankAccent }} aria-label={shout.rankLabel || "High-rank food find"}><Sparkles size={13} /> {shout.rankLabel || "Seasoned find"}</span>}
       {shout.viewerOwned && guide && <span className="food-guide-title"><Compass size={13} /> {guide.title}</span>}
       <div className="food-engagement-bar" aria-label="Food feedback">
         <button type="button" className={feedbackMode === "rating" ? "active" : ""} onClick={() => setFeedbackMode((mode) => mode === "rating" ? null : "rating")} aria-expanded={feedbackMode === "rating"}><Star size={19} fill={shout.rating?.count ? "currentColor" : "none"} /><span><strong>{shout.rating?.count ? shout.rating.average : "Rate"}</strong><small>{shout.rating?.count ? `${shout.rating.count} rating${shout.rating.count === 1 ? "" : "s"}` : "Your taste"}</small></span></button>
