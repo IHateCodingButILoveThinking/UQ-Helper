@@ -96,11 +96,24 @@ async function trim(url, maxEdge) {
     const right = scan(width, (i) => column(width - 1 - i));
     // Only substantial, nearly solid edge bands qualify; avoid cropping shadows.
     if (top + bottom < height * 0.06 && left + right < width * 0.06) return url;
-    const cropWidth = (width - left - right) / width * imageWidth;
-    const cropHeight = (height - top - bottom) / height * imageHeight;
-    if (cropWidth < imageWidth * 0.45 || cropHeight < imageHeight * 0.3) return url;
+    const contentWidth = width - left - right;
+    const contentHeight = height - top - bottom;
+    // A landscape photo inside a tall phone screenshot can occupy less than
+    // 30% of its height. Permit that crop only when BOTH opposing margins are
+    // substantial, solid black bands, never for a mostly dark one-sided photo.
+    const minWidthRatio = left >= width * 0.06 && right >= width * 0.06 ? 0.2 : 0.45;
+    const minHeightRatio = top >= height * 0.06 && bottom >= height * 0.06 ? 0.2 : 0.3;
+    if (contentWidth < Math.max(16, width * minWidthRatio)
+      || contentHeight < Math.max(16, height * minHeightRatio)) return url;
+    const cropWidth = contentWidth / width * imageWidth;
+    const cropHeight = contentHeight / height * imageHeight;
     const output = document.createElement('canvas');
-    const outputScale = Math.min(1, maxEdge / Math.max(cropWidth, cropHeight));
+    // Square thumbnails need enough pixels on the short edge too. Otherwise a
+    // wide crop shrunk to 256px can become blurry when cover-fit enlarges it.
+    // Bound the long edge and never upscale the source during processing.
+    const outputScale = maxEdge <= 256
+      ? Math.min(1, maxEdge / Math.min(cropWidth, cropHeight), 512 / Math.max(cropWidth, cropHeight))
+      : Math.min(1, maxEdge / Math.max(cropWidth, cropHeight));
     output.width = Math.max(1, Math.round(cropWidth * outputScale));
     output.height = Math.max(1, Math.round(cropHeight * outputScale));
     const outputContext = output.getContext('2d', { alpha: false });

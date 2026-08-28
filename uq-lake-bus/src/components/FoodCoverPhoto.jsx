@@ -21,7 +21,7 @@ function OriginalPhoto({ urls }) {
     return () => { cancelled = true; };
   }, [source, loaded]);
   return <span className="food-discovery-photo">
-    {source ? <img src={cleaned?.source === source ? cleaned.url : source} alt="" loading="lazy" decoding="async"
+    {source ? <img src={cleaned?.source === source ? cleaned.url : source} alt="" loading="lazy" decoding="async" draggable={false}
       onLoad={() => setLoaded(source)}
       onError={() => {
         if (cleaned?.source === source) setCleaned(null);

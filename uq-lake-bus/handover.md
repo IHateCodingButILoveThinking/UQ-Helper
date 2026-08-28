@@ -4,6 +4,12 @@
 
 This checkpoint supersedes the older resume notes below for the current task.
 
+### Latest: centred discovery thumbnails
+
+- Grid cover images are now absolutely sized to their fixed thumbnail frame, with explicit centre/cover fitting and maximum dimensions. Tall image intrinsic sizes can no longer stretch the inner grid row and leave the visible food at the bottom of the clipped frame.
+- Existing display-only black-border cleanup now accepts narrow content inside two substantial, solid opposing borders (phone screenshots), while retaining conservative one-sided guards. Thumbnail output retains more short-edge detail, capped at a 512 px long edge and never upscales the source during processing.
+- Original uploaded photos, cover order, database/storage limits, and upload behaviour are unchanged. No new service or backend deployment. No build/browser/device tests run for this small display change, as requested; visual confirmation remains with the user.
+
 - Design rule: avoid sparkle/magic-style icons. The photo-location tip, detected-photo location, and selected-place indicator now consistently use the existing Lucide MapPin. No location behaviour changed.
 
 ### Latest: grid rank corners, Details action and country navigation
