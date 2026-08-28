@@ -17,9 +17,12 @@ import {
   Coffee,
   Compass,
   Flag,
+  Footprints,
   Globe2,
   Heart,
   List,
+  Link2,
+  LayoutGrid,
   LocateFixed,
   Map as MapIcon,
   MapPin,
@@ -35,7 +38,6 @@ import {
   Send,
   Share2,
   SlidersHorizontal,
-  Sparkles,
   Star,
   Trash2,
   Trophy,
@@ -47,7 +49,16 @@ import {
   compressFoodImage,
   readFoodPhotoLocation,
 } from "../lib/image-compression";
-import { foodRankForLevel, foodRankStyle } from "../lib/food-ranks";
+import { foodRankForLevel, foodRankStyle, publicFoodAuthorLabel } from "../lib/food-ranks";
+import FoodDiscoveryGrid from "../components/FoodDiscoveryGrid";
+import FoodFootprintDialog from "../components/FoodFootprintDialog";
+import GoogleMapsLinkInput from "../components/GoogleMapsLinkInput";
+import CopyPlaceButton from "../components/CopyPlaceButton";
+import "../styles/food-place-step.css";
+import "../styles/food-country-picker.css";
+import { foodPhotoUrls } from "../lib/food-photos";
+import { attachFoodPhotoMarkers } from "../lib/food-photo-markers";
+import { formatFoodPrice } from "../lib/food-price";
 import {
   addFoodCollectionItem,
   createFoodComment,
@@ -124,6 +135,7 @@ const BROWSE_REGION_GROUPS = [
       },
       { id: "jp", label: "Japan", center: [138.2, 36.2], zoom: 4.6 },
       { id: "kr", label: "South Korea", center: [127.9, 36.3], zoom: 6 },
+      { id: "kp", label: "North Korea", aliases: ["KP", "DPRK"], center: [127, 40], zoom: 6 },
       { id: "mn", label: "Mongolia", center: [103.8, 46.8], zoom: 4.4 },
     ],
   ],
@@ -180,6 +192,8 @@ const BROWSE_REGION_GROUPS = [
         zoom: 6.5,
       },
       { id: "qa", label: "Qatar", center: [51.2, 25.3], zoom: 8 },
+      { id: "bh", label: "Bahrain", aliases: ["BH"], center: [50.55, 26.03], zoom: 9 },
+      { id: "cy", label: "Cyprus", aliases: ["CY"], center: [33.2, 35.1], zoom: 7 },
       { id: "kw", label: "Kuwait", center: [47.5, 29.3], zoom: 7 },
       { id: "om", label: "Oman", center: [56.1, 20.6], zoom: 5.5 },
       { id: "ye", label: "Yemen", center: [47.5, 15.8], zoom: 5.4 },
@@ -188,6 +202,7 @@ const BROWSE_REGION_GROUPS = [
       { id: "az", label: "Azerbaijan", center: [47.6, 40.3], zoom: 6.5 },
     ],
   ],
+  ["North Asia", [{ id: "ru", label: "Russia", aliases: ["RU", "Siberia"], center: [100, 61], zoom: 3 }]],
 ];
 const ALL_BROWSE_REGIONS = BROWSE_REGION_GROUPS.flatMap(
   ([, regions]) => regions,
@@ -254,6 +269,7 @@ export default function FoodShoutPage({ onHome }) {
   const [feedOpen, setFeedOpen] = useState(false);
   const [topOpen, setTopOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [footprintOpen, setFootprintOpen] = useState(false);
   const [profileName, setProfileName] = useState(() => readDisplayName());
   const [profileProgress, setProfileProgress] = useState(() =>
     emptyFoodProfileProgress(),
@@ -273,9 +289,9 @@ export default function FoodShoutPage({ onHome }) {
   const [query, setQuery] = useState("");
   const [placeResults, setPlaceResults] = useState([]);
   const [placeSearching, setPlaceSearching] = useState(false);
+  const [submittedPlaceQuery, setSubmittedPlaceQuery] = useState("");
   const [searchedPlace, setSearchedPlace] = useState(null);
   const [googleReturnOpen, setGoogleReturnOpen] = useState(false);
-  const [googleReturnValue, setGoogleReturnValue] = useState("");
   const [composerLocation, setComposerLocation] = useState(null);
   const [cuisine, setCuisine] = useState("All");
   const [foodType, setFoodType] = useState("all");
@@ -476,6 +492,7 @@ export default function FoodShoutPage({ onHome }) {
     let map;
     let pulseFrame;
     let moveFetchTimer;
+    let removePhotoMarkers;
     import("maplibre-gl")
       .then(({ default: maplibregl }) => {
         if (cancelled) return;
@@ -499,10 +516,6 @@ export default function FoodShoutPage({ onHome }) {
         map.on("load", () => {
           if (cancelled) return;
           Object.entries({
-            "food-icon-default": ["🍜", "#fff7ee", "#f26442"],
-            "food-icon-drink": ["🧋", "#eef9fb", "#2c94b5"],
-            "food-icon-snack": ["🥟", "#fff8dc", "#d58b20"],
-            "food-icon-dessert": ["🍰", "#fff1fb", "#c466d8"],
             "food-icon-market": ["🥕", "#f3f8eb", "#6b8e42"],
             "food-icon-you": ["🦎", "#e5fff5", "#168466"],
           }).forEach(([name, values]) =>
@@ -571,9 +584,9 @@ export default function FoodShoutPage({ onHome }) {
                 "#ff8a4c",
               ],
               "circle-radius": 16,
-              "circle-opacity": 0.24,
-              "circle-blur": 0.45,
-              "circle-stroke-width": 2,
+              "circle-opacity": 0.1,
+              "circle-blur": 0.8,
+              "circle-stroke-width": 0,
               "circle-stroke-color": "rgba(255,255,255,.85)",
             },
           });
@@ -589,22 +602,11 @@ export default function FoodShoutPage({ onHome }) {
                 "#ff7043",
                 "#fff8ef",
               ],
-              "circle-radius": [
-                "case",
-                ["==", ["get", "selected"], 1],
-                20,
-                ["!=", ["get", "rankColor"], ""],
-                18,
-                16,
-              ],
-              "circle-stroke-width": [
-                "case",
-                ["==", ["get", "selected"], 1],
-                4,
-                ["!=", ["get", "rankColor"], ""],
-                4,
-                3,
-              ],
+              // Keep a queryable hit area underneath the HTML photo, without
+              // drawing a second thick ring around high-rank posts.
+              "circle-radius": 17,
+              "circle-opacity": 0.01,
+              "circle-stroke-width": 0,
               "circle-stroke-color": [
                 "case",
                 ["!=", ["get", "rankColor"], ""],
@@ -625,17 +627,9 @@ export default function FoodShoutPage({ onHome }) {
               ],
             },
           });
-          map.addLayer({
-            id: "food-pin-glyphs",
-            type: "symbol",
-            source: "food-shouts",
-            filter: ["!", ["has", "point_count"]],
-            layout: {
-              "icon-image": ["get", "icon"],
-              "icon-size": ["case", ["==", ["get", "selected"], 1], 1.15, 0.96],
-              "icon-allow-overlap": true,
-              "icon-ignore-placement": true,
-            },
+          removePhotoMarkers = attachFoodPhotoMarkers(map, maplibregl.Marker, (id) => {
+            const item = shoutsRef.current.find((shout) => shout.id === id);
+            if (item) setSelected(item);
           });
           map.addLayer({
             id: "food-place-result-pulse",
@@ -727,12 +721,12 @@ export default function FoodShoutPage({ onHome }) {
               map.setPaintProperty(
                 "food-latest-pulse",
                 "circle-radius",
-                14 + phase * 11,
+                15 + phase * 8,
               );
               map.setPaintProperty(
                 "food-latest-pulse",
                 "circle-opacity",
-                0.3 - phase * 0.24,
+                0.12 - phase * 0.1,
               );
               map.setPaintProperty(
                 "food-user-location-halo",
@@ -777,6 +771,7 @@ export default function FoodShoutPage({ onHome }) {
       if (pulseFrame) cancelAnimationFrame(pulseFrame);
       window.clearTimeout(moveFetchTimer);
       fetchAbortRef.current?.abort();
+      removePhotoMarkers?.();
       map?.remove();
       mapRef.current = null;
     };
@@ -788,15 +783,13 @@ export default function FoodShoutPage({ onHome }) {
     const map = mapRef.current;
     const source = map?.getSource("food-shouts");
     if (!source) return;
-    let cancelled = false;
     const latestShoutId = shouts.reduce((latest, shout) => {
       const createdAt = new Date(shout.createdAt).getTime();
       return !latest || createdAt > latest.createdAt
         ? { id: shout.id, createdAt }
         : latest;
     }, null)?.id;
-    const setMapData = () =>
-      source.setData({
+    source.setData({
         type: "FeatureCollection",
         features: shouts.map((shout) => ({
           type: "Feature",
@@ -807,36 +800,16 @@ export default function FoodShoutPage({ onHome }) {
           properties: {
             id: shout.id,
             type: shout.shoutType,
-            icon: map.hasImage(photoIconName(shout.id))
-              ? photoIconName(shout.id)
-              : fallbackFoodIcon(shout.shoutType),
+            photoUrls: JSON.stringify(foodPhotoUrls(shout)),
+            title: shout.title,
             selected: shout.id === selected?.id ? 1 : 0,
             latest: shout.id === latestShoutId ? 1 : 0,
             rankColor: shout.rankAccent || "",
-            rankLabel: shout.rankLabel || "",
+            rankLabel: publicFoodAuthorLabel(shout.rankLabel),
           },
         })),
       });
-    setMapData();
-    Promise.all(
-      shouts.map(async (shout) => {
-        const name = photoIconName(shout.id);
-        if (!shout.imageUrl || map.hasImage(name)) return;
-        try {
-          map.addImage(name, await makeMapPhotoIcon(shout.imageUrl), {
-            pixelRatio: 2,
-          });
-        } catch {
-          /* keep the food-type fallback */
-        }
-      }),
-    ).then(() => {
-      if (!cancelled && map.getSource("food-shouts")) setMapData();
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [profileProgress.level, selected?.id, shouts]);
+  }, [mapReady, profileProgress.level, selected?.id, shouts]);
 
   useEffect(() => {
     const source = mapRef.current?.getSource("food-place-result");
@@ -926,12 +899,13 @@ export default function FoodShoutPage({ onHome }) {
     );
   };
 
-  const submitSearch = async (event) => {
-    event.preventDefault();
-    const cleanQuery = query.trim();
+  const submitSearch = async (event, importedQuery) => {
+    event?.preventDefault();
+    const cleanQuery = (importedQuery ?? query).trim();
     if (cleanQuery.length < 2) return;
     releaseMobileFocus();
     setPlaceSearching(true);
+    setSubmittedPlaceQuery(cleanQuery);
     const center = mapRef.current?.getCenter();
     const visible = mapRef.current?.getBounds();
     try {
@@ -970,19 +944,14 @@ export default function FoodShoutPage({ onHome }) {
     setComposerOpen(true);
   };
 
-  const importGoogleMapPlace = (event) => {
-    event.preventDefault();
-    const imported = parseSharedMapLocation(googleReturnValue);
-    if (!imported)
-      return setToast({
-        text: "Paste a full Maps link containing coordinates, or latitude and longitude.",
-      });
+  const importGoogleMapPlace = (imported) => {
+    releaseMobileFocus();
     setGoogleReturnOpen(false);
-    setGoogleReturnValue("");
     selectMapPlace(imported);
   };
 
   const selectBrowseRegion = (region) => {
+    releaseMobileFocus();
     browseRegionRef.current = region;
     setBrowseRegion(region);
     setRegionOpen(false);
@@ -1132,7 +1101,7 @@ export default function FoodShoutPage({ onHome }) {
       shouts
         .filter((shout) => !bounds || shoutInsideBounds(shout, bounds))
         .sort(
-          (left, right) => new Date(right.createdAt) - new Date(left.createdAt),
+          (left, right) => new Date(right.createdAt) - new Date(left.createdAt) || left.id.localeCompare(right.id),
         ),
     [bounds, shouts],
   );
@@ -1163,21 +1132,29 @@ export default function FoodShoutPage({ onHome }) {
             <em>Lv {profileProgress.level}</em>
           </span>
         </button>
+        <button className="food-icon-button food-footprint-shortcut" type="button"
+          aria-label="Open my footprint" title="My footprint" onClick={() => setFootprintOpen(true)}>
+          <Footprints size={19} />
+        </button>
         <span className="food-topbar-spacer" />
         <button
-          className="food-country-topbar flag-only"
+          className="food-country-topbar food-country-picker"
           onClick={() => setRegionOpen(true)}
           type="button"
           aria-label={`Change map country, currently ${browseRegion.label}`}
+          aria-haspopup="dialog"
+          aria-expanded={regionOpen}
+          title={`Explore another country or region · ${browseRegion.label}`}
         >
-          <span className="food-country-flag" aria-hidden="true">
-            {regionFlag(browseRegion.id)}
+          <span className={`food-country-flag ${["hk", "mo"].includes(browseRegion.id) ? "paired-flags" : ""}`} aria-hidden="true">
+            {(regionFlag(browseRegion.id).match(/[\u{1F1E6}-\u{1F1FF}]{2}/gu) || [regionFlag(browseRegion.id)]).map((flag) => <span key={flag}>{flag}</span>)}
           </span>
+          <ChevronDown size={14} aria-hidden="true" />
         </button>
         <div
           className="food-view-toggle"
           role="group"
-          aria-label="Choose map or list view"
+          aria-label="Choose map or grid view"
         >
           <button
             className={viewMode === "map" ? "active" : ""}
@@ -1192,10 +1169,10 @@ export default function FoodShoutPage({ onHome }) {
             className={viewMode === "list" ? "active" : ""}
             type="button"
             onClick={() => setViewMode("list")}
-            aria-label="List view"
+            aria-label="Grid view"
             aria-pressed={viewMode === "list"}
           >
-            <List size={17} />
+            <LayoutGrid size={17} />
           </button>
         </div>
         <button
@@ -1222,195 +1199,68 @@ export default function FoodShoutPage({ onHome }) {
           aria-label="Interactive food discovery map"
         />
         {viewMode === "list" && (
-          <section
-            className="food-list-view"
-            aria-label="Food finds in this area"
-          >
-            {listShouts.length ? (
-              <div className="food-list-view-grid">
-                {listShouts.map((shout) => (
-                  <button
-                    className={shout.rankAccent ? "ranked-post" : ""}
-                    style={
-                      shout.rankAccent
-                        ? { "--food-rank": shout.rankAccent }
-                        : undefined
-                    }
-                    type="button"
-                    onClick={() => setSelected(shout)}
-                    key={shout.id}
-                  >
-                    <img src={shout.imageUrl} alt="" />
-                    <span>
-                      <small>
-                        {shout.shoutType === "drink"
-                          ? "DRINK"
-                          : shout.shoutType === "snack"
-                            ? "SNACK"
-                            : "FOOD FIND"}{" "}
-                        · {relativeTime(shout.createdAt)}
-                        {shout.rankLabel && (
-                          <i className="food-rank-chip">
-                            <span
-                              className="food-rank-dot"
-                              aria-hidden="true"
-                            />{" "}
-                            {shout.rankLabel}
-                          </i>
-                        )}
-                      </small>
-                      <strong>{shout.title}</strong>
-                      {foodPlaceLabel(shout) && (
-                        <em>
-                          <MapPin size={11} /> {foodPlaceLabel(shout)}
-                        </em>
-                      )}
-                      <b>
-                        {shout.rating?.count ? (
-                          <>
-                            <Star size={12} fill="currentColor" />{" "}
-                            {shout.rating.average.toFixed(1)}{" "}
-                            <i>({shout.rating.count})</i>
-                          </>
-                        ) : (
-                          "Not rated"
-                        )}
-                      </b>
-                    </span>
-                    <ChevronRight size={18} />
-                  </button>
-                ))}
+          <section className="food-grid-view" aria-label="Food finds grid">
+            <div className="food-grid-inner">
+              <div className="food-grid-toolbar">
+                <form className="food-grid-search" onSubmit={submitSearch}>
+                  <button type="submit" aria-label="Find a store or address"><Search size={17} /></button>
+                  <input value={query}
+                    onChange={(event) => {
+                      setQuery(event.target.value);
+                      setPlaceResults([]);
+                      setSubmittedPlaceQuery("");
+                      setSearchedPlace(null);
+                      setGoogleReturnOpen(false);
+                    }}
+                    placeholder="Search places"
+                    aria-label="Search stores or addresses"
+                    inputMode="search" enterKeyHint="search" autoComplete="off"
+                  />
+                  {query && <button type="button" aria-label="Clear search" onClick={() => {
+                    setQuery(""); setPlaceResults([]); setSearchedPlace(null); setGoogleReturnOpen(false);
+                  }}><X size={16} /></button>}
+                </form>
+                <button className={activeFilterCount ? "food-grid-filter active" : "food-grid-filter"}
+                  type="button" onClick={() => setFiltersExpanded(true)} aria-label="Open food filters" aria-haspopup="dialog">
+                  <SlidersHorizontal size={16} /> Filters
+                  {activeFilterCount > 0 && <b>{activeFilterCount}</b>}
+                </button>
               </div>
-            ) : (
-              <div className="food-list-empty">
-                <Utensils size={24} />
-                <strong>No finds in this area</strong>
-                <span>Move the map or share the first one.</span>
-              </div>
-            )}
+              {placeSearching && <div className="food-grid-status" role="status">Finding places…</div>}
+              {placeResults.length > 0 && <div className="food-grid-results" aria-live="polite">
+                <small>{placeResults.length} matching locations</small>
+                {placeResults.map((place) => <button type="button" key={place.providerPlaceId}
+                  onClick={() => selectMapPlace(place)}>
+                  <MapPin size={16} /><span><strong>{placeResultName(place)}</strong><small>{placeResultLabel(place)}</small></span><ChevronRight size={15} />
+                </button>)}
+              </div>}
+              {!placeSearching && submittedPlaceQuery === query.trim() && query.trim().length > 1 && !searchedPlace && placeResults.length === 0 &&
+                <div className="food-grid-google">
+                  <a href={googleMapsSearchUrl(query)} target="_blank" rel="noreferrer" onClick={() => setGoogleReturnOpen(true)}><Navigation size={14} /> Google Maps</a>
+                  <button type="button" onClick={() => setGoogleReturnOpen((value) => !value)}>Paste location</button>
+                </div>}
+              {googleReturnOpen && !searchedPlace && <GoogleMapsLinkInput onLocation={importGoogleMapPlace}
+                onClose={() => setGoogleReturnOpen(false)} onSearch={(name) => {
+                  setQuery(name);
+                  setGoogleReturnOpen(false);
+                  submitSearch(null, name);
+                }} />}
+              <FoodDiscoveryGrid posts={listShouts} onSelect={setSelected} placeLabel={foodPlaceLabel}
+                relativeTime={relativeTime} loading={loading} />
+            </div>
           </section>
         )}
-        {viewMode === "list" && (
-          <form
-            className={`food-search ${searchedPlace ? "active" : ""}`}
-            onSubmit={submitSearch}
-          >
-            <Search size={18} aria-hidden="true" />
-            <input
-              value={query}
-              onChange={(event) => {
-                setQuery(event.target.value);
-                setPlaceResults([]);
-                setSearchedPlace(null);
-                setGoogleReturnOpen(false);
-              }}
-              placeholder="Find a store or address"
-              aria-label="Find a store or address"
-              inputMode="search"
-              enterKeyHint="search"
-              autoComplete="street-address"
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => {
-                  setQuery("");
-                  setPlaceResults([]);
-                  setSearchedPlace(null);
-                  setGoogleReturnOpen(false);
-                }}
-                aria-label="Clear search"
-              >
-                <X size={17} />
-              </button>
-            )}
-          </form>
-        )}
-
-        <div className="food-filter-row collapsed" aria-label="Food filters">
-          <button
-            className={`food-filter-menu-toggle ${activeFilterCount ? "active" : ""}`}
-            aria-label="Open food filters"
-            onClick={() => setFiltersExpanded(true)}
-            type="button"
-          >
-            <SlidersHorizontal size={16} />{" "}
-            {activeFilterCount
-              ? `${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"}`
-              : "Filters"}
-            <ChevronDown size={14} />
-          </button>
-        </div>
-
-        {viewMode === "list" && placeResults.length > 0 && (
-          <div className="food-map-place-results" aria-live="polite">
-            <div className="food-place-results-count">
-              {placeResults.length} matching location
-              {placeResults.length === 1 ? "" : "s"}
-            </div>
-            {placeResults.map((place) => (
-              <button
-                type="button"
-                onClick={() => selectMapPlace(place)}
-                key={place.providerPlaceId}
-              >
-                <MapPin size={16} />
-                <span>
-                  <strong>{placeResultName(place)}</strong>
-                  <small>{placeResultLabel(place)}</small>
-                </span>
-                <ChevronRight size={15} />
-              </button>
-            ))}
+        {viewMode === "map" && (
+          <div className="food-filter-row collapsed" aria-label="Food filters">
+            <button className={activeFilterCount ? "food-filter-menu-toggle active" : "food-filter-menu-toggle"}
+              type="button" aria-label="Open food filters" aria-haspopup="dialog" onClick={() => setFiltersExpanded(true)}>
+              <SlidersHorizontal size={16} /> Filters
+              {activeFilterCount > 0 && <span>{activeFilterCount}</span>}
+              <ChevronDown size={14} />
+            </button>
           </div>
         )}
-        {viewMode === "list" &&
-          !placeSearching &&
-          query.trim().length > 1 &&
-          !searchedPlace &&
-          placeResults.length === 0 && (
-            <div className="food-google-search-actions">
-              <a
-                className="food-google-search-link"
-                href={googleMapsSearchUrl(query)}
-                target="_blank"
-                rel="noreferrer"
-                onClick={() => setGoogleReturnOpen(true)}
-              >
-                <Navigation size={15} /> Open Google Maps
-              </a>
-              <button
-                type="button"
-                onClick={() => setGoogleReturnOpen((value) => !value)}
-              >
-                Paste location
-              </button>
-            </div>
-          )}
-        {viewMode === "list" && googleReturnOpen && !searchedPlace && (
-          <form
-            className="food-map-google-return"
-            onSubmit={importGoogleMapPlace}
-          >
-            <input
-              value={googleReturnValue}
-              onChange={(event) => setGoogleReturnValue(event.target.value)}
-              placeholder="Full Maps link or -27.47, 153.02"
-              aria-label="Return a Google Maps location"
-              autoCapitalize="off"
-              autoCorrect="off"
-            />
-            <button type="submit">Use</button>
-            <button
-              type="button"
-              onClick={() => setGoogleReturnOpen(false)}
-              aria-label="Close Google location field"
-            >
-              <X size={15} />
-            </button>
-          </form>
-        )}
-        {searchedPlace && (
+        {viewMode === "map" && searchedPlace && (
           <div className="food-searched-place">
             <span>
               <strong>{searchedPlace.name || "Chosen location"}</strong>
@@ -1430,7 +1280,7 @@ export default function FoodShoutPage({ onHome }) {
           </div>
         )}
 
-        <div className="food-map-actions">
+        {viewMode === "map" && <div className="food-map-actions">
           <button
             type="button"
             onClick={refreshMap}
@@ -1461,9 +1311,9 @@ export default function FoodShoutPage({ onHome }) {
           >
             <Plus size={23} /> Post
           </button>
-        </div>
+        </div>}
 
-        {loading && <div className="food-map-status">Finding good food…</div>}
+        {viewMode === "map" && loading && <div className="food-map-status">Finding good food…</div>}
         {(mapError || loadError) && (
           <div className="food-map-error" role="status">
             <span>{mapError || loadError}</span>
@@ -1610,6 +1460,9 @@ export default function FoodShoutPage({ onHome }) {
               setProfileOpen(false);
               setCollectionsOpen(true);
             }}
+            onOpenFootprint={() => {
+              setFootprintOpen(true);
+            }}
             onOpenFinds={() => {
               setProfileOpen(false);
               setMine(true);
@@ -1628,6 +1481,27 @@ export default function FoodShoutPage({ onHome }) {
           />
         )}
       </AnimatePresence>
+      {footprintOpen && <FoodFootprintDialog totalPosts={profileProgress.totalPosts}
+        onClose={() => setFootprintOpen(false)}
+        onVisit={(place) => {
+          const map = mapRef.current;
+          if (!map || !mapReady) {
+            return false;
+          }
+          setFootprintOpen(false);
+          setProfileOpen(false);
+          setViewMode("map");
+          setMine(false); setSaved(false); setCuisine("All"); setFoodType("all"); setBudget(false);
+          setSearchedPlace(null); setQuery("");
+          if (place.country) {
+            const region = ALL_BROWSE_REGIONS.find((item) => item.id === place.country);
+            if (region) { browseRegionRef.current = region; setBrowseRegion(region); }
+          }
+          const longitudes = place.points.map((point) => point[0]);
+          const latitudes = place.points.map((point) => point[1]);
+          map.fitBounds([[Math.min(...longitudes), Math.min(...latitudes)], [Math.max(...longitudes), Math.max(...latitudes)]],
+            { padding: 65, maxZoom: 15, duration: 450 });
+        }} />}
       {toast && <Toast toast={toast} onClose={() => setToast(null)} />}
     </section>
   );
@@ -1650,11 +1524,6 @@ function FoodComposer({
   const [locationMode, setLocationMode] = useState(
     initialLocation ? "search" : "",
   );
-  const [locationSearch, setLocationSearch] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
-  const [searching, setSearching] = useState(false);
-  const [searchAttempted, setSearchAttempted] = useState(false);
-  const [sharedMapValue, setSharedMapValue] = useState("");
   const [form, setForm] = useState(() => readDraft());
   const [error, setError] = useState("");
   const [posting, setPosting] = useState(false);
@@ -1763,7 +1632,7 @@ function FoodComposer({
     setError("");
     if (!navigator.geolocation)
       return setError(
-        "Location is not supported. Search or choose the map instead.",
+        "Location is not supported. Use a Google Maps link or drop a pin instead.",
       );
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
@@ -1781,44 +1650,12 @@ function FoodComposer({
         setError(
           foodLocationErrorMessage(
             geoError,
-            "Search a past place or pick the map manually.",
+            "Use a Google Maps link or drop a pin instead.",
           ),
         );
       },
       { enableHighAccuracy: false, timeout: 9000, maximumAge: 120000 },
     );
-  };
-
-  const searchLocation = async (event) => {
-    event.preventDefault();
-    const cleanQuery = locationSearch.trim();
-    if (cleanQuery.length < 2) return;
-    releaseMobileFocus();
-    setSearching(true);
-    setError("");
-    setSearchAttempted(true);
-    const center = map?.getCenter();
-    const visible = map?.getBounds();
-    try {
-      setSearchResults(
-        (
-          await searchFoodPlaces(cleanQuery, {
-            latitude: center?.lat,
-            longitude: center?.lng,
-            west: visible?.getWest(),
-            south: visible?.getSouth(),
-            east: visible?.getEast(),
-            north: visible?.getNorth(),
-            unbounded: true,
-            country: countryCode,
-          })
-        ).results || [],
-      );
-    } catch (nextError) {
-      setError(nextError.message);
-    } finally {
-      setSearching(false);
-    }
   };
 
   const confirmManualLocation = () => {
@@ -1835,13 +1672,7 @@ function FoodComposer({
     setStep(3);
   };
 
-  const importSharedLocation = (event) => {
-    event.preventDefault();
-    const imported = parseSharedMapLocation(sharedMapValue);
-    if (!imported)
-      return setError(
-        "Open the place in Google Maps, tap Share → Copy link, then paste the full link here.",
-      );
+  const importSharedLocation = (imported) => {
     releaseMobileFocus();
     setError("");
     setLocation(imported);
@@ -1941,7 +1772,7 @@ function FoodComposer({
 
   return (
     <Sheet
-      className="food-composer"
+      className={`food-composer${step === 2 ? " food-composer-place" : ""}`}
       onClose={onClose}
       label="Create a food find"
     >
@@ -2037,7 +1868,7 @@ function FoodComposer({
           {photoLocation && !initialLocation && (
             <div className="food-photo-location smart">
               <span>
-                <Sparkles size={18} />
+                <MapPin size={18} />
                 <span>
                   <strong>
                     {photoLocationResolving
@@ -2088,7 +1919,7 @@ function FoodComposer({
             </button>
           )}
           <p className="food-photo-tip">
-            <Sparkles size={14} /> Camera location on? We can tag the place
+            <MapPin size={14} /> Camera location on? We can tag the place
             automatically.
           </p>
           <input
@@ -2121,11 +1952,7 @@ function FoodComposer({
           {location && (
             <div className="food-current-place">
               <span className="food-current-place-icon">
-                {locationMode === "photo" ? (
-                  <Sparkles size={18} />
-                ) : (
-                  <MapPin size={18} />
-                )}
+                <MapPin size={18} />
               </span>
               <span>
                 <small>CURRENT CHOICE</small>
@@ -2146,78 +1973,6 @@ function FoodComposer({
               </button>
             </div>
           )}
-          <div className="food-place-panel">
-            <label htmlFor="food-place-query">Search store or address</label>
-            <form className="food-place-search" onSubmit={searchLocation}>
-              <Search size={18} />
-              <input
-                id="food-place-query"
-                value={locationSearch}
-                onChange={(event) => {
-                  setLocationSearch(event.target.value);
-                  setSearchAttempted(false);
-                  setError("");
-                }}
-                placeholder="Restaurant, suburb or address"
-                aria-label="Store name or address"
-                inputMode="search"
-                enterKeyHint="search"
-                autoComplete="off"
-              />
-              <button
-                type="submit"
-                disabled={searching || locationSearch.trim().length < 2}
-                aria-label="Search stores"
-              >
-                {searching ? (
-                  <span className="food-mini-spinner" />
-                ) : (
-                  <Search size={17} />
-                )}
-              </button>
-            </form>
-            <small>Optional—use GPS or drop a pin instead.</small>
-          </div>
-          {searchResults.length > 0 && (
-            <div className="food-place-results" aria-live="polite">
-              {searchResults.map((place) => (
-                <button
-                  type="button"
-                  key={place.providerPlaceId}
-                  onClick={() => {
-                    releaseMobileFocus();
-                    setLocation(place);
-                    setLocationMode("search");
-                    setStep(3);
-                    saveRecentLocation(place);
-                  }}
-                >
-                  <MapPin size={17} />
-                  <span>
-                    <strong>{placeResultName(place)}</strong>
-                    <small>{placeResultLabel(place)}</small>
-                  </span>
-                  <ChevronRight size={16} />
-                </button>
-              ))}
-            </div>
-          )}
-          {searchAttempted && !searching && searchResults.length === 0 && (
-            <div className="food-place-empty">
-              <strong>Store not listed</strong>
-              <span>Try Google or drop a pin.</span>
-            </div>
-          )}
-          {locationSearch.trim().length > 1 && (
-            <a
-              className="food-composer-google"
-              href={googleMapsSearchUrl(locationSearch)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              <Navigation size={15} /> Search Google Maps
-            </a>
-          )}
           <div className="food-location-options">
             <button type="button" onClick={currentLocation}>
               <LocateFixed />
@@ -2230,53 +1985,35 @@ function FoodComposer({
               type="button"
               onClick={() => {
                 releaseMobileFocus();
+                setError("");
                 setManualPicking(true);
               }}
             >
-              <Navigation />
+              <MapPin />
               <span>
                 <strong>Drop a pin</strong>
                 <small>Exact spot</small>
               </span>
             </button>
           </div>
-          <details className="food-google-import">
-            <summary>
-              <Navigation size={15} />
-              <span>Use a Google Maps link</span>
+          <section className="food-google-import food-place-link-card" aria-label="Use a Google Maps link">
+            <div className="food-place-link-heading">
+              <Link2 size={18} />
+              <h3>Use a Google Maps link</h3>
               <em>Optional</em>
-            </summary>
+            </div>
             <div className="food-google-help">
               <strong>Where do I find it?</strong>
               <span>Open the place → Share → Copy link</span>
             </div>
-            <form onSubmit={importSharedLocation}>
-              <input
-                value={sharedMapValue}
-                onChange={(event) => {
-                  setSharedMapValue(event.target.value);
-                  setError("");
-                }}
-                placeholder="Paste the copied link here"
-                aria-label="Google Maps link or coordinates"
-                autoCapitalize="off"
-                autoCorrect="off"
-              />
-              <button type="submit" disabled={!sharedMapValue.trim()}>
-                Use
-              </button>
-            </form>
-            <small>No link? Search above, use GPS, or drop a pin.</small>
-          </details>
-          <RecentLocations
-            onSelect={(place) => {
-              setLocation(place);
-              setLocationMode("recent");
-              setStep(3);
-            }}
-          />
+            <GoogleMapsLinkInput onLocation={importSharedLocation} getSearchContext={() => {
+              const center = map?.getCenter();
+              return { latitude: center?.lat, longitude: center?.lng };
+            }} />
+            <small>No link? Use GPS or drop a pin.</small>
+          </section>
           <p className="food-attribution">
-            Place search © OpenStreetMap contributors
+            Map © OpenStreetMap contributors
           </p>
         </div>
       )}
@@ -2300,9 +2037,11 @@ function FoodComposer({
                         : "Chosen place"}
               </small>
             </div>
-            <button type="button" onClick={() => setStep(2)}>
-              Change
-            </button>
+            <div className="food-compose-place-actions">
+              <CopyPlaceButton text={location?.name || (location ? `${location.latitude}, ${location.longitude}` : "")}
+                label={location?.name ? "Copy place name" : "Copy coordinates"} />
+              <button type="button" onClick={() => setStep(2)}>Change</button>
+            </div>
           </div>
           {countryMismatch && (
             <div className="food-country-warning">
@@ -2970,7 +2709,7 @@ function FoodDetail({
           </span>
           {shout.priceText && (
             <span>
-              <CircleDollarSign size={15} /> {shout.priceText}
+              <CircleDollarSign size={15} /> {formatFoodPrice(shout)}
             </span>
           )}
           {shout.vibeTags.map((tag) => (
@@ -2981,10 +2720,10 @@ function FoodDetail({
           <span
             className="food-post-rank"
             style={{ "--food-rank": shout.rankAccent }}
-            aria-label={shout.rankLabel || "High-rank food find"}
+            aria-label={publicFoodAuthorLabel(shout.rankLabel) || "Posted by a high-rank user"}
           >
             <span className="food-rank-dot" aria-hidden="true" />{" "}
-            {shout.rankLabel || "Seasoned find"}
+            {publicFoodAuthorLabel(shout.rankLabel) || "Posted by a high-rank user"}
           </span>
         )}
         {shout.viewerOwned && guide && (
@@ -3726,6 +3465,7 @@ function RegionSheet({ selected, onSelect, onClose }) {
   const [query, setQuery] = useState("");
   const normalizedQuery = query.trim().toLowerCase();
   const matchesRegion = (region) =>
+    region.id === normalizedQuery ||
     region.label.toLowerCase().includes(normalizedQuery) ||
     region.aliases?.some((alias) =>
       alias.toLowerCase().includes(normalizedQuery),
@@ -3743,13 +3483,14 @@ function RegionSheet({ selected, onSelect, onClose }) {
     >
       <div className="food-sheet-head">
         <div>
-          <span>MAP REGION</span>
-          <h2>Find food around Asia</h2>
+          <span>EXPLORE FOOD</span>
+          <h2>Choose a country</h2>
         </div>
         <button onClick={onClose} aria-label="Close regions">
           <X />
         </button>
       </div>
+      <p className="food-country-picker-hint">Browse and post across Australia &amp; Asia.</p>
       <label className="food-region-search">
         <Search size={17} />
         <input
@@ -3782,11 +3523,15 @@ function RegionSheet({ selected, onSelect, onClose }) {
             <div className="food-cuisine-grid">
               {visible.map((region) => (
                 <button
+                  type="button"
                   className={selected.id === region.id ? "active" : ""}
                   onClick={() => onSelect(region)}
+                  aria-pressed={selected.id === region.id}
                   key={region.id}
                 >
-                  {region.label}
+                  <span className="food-country-option-flag" aria-hidden="true">{regionFlag(region.id)}</span>
+                  <span>{region.label}</span>
+                  {selected.id === region.id && <Check size={14} aria-hidden="true" />}
                 </button>
               ))}
             </div>
@@ -3979,6 +3724,7 @@ function ProfileSheet({
   onClose,
   onSaved,
   onOpenCollections,
+  onOpenFootprint,
   onOpenFinds,
 }) {
   const [name, setName] = useState(displayName);
@@ -4155,6 +3901,11 @@ function ProfileSheet({
           <p>Share a valid food find to earn your first EXP.</p>
         )}
       </details>
+      <button className="food-profile-footprint" type="button" onClick={() => { releaseFocus(); onOpenFootprint(); }}>
+        <Footprints size={20} aria-hidden="true" />
+        <span><strong>My footprint</strong><small>Your countries, cities & suburbs</small></span>
+        <ChevronRight size={18} aria-hidden="true" />
+      </button>
       <button
         className="food-profile-collections"
         type="button"
@@ -4675,25 +4426,6 @@ function FoodPhotoGallery({ gallery, activePhoto, onSelect, onClose, title }) {
   );
 }
 
-function RecentLocations({ onSelect }) {
-  const places = readRecentLocations();
-  if (!places.length) return null;
-  return (
-    <div className="food-recent-locations">
-      <span>RECENT PLACES</span>
-      {places.map((place, index) => (
-        <button
-          type="button"
-          key={`${place.latitude}-${place.longitude}-${index}`}
-          onClick={() => onSelect(place)}
-        >
-          <Clock3 size={15} /> {place.name || place.label}
-        </button>
-      ))}
-    </div>
-  );
-}
-
 function Sheet({ children, className, label, onClose, style }) {
   useEffect(() => {
     const closeOnEscape = (event) => {
@@ -4934,45 +4666,6 @@ function foodLocationErrorMessage(
   return `We could not get your location. ${fallback}`;
 }
 
-async function makeMapPhotoIcon(url) {
-  const response = await fetch(url, { mode: "cors" });
-  if (!response.ok) throw new Error("Photo unavailable");
-  const bitmap = await createImageBitmap(await response.blob());
-  const canvas = document.createElement("canvas");
-  const size = 72;
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext("2d");
-  context.clearRect(0, 0, size, size);
-  context.save();
-  context.beginPath();
-  context.arc(size / 2, size / 2, 31, 0, Math.PI * 2);
-  context.clip();
-  const scale = Math.max(62 / bitmap.width, 62 / bitmap.height);
-  const width = bitmap.width * scale;
-  const height = bitmap.height * scale;
-  context.drawImage(
-    bitmap,
-    (size - width) / 2,
-    (size - height) / 2,
-    width,
-    height,
-  );
-  context.restore();
-  context.beginPath();
-  context.arc(size / 2, size / 2, 32, 0, Math.PI * 2);
-  context.lineWidth = 6;
-  context.strokeStyle = "#ffffff";
-  context.stroke();
-  context.beginPath();
-  context.arc(size / 2, size / 2, 34.5, 0, Math.PI * 2);
-  context.lineWidth = 2;
-  context.strokeStyle = "rgba(47,33,29,.28)";
-  context.stroke();
-  bitmap.close?.();
-  return context.getImageData(0, 0, size, size);
-}
-
 function makeMapFoodIcon(emoji, background, border) {
   const canvas = document.createElement("canvas");
   canvas.width = 48;
@@ -5071,20 +4764,6 @@ function trimFoodAreaCache(cache) {
 function round(value) {
   return Math.round(value * 100000) / 100000;
 }
-function photoIconName(id) {
-  return `food-photo-${String(id).replace(/[^a-z0-9-]/gi, "")}`;
-}
-function fallbackFoodIcon(type) {
-  return type === "drink" || type === "cafe"
-    ? "food-icon-drink"
-    : type === "snack"
-      ? "food-icon-snack"
-      : type === "dessert"
-        ? "food-icon-dessert"
-        : type === "market"
-          ? "food-icon-market"
-          : "food-icon-default";
-}
 function googleMapsSearchUrl(place) {
   const query =
     typeof place === "string"
@@ -5095,43 +4774,6 @@ function googleMapsSearchUrl(place) {
           ? `${place.latitude},${place.longitude}`
           : "restaurants";
   return `https://www.google.com/maps/search/?${new URLSearchParams({ api: "1", query })}`;
-}
-function parseSharedMapLocation(value) {
-  const raw = String(value || "").trim();
-  if (!raw) return null;
-  let text = raw;
-  try {
-    text = decodeURIComponent(raw);
-  } catch {
-    /* keep the original text */
-  }
-  const dataMatch = text.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/i);
-  const atMatch = text.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
-  const queryMatch = text.match(
-    /[?&](?:query|q|ll)=(-?\d+(?:\.\d+)?)[,\s]+(-?\d+(?:\.\d+)?)/i,
-  );
-  const rawMatch = text.match(
-    /^\s*(-?\d+(?:\.\d+)?)\s*[,\s]\s*(-?\d+(?:\.\d+)?)\s*$/,
-  );
-  const match = dataMatch || atMatch || queryMatch || rawMatch;
-  if (!match) return null;
-  const latitude = Number(match[1]);
-  const longitude = Number(match[2]);
-  if (
-    !Number.isFinite(latitude) ||
-    !Number.isFinite(longitude) ||
-    Math.abs(latitude) > 90 ||
-    Math.abs(longitude) > 180
-  )
-    return null;
-  const placeMatch = text.match(/\/place\/([^/@?]+)/i);
-  const name = placeMatch ? placeMatch[1].replaceAll("+", " ").trim() : "";
-  return {
-    latitude,
-    longitude,
-    name,
-    label: coordinateLabel(latitude, longitude),
-  };
 }
 function typeLabel(value) {
   return TYPES.find(([key]) => key === value)?.[1] || "Food find";
@@ -5241,9 +4883,9 @@ function relativeTime(value) {
     Math.round((Date.now() - new Date(value).getTime()) / 1000),
   );
   if (seconds < 60) return "just now";
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-  return `${Math.floor(seconds / 86400)}d ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m Ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h Ago`;
+  return `${Math.floor(seconds / 86400)} day Ago`;
 }
 function formatBytes(value) {
   return value < 1024 * 1024

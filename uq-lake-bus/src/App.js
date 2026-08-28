@@ -2036,8 +2036,11 @@ function CampusHomePage({
       <div className="campus-home-dashboard">
         <HomeConditionsCard />
 
-        <div className="campus-home-actions compact" aria-label="Campus shortcuts">
-          {homeActions.map(
+        {[{ label: "UQ", actions: homeActions.slice(0, 2) }, { label: "Explore food", actions: homeActions.slice(2) }].map((group) => (
+          <section className="campus-trip-section" key={group.label} aria-label={group.label}>
+            <div className="campus-trip-head"><span>{group.label}</span></div>
+            <div className="campus-home-actions compact">
+          {group.actions.map(
             (
               { accentClass, description, Icon, label, onClick, status },
               index,
@@ -2073,7 +2076,9 @@ function CampusHomePage({
               </motion.button>
             ),
           )}
-        </div>
+            </div>
+          </section>
+        ))}
 
         <section className="campus-trip-section" aria-label="Trips">
           <div className="campus-trip-head">

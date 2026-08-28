@@ -90,6 +90,9 @@ export async function handleFoodRequest({ request, env, ctx, url, path, respond 
   if (request.method === "GET" && path === "/api/profile/progress") {
     return getFoodProfileProgress(request, env, url, respond);
   }
+  if (request.method === "GET" && path === "/api/profile/footprint") {
+    return getFoodFootprint(request, env, respond);
+  }
 
   if (request.method === "GET" && path === "/api/collections") {
     return listFoodCollections(request, env, respond);
@@ -1024,6 +1027,9 @@ async function reverseFoodPlace(request, env, url, respond) {
     name: name.slice(0, 100),
     label: (label || "Location detected from photo").slice(0, 120),
     countryCode: String(address.country_code || "").toLowerCase(),
+    city: String(address.city || address.town || address.village || address.municipality || "").slice(0, 80),
+    suburb: String(address.suburb || address.city_district || address.neighbourhood || "").slice(0, 80),
+    state: String(address.state || address.region || "").slice(0, 80),
   };
   await env.DB.prepare(
     `INSERT INTO food_place_cache (cache_key, response_json, created_at, expires_at)
@@ -1136,6 +1142,47 @@ function serializeFoodCollection(row) {
     createdAt: new Date(Number(row.created_at) * 1000).toISOString(),
     updatedAt: new Date(Number(row.updated_at) * 1000).toISOString(),
   };
+}
+
+async function getFoodFootprint(request, env, respond) {
+  const clientHash = await getClientHash(request);
+  // One owner-scoped read, only on opening the footprint. Never send author hashes or image data.
+  const { results = [] } = await env.DB.prepare(
+    `SELECT s.id, s.title, s.place_name, s.location_label, s.latitude_e6, s.longitude_e6, s.created_at,
+            cached.response_json AS cached_location,
+            COUNT(*) OVER() AS total_count
+       FROM food_shouts s
+       LEFT JOIN food_place_cache cached ON cached.cache_key =
+         'nominatim:reverse:v1:' || printf('%.4f', s.latitude_e6 / 1000000.0) || ':' || printf('%.4f', s.longitude_e6 / 1000000.0)
+      WHERE s.author_hash = ? AND s.status = 'active' AND (s.expires_at IS NULL OR s.expires_at > ?)
+      ORDER BY s.created_at DESC, s.id DESC
+      LIMIT 1000`,
+  ).bind(clientHash, unixNow()).all();
+  const total = Number(results[0]?.total_count || 0);
+  return respond({
+    total,
+    complete: total <= results.length,
+    posts: results.map((row) => {
+      let cached = {};
+      try { cached = JSON.parse(row.cached_location || '{}'); } catch { /* Keep the saved label. */ }
+      return {
+      id: row.id,
+      title: row.title,
+      placeName: row.place_name,
+      locationLabel: row.location_label,
+      locationContext: {
+        label: String(cached?.label || '').slice(0, 120),
+        countryCode: String(cached?.countryCode || '').slice(0, 2),
+        city: String(cached?.city || '').slice(0, 80),
+        suburb: String(cached?.suburb || '').slice(0, 80),
+        state: String(cached?.state || '').slice(0, 80),
+      },
+      latitude: Number(row.latitude_e6) / 1_000_000,
+      longitude: Number(row.longitude_e6) / 1_000_000,
+      createdAt: new Date(Number(row.created_at) * 1000).toISOString(),
+      };
+    }),
+  });
 }
 
 async function getFoodProfileProgress(request, env, url, respond) {

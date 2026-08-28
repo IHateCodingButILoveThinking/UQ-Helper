@@ -1,0 +1,9 @@
+button.food-copy-place { display: inline-flex; flex-shrink: 0; align-items: center; justify-content: center; gap: 5px; min-height: 44px; padding: 0 8px; border: 0; border-radius: 10px; background: transparent; color: #28735e; font-family: inherit; font-size: 12px; font-weight: 750; cursor: pointer; white-space: nowrap; }
+button.food-copy-place:hover { background: #eaf4ee; }
+button.food-copy-place:focus-visible { outline: 2px solid #28735e; outline-offset: 2px; }
+.food-place-label-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.food-place-label-row > label { min-width: 0; font-size: 13px; font-weight: 900; }
+.food-map-link-result { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; padding: 4px 8px 4px 12px; border: 1px solid #d2e4db; border-radius: 11px; background: #f0f7f3; }
+.food-map-link-result > span { min-width: 0; overflow-wrap: anywhere; color: #235f4e; font-size: 12px; line-height: 1.5; user-select: text; }
+.food-compose-summary > .food-compose-place-actions { align-items: flex-end; gap: 0; }
+.food-compose-place-actions > button:not(.food-copy-place) { min-height: 36px; padding: 0 8px; }

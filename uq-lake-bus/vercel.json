@@ -5,6 +5,9 @@
   "outputDirectory": "dist",
   "fluid": true,
   "functions": {
+    "api/maps-link.js": {
+      "maxDuration": 10
+    },
     "api/departures.js": {
       "maxDuration": 30
     },

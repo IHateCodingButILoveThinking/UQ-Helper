@@ -54,6 +54,19 @@ export function getFoodProfileProgress(signal) {
   return request(`/api/profile/progress?${params}`, { signal });
 }
 
+export async function getFoodFootprint(signal) {
+  try {
+    return await request('/api/profile/footprint', { signal });
+  } catch (error) {
+    if (error.status !== 404) throw error;
+    // Compatibility until the new Worker is published. Explicit worldwide bounds
+    // prevent the profile being restricted to the current country or viewport.
+    const result = await listFoodShouts({ mine: true, bounds: { west: -180, south: -90, east: 180, north: 90 }, signal });
+    const posts = result.shouts || [];
+    return { posts, total: posts.length, complete: posts.length < 100, legacy: true };
+  }
+}
+
 export function listFoodCollections(signal) {
   return request("/api/collections", { signal });
 }

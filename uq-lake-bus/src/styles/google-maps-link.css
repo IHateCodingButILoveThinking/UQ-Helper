@@ -1,0 +1,32 @@
+.food-map-link-entry { min-width: 0; margin-bottom: 12px; }
+.food-google-import > .food-map-link-entry { padding: 10px; margin: 0; }
+.food-map-link-entry > form { display: flex; align-items: stretch; gap: 6px; padding: 0; }
+.food-map-link-entry input { flex: 1; width: 0; min-width: 0; height: 44px; padding: 0 10px; border: 1px solid #e5d9ce; border-radius: 11px; background: #fff; color: #352a24; font-family: inherit; font-size: 16px; }
+.food-map-link-entry form > button { flex-shrink: 0; min-width: 68px; min-height: 44px; padding: 0 10px; border: 0; border-radius: 11px; background: #28735e; color: #fff; font-family: inherit; font-size: 12px; font-weight: 750; display: grid; place-items: center; }
+.food-map-link-entry form > button:disabled { opacity: .55; }
+.food-map-link-entry form > .food-map-link-close { min-width: 44px; padding: 0; color: #67564b; background: #f3ede6; }
+.food-map-link-entry > p { margin: 8px 1px 0; font-size: 12px; line-height: 1.5; color: #705342; overflow-wrap: anywhere; }
+.food-map-link-entry > .food-map-link-search { display: flex; flex-direction: column; gap: 4px; width: 100%; padding: 10px 12px; margin-top: 8px; border: 1px solid #d2e4db; border-radius: 11px; background: #f0f7f3; color: #235f4e; text-align: left; font: inherit; font-size: 12px; }
+.food-map-link-search span { overflow-wrap: anywhere; }
+.food-map-link-search strong { font-size: 12px; }
+.food-map-link-confirm { margin-top: 12px; padding: 12px; border: 1px solid #d6e6dc; border-radius: 15px; background: #f2f8f4; }
+.food-map-link-confirm > small { display: block; color: #396353; font-size: 11px; font-weight: 750; }
+.food-map-link-confirm-place { display: flex; align-items: center; gap: 8px; margin-top: 5px; }
+.food-map-link-confirm-place > svg { flex-shrink: 0; color: #28735e; }
+.food-map-link-confirm-place > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.food-map-link-confirm-place strong { color: #302721; font-size: 14px; line-height: 1.4; overflow-wrap: anywhere; user-select: text; }
+.food-map-link-confirm-place div > span { color: #687a70; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; user-select: text; }
+.food-map-link-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+.food-map-link-confirm-actions > button { min-height: 44px; padding: 0 12px; border: 0; border-radius: 12px; background: transparent; color: #28735e; font-family: inherit; font-size: 12px; font-weight: 750; }
+.food-map-link-confirm-actions > .food-map-link-use,
+.food-map-link-entry > .food-map-link-named-use { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 46px; padding: 10px 12px; border: 0; border-radius: 12px; background: #28735e; color: #fff; font-family: inherit; font-size: 13px; font-weight: 750; }
+.food-map-link-entry > .food-map-link-named-use { margin-top: 10px; }
+.food-map-link-use > svg { flex-shrink: 0; }
+.food-map-link-use:disabled { opacity: .6; }
+.food-map-link-matches { display: grid; gap: 6px; margin-top: 12px; }
+.food-map-link-matches > small { color: #396353; font-size: 12px; font-weight: 750; }
+.food-map-link-matches > button { display: flex; align-items: center; gap: 8px; padding: 10px; border: 1px solid #d6e6dc; border-radius: 12px; background: #fff; color: #28735e; text-align: left; min-height: 48px; }
+.food-map-link-matches > button > svg { flex-shrink: 0; }
+.food-map-link-matches > button > span { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.food-map-link-matches strong { font-size: 13px; }
+.food-map-link-matches button small { font-size: 11px; line-height: 1.4; color: #687a70; overflow-wrap: anywhere; }

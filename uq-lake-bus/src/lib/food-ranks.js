@@ -32,3 +32,14 @@ export function foodRankForLevel(level = 1) {
 export function foodRankStyle(rank) {
   return { "--food-rank": rank.color, "--food-rank-glow": rank.glow };
 }
+
+export function publicFoodAuthorLabel(label) {
+  const rank = publicFoodRank(label);
+  return rank ? `Posted by ${rank.name} user` : '';
+}
+
+export function publicFoodRank(label) {
+  const value = String(label || '').trim().toLowerCase().replace(/^posted by /, '');
+  const index = RANKS.findIndex((item) => value === item.name.toLowerCase() || value.startsWith(`${item.name.toLowerCase()} `));
+  return index < 0 ? null : { ...RANKS[index], decorated: index >= 4 };
+}

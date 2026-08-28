@@ -1,0 +1,17 @@
+.food-topbar .food-country-topbar.food-country-picker { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; flex: none; gap: 5px; width: 58px; min-width: 58px; max-width: none; height: 44px; padding: 0 7px; border: 1px solid #e8ded4; border-radius: 14px; background: #fffdf9; color: #7a6557; box-shadow: 0 2px 5px #39292005; cursor: pointer; }
+.food-country-picker > svg { flex: none; transition: transform .18s ease; }
+.food-country-picker[aria-expanded="true"] > svg { transform: rotate(180deg); }
+.food-topbar .food-country-picker:hover,.food-topbar .food-country-picker[aria-expanded="true"] { background: #f7eee4; border-color: #d5b89f; }
+.food-country-picker .food-country-flag { display: flex; align-items: center; justify-content: center; width: 24px; flex: none; font-size: 21px; filter: none; }
+.food-country-picker .food-country-flag.paired-flags { flex-direction: column; gap: 1px; font-size: 14px; }
+.food-country-picker-hint { margin: -4px 0 14px; font-size: 12px; line-height: 1.5; color: #867366; }
+.food-region-sheet .food-cuisine-grid > button { display: flex; align-items: center; gap: 7px; min-height: 48px; text-align: left; }
+.food-region-sheet .food-cuisine-grid > button > span:nth-child(2) { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.food-country-option-flag { flex: none; font-size: 18px; line-height: 1.2; }
+.food-region-sheet .food-cuisine-grid > button > svg { flex: none; }
+@media (max-width: 360px) {
+  .food-topbar .food-country-topbar.food-country-picker { width: 54px; min-width: 54px; padding-inline: 5px; gap: 3px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .food-country-picker > svg { transition: none; }
+}

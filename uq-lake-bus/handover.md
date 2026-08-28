@@ -1,5 +1,57 @@
 # UQ Helper project handover
 
+## Latest checkpoint — 28 August 2026: footprint and discovery UI
+
+This checkpoint supersedes the older resume notes below for the current task.
+
+- Design rule: avoid sparkle/magic-style icons. The photo-location tip, detected-photo location, and selected-place indicator now consistently use the existing Lucide MapPin. No location behaviour changed.
+
+### Latest: grid rank corners, Details action and country navigation
+
+- Diamond and higher-rank grid cards now have a small Lucide gem in a tinted upper-right corner (purple for Diamond, each rank's existing colour for higher tiers). Space is reserved above the rating so the decoration never covers photos or controls. No new rank/EXP grants, author identity disclosure, or sorting changes.
+- Replaced the lone grid chevron with a compact Details action; the entire card remains the single accessible button, avoiding nested buttons. Existing photo covers and compact row layout are unchanged.
+- The header flag is now a 44 px-high bordered selector with a dropdown chevron and expanded/dialog semantics. Existing HK/Macau paired flags remain visible in a compact stack. The picker includes flags, selected-state checks, and a brief Australia/Asia description; choosing a region dismisses keyboard focus and uses the existing map navigation.
+- Filled missing shortcuts for Bahrain, Cyprus, North Korea (codes/groupings checked against https://unstats.un.org/unsd/methodology/m49/overview/), plus a North Asia/Russia map destination. The picker can also search two-letter country codes. Existing backend coordinate validation already permits worldwide posting; the selector changes the map, not posting permissions. No backend deployment, new API calls, or storage-limit changes for this UI update.
+
+### Latest: Google Maps share-link import
+
+- Latest follow-up supersedes the manual-pin fallback below: removed the linked-result Drop a pin/Adjust pin actions and added a green **Use this location** button with pin/forward icons. Exact link coordinates still require confirmation. Name-only links now try the existing cached, rate-limited geocoder automatically, matching venue name and address tokens; several matches require an explicit choice. Unresolved names retain a retry action and cannot advance with guessed coordinates. The separate top-level GPS/Drop a pin choices remain available. No paid provider or storage-limit changes.
+- Latest design update: Step 2 follows the compact reference with GPS, Drop a pin, an always-visible Google Maps link card, and attribution. Removed composer search, Store not listed, the standalone Search Google Maps button, and the recent-place list. Grid search is unchanged.
+- Link flow is now Check link, review result, then Use place. Copy remains beside the preview. Editing the link clears the result. Only validated coordinates enable Use place; name-only results require a manual pin and preserve the name. Adjust pin centres the map on the resolved place. No additional API or storage changes.
+- Follow-up: the user confirms link import works. Added a compact Copy / Copied action beside the returned place name, the step-2 search label (so the resolved text remains copyable after using Search this place), and the step-3 chosen location. Copies the place name, or decimal coordinates when no name exists. Includes a selection-based clipboard fallback, mobile-safe focus handling, and honest failure feedback. No API/storage changes.
+- Found both paste fields only inspected coordinates already present in the pasted text. Ordinary `maps.app.goo.gl` / `goo.gl/maps` short share links were therefore rejected despite following the displayed instructions.
+- Replaced both fields with `GoogleMapsLinkInput`: one compact mobile-safe input, Use place, opening status, inline errors, cancellation on edit/unmount, and a place-name search fallback when the link lacks an exact pin. Successful imports keep the existing chosen-place/post flow. No automatic first-candidate selection.
+- Added shared parsing in `shared/google-maps-link.js`, a browser client with a bounded one-hour memory cache, and `/api/maps-link` in local Express and Vercel. The resolver expands only allowlisted Google Maps URLs, validates each redirect, accepts at most six hops, limits page metadata reads to 512 KiB, and times out after eight seconds. It does not mistake `@lat,lng` viewport centres for venue coordinates or import the first stop of a directions link.
+- Resolver protections: three concurrent lookups, 60 uncached lookups/hour **per running process**, 128-entry one-hour memory cache, and a ten-second Vercel function limit. These are request safeguards, NOT an account-wide billing cap. No paid Google Places API, key, new package, database migration, or Cloudflare/R2 writes. All existing storage limits are unchanged.
+- Local API server started on `127.0.0.1:8787`, used by the existing Vite preview proxy. Public support requires deploying the frontend and new Vercel API route; no Worker deployment is needed for this fix. No deployment performed.
+- Validation: frontend build, new JS module syntax checks, and diff whitespace check pass. Existing bundle-size warning remains. No browser/device tests or live share-link tests were run, per the user's preference; their failing link has not been provided. Links without an exact place pin may still require a name search or manual pin rather than guessing coordinates.
+
+### Latest: map-photo sizing and subtle rank outline
+
+- Found the current stylesheet lacked the photo-marker sizing rules, allowing natural-size images to cover the map. Added `food-map-photos.css`, imported directly by the marker module, plus inline fixed sizing/clipping before any image loads. Each pin has a 44 px touch target and a centred 34 px circular photo (38 px selected).
+- Removed the second map-layer outline. One softened 1.5 px rank-colour border remains, with a quieter latest-post halo. Diamond/Legend card backgrounds keep their light rank tint.
+- Automatic food classification remains removed. The original photo is shown immediately; optional black-border cleanup removes only substantial, nearly solid black margins for map/grid thumbnails, using the same edge checks as the existing gallery. 256 px derived thumbnails are held only in a bounded in-memory cache; no originals, Cloudflare objects or upload/storage limits are modified. Failures keep the original visible. No emoji replacement or model dependency.
+- `food-photo-display.js` limits cleanup to two simultaneous jobs and caches up to 96 results. `FoodCoverPhoto.jsx` and map photo markers share it. Remote-image pixel access is only supplemental, not required for normal image display.
+
+- Latest small display change: Australian numeric prices show a dollar sign in feed cards and post details (existing currency symbols and overseas prices are preserved). Time labels use `2 day Ago`, with only the A capitalized; feed time text is no longer forced uppercase. Stored prices/timestamps are unchanged.
+
+- Implemented a separate **My footprint** popup: compact footprint shortcut beside the profile avatar and another entry inside the profile. Close button, Escape, backdrop dismissal, focus trapping, and one internal scroll area; no drag handle.
+- Footprints count the user's own active posts across regions, grouping saved place names into countries/regions, cities and suburbs. Tap a place to explore it on the map. These are posted locations, not proof of travel.
+- Added a read-only `/api/profile/footprint` Worker endpoint: owner-hash scoped, indexed lookup, up to 1,000 lightweight records, total count, explicit coverage flag. Existing reverse-location cache can supply names from saved coordinates. No new external geocoding requests, migrations, tracking or image downloads.
+- Frontend remains compatible with the currently deployed Worker using a worldwide `mine=1` query when the new endpoint returns 404. That fallback is capped at the server's 100 posts and is labelled as partial at the cap. Full 1,000-post coverage and cached names require publishing the updated Worker.
+- Rebuilt the discovery grid into a dedicated `FoodDiscoveryGrid` component. The user's newest screenshot overrides the earlier two-column request: **one compact row per post**, food thumbnail left, place/time, optional rank badge, readable title/location/price/caption, and rating at right. Newest posts come first, with stable ID tie-breaking; no rating/rank promotion. Missing ratings display a dash, never a made-up score.
+- Cards and details use `Posted by Diamond user` wording (other ranks use the same wording). No owner identity is displayed.
+- Latest user clarification: search and Filters start at the top of the grid and **scroll away with the cards**. They are intentionally not sticky/fixed overlays. They share one row, one search icon, matching 48 px heights/borders/radii and a short `Search places` placeholder. Removed the prior floating-strip CSS patch.
+- The attempted MobileNet cover selector and all its dependencies were removed at the user's request. Old local cover-cache entries are not read. Original image order is preserved.
+- Map only: refresh above locate at bottom-left, Post separately at bottom-right. Controls sit 48 px plus the safe-area inset above the bottom edge, preserving OpenFreeMap/OpenStreetMap attribution.
+- Home now groups the unchanged Live Transport / Study Spaces cards under **UQ**, Foodie Finds under **Explore food**, and keeps **Trips**.
+- Split new functionality into `src/components/FoodFootprintDialog.jsx`, `src/components/FoodDiscoveryGrid.jsx`, `src/lib/food-footprint.js`, `src/styles/food-footprint.css`, and `src/styles/food-discovery.css`.
+- Storage/abuse limits, image uploads, EXP, account grants and the production database were not changed. No paid service added.
+
+Validation: the latest marker sizing/outline and border cleanup pass the frontend build, photo-helper syntax checks and diff whitespace check. No browser/device tests or production writes were run. The user will check the design. Existing large main/map bundle warnings remain; the classification worker and TensorFlow packages are removed. Earlier dependency audit found existing body-parser (low) and qs (moderate) runtime advisories; unrelated package upgrades were not attempted.
+
+Still needed: deploy frontend and Worker to make all changes public; no D1 migration required. Location labels may be incomplete or ambiguous, especially for older coordinate-only posts. Those unknown places are not fabricated or silently counted as known cities/suburbs. Automatic external reverse-geocoding of users' historical coordinates was not implemented; it would require explicit approval for that location-data sharing.
+
 Last updated: 25 August 2026
 
 ## Resume checkpoint — read this first after a crash

@@ -15,6 +15,7 @@ import "./styles/travel.css";
 import "./styles/pwa-install.css";
 import "./styles/shout-outs.css";
 import "./styles/food-shouts.css";
+import "./styles/food-discovery.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>

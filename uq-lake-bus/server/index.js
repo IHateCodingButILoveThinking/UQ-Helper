@@ -9,6 +9,7 @@ import { fetchFerryDepartures } from "./ferries.js";
 import { fetchFoodServices } from "./food-services.js";
 import { fetchFoodReviews } from "./food-reviews.js";
 import { fetchLibrarySpaces } from "./library-spaces.js";
+import { googleMapsLinkResponse } from "./google-maps-link.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,6 +21,12 @@ const isMainModule =
 const PORT = Number(process.env.PORT || 8787);
 
 const app = express();
+
+app.post("/api/maps-link", express.json({ limit: "8kb" }), async (request, response) => {
+  response.set("cache-control", "no-store");
+  const { status, body } = await googleMapsLinkResponse(request.body?.url);
+  response.status(status).json(body);
+});
 
 app.get("/api/departures", async (request, response) => {
   try {
