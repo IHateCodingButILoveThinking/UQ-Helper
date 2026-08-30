@@ -248,6 +248,7 @@ export default function FoodShoutPage({ onHome }) {
   const fetchAbortRef = useRef(null);
   const fetchVisibleRef = useRef(null);
   const areaCacheRef = useRef(new Map());
+  const skipNextMoveFetchRef = useRef(false);
   const [initialMapView] = useState(
     () => readFoodMapView() || recentFoodMapView(),
   );
@@ -754,6 +755,12 @@ export default function FoodShoutPage({ onHome }) {
           saveFoodMapView(map, browseRegionRef.current.id);
           const next = expandBounds(readBounds(map), 0.4);
           setPendingBounds(next);
+          if (skipNextMoveFetchRef.current) {
+            skipNextMoveFetchRef.current = false;
+            setBounds(next);
+            setPendingBounds(null);
+            return;
+          }
           window.clearTimeout(moveFetchTimer);
           moveFetchTimer = window.setTimeout(
             () => fetchVisibleRef.current?.(next),
@@ -1027,6 +1034,9 @@ export default function FoodShoutPage({ onHome }) {
       shout,
       ...items.filter((item) => item.id !== shout.id),
     ]);
+    // The create response already contains the complete map item. Avoid an
+    // immediate cross-border refetch; normal map movement refreshes later.
+    areaCacheRef.current.clear();
     loadProfileProgress();
     const map = mapRef.current;
     let synced = false;
@@ -1034,14 +1044,15 @@ export default function FoodShoutPage({ onHome }) {
     const syncOnce = () => {
       if (synced) return;
       synced = true;
+      skipNextMoveFetchRef.current = false;
       window.clearTimeout(refreshTimer);
       if (!map) return;
       saveFoodMapView(map, browseRegionRef.current.id);
       const next = expandBounds(readBounds(map), 0.4);
       setBounds(next);
-      window.setTimeout(() => fetchVisibleRef.current?.(next), 250);
     };
     if (map) {
+      skipNextMoveFetchRef.current = true;
       map.once("moveend", syncOnce);
       map.easeTo({
         center: [shout.longitude, shout.latitude],
@@ -1563,7 +1574,9 @@ function FoodComposer({
         const file = files[fileIndex];
         setPreparingStatus(`Preparing ${fileIndex + 1} of ${files.length}`);
         const [photo, gps] = await Promise.all([
-          compressFoodImage(file),
+          compressFoodImage(file, {
+            optimizeForSlowNetwork: countryCode === "cn" || slowNetworkConnection(),
+          }),
           readFoodPhotoLocation(file),
         ]);
         prepared.push({ ...photo, gps });
@@ -1694,18 +1707,26 @@ function FoodComposer({
     setError("");
     try {
       const id = crypto.randomUUID();
+      const photoProgress = photos.map(() => 0);
+      setUploadStage(photos.length === 1 ? "Uploading photo" : `Uploading ${photos.length} photos`);
+      // Two simultaneous uploads remove a full high-latency round trip without
+      // overwhelming constrained mobile connections. Three-photo posts use a
+      // second short batch and preserve the user's chosen order.
       const uploads = [];
-      for (let index = 0; index < photos.length; index += 1) {
-        setUploadStage(`Uploading photo ${index + 1} of ${photos.length}`);
-        const upload = await uploadFoodImage({
-          ...photos[index],
-          postId: id,
-          onProgress: (photoProgress) =>
-            setProgress(
-              Math.round(((index + photoProgress / 100) / photos.length) * 100),
-            ),
-        });
-        uploads.push(upload);
+      for (let start = 0; start < photos.length; start += 2) {
+        const batch = photos.slice(start, start + 2);
+        const results = await Promise.all(batch.map((photo, offset) => {
+          const index = start + offset;
+          return uploadFoodImage({
+            ...photo,
+            postId: id,
+            onProgress: (value) => {
+              photoProgress[index] = value;
+              setProgress(Math.round(photoProgress.reduce((sum, item) => sum + item, 0) / photos.length));
+            },
+          });
+        }));
+        uploads.push(...results);
       }
       setUploadStage("Saving your find");
       const payload = await createFoodShout({
@@ -4891,6 +4912,10 @@ function formatBytes(value) {
   return value < 1024 * 1024
     ? `${Math.max(1, Math.round(value / 1024))} KB`
     : `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+function slowNetworkConnection() {
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  return Boolean(connection?.saveData || ["slow-2g", "2g", "3g"].includes(connection?.effectiveType));
 }
 function avatarText(id) {
   return ["◡", "ᴗ", "•", "✦"][id.charCodeAt(0) % 4];

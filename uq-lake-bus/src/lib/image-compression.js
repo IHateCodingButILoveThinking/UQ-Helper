@@ -1,6 +1,8 @@
 const MAX_EDGE = 1200;
+const SLOW_NETWORK_MAX_EDGE = 960;
 const MAX_SOURCE_BYTES = 18 * 1024 * 1024;
 const MAX_OUTPUT_BYTES = 600_000;
+const SLOW_NETWORK_MAX_OUTPUT_BYTES = 360_000;
 const ACCEPTED_FILE_PATTERN = /\.(?:jpe?g|png|webp|heic|heif)$/i;
 
 export async function readFoodPhotoLocation(file) {
@@ -18,7 +20,7 @@ export async function readFoodPhotoLocation(file) {
   }
 }
 
-export async function compressFoodImage(file) {
+export async function compressFoodImage(file, { optimizeForSlowNetwork = false } = {}) {
   if (!file || (!file.type?.startsWith("image/") && !ACCEPTED_FILE_PATTERN.test(file.name || ""))) {
     throw new Error("Choose a photo from your phone.");
   }
@@ -30,7 +32,9 @@ export async function compressFoodImage(file) {
   } catch {
     throw new Error("This photo could not be opened. On iPhone, try a screenshot or choose Most Compatible in Camera settings.");
   }
-  const scale = Math.min(1, MAX_EDGE / Math.max(source.width, source.height));
+  const maxEdge = optimizeForSlowNetwork ? SLOW_NETWORK_MAX_EDGE : MAX_EDGE;
+  const maxOutputBytes = optimizeForSlowNetwork ? SLOW_NETWORK_MAX_OUTPUT_BYTES : MAX_OUTPUT_BYTES;
+  const scale = Math.min(1, maxEdge / Math.max(source.width, source.height));
   const width = Math.max(1, Math.round(source.width * scale));
   const height = Math.max(1, Math.round(source.height * scale));
   const canvas = document.createElement("canvas");
@@ -46,7 +50,7 @@ export async function compressFoodImage(file) {
   context.drawImage(source.element, 0, 0, width, height);
   source.close();
 
-  const encoded = await encodeUnderLimit(canvas);
+  const encoded = await encodeUnderLimit(canvas, maxOutputBytes);
   canvas.width = 1;
   canvas.height = 1;
   return { ...encoded, previewUrl: URL.createObjectURL(encoded.blob) };
@@ -90,7 +94,7 @@ async function decodeImage(file) {
   }
 }
 
-async function encodeUnderLimit(canvas) {
+async function encodeUnderLimit(canvas, maxOutputBytes) {
   const attempts = [["image/webp", 0.68], ["image/webp", 0.54], ["image/jpeg", 0.64], ["image/jpeg", 0.48]];
   const sizes = [1, 0.86, 0.72, 0.58];
   let smallest = null;
@@ -100,7 +104,7 @@ async function encodeUnderLimit(canvas) {
       const blob = await canvasToBlob(working, type, quality);
       if (!blob) continue;
       if (!smallest || blob.size < smallest.blob.size) smallest = { blob, width: working.width, height: working.height };
-      if (blob.size <= MAX_OUTPUT_BYTES) {
+      if (blob.size <= maxOutputBytes) {
         const result = { blob, width: working.width, height: working.height };
         if (working !== canvas) { working.width = 1; working.height = 1; }
         return result;

@@ -4,8 +4,11 @@
   "main": "src/index.js",
   "compatibility_date": "2026-08-20",
   "workers_dev": true,
+  "placement": {
+    "mode": "smart"
+  },
   "vars": {
-    "ALLOWED_ORIGINS": "http://127.0.0.1:4173,http://localhost:4173",
+    "ALLOWED_ORIGINS": "http://127.0.0.1:4173,http://localhost:4173,https://www.food-on-map.tech,https://food-on-map.tech",
     "FOOD_STORAGE_LIMIT_BYTES": "8589934592"
   },
   "d1_databases": [
@@ -27,6 +30,11 @@
   },
   "observability": {
     "enabled": true,
-    "head_sampling_rate": 0.1
+    "logs": {
+      "head_sampling_rate": 0.1
+    },
+    "traces": {
+      "head_sampling_rate": 0.1
+    }
   }
 }

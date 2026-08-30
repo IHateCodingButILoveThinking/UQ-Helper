@@ -4,6 +4,15 @@
 
 This checkpoint supersedes the older resume notes below for the current task.
 
+### Latest: lower-latency posting for the new domain and constrained networks
+
+- Added `https://www.food-on-map.tech` and the apex `https://food-on-map.tech` to the Worker's explicit CORS origin configuration. The existing `.vercel.app` preview allowance remains unchanged.
+- China-selected posts and browsers reporting Save-Data/2G/3G now prepare a smaller upload target (960 px long edge, at most 360 KB per image). Other users retain the existing 1200 px/600 KB target; the Worker still independently enforces the unchanged 1.5 MB/image, 3-photo/post and 8 GB total storage red lines.
+- One or two photos upload concurrently; a third is sent in a second batch. Progress remains aggregate and photo order is preserved. After the single D1 create request succeeds, its returned post is inserted into the map immediately and the redundant immediate viewport refetch is skipped. Normal later map movement still refreshes the area.
+- This reduces sequential cross-border waits but cannot guarantee mainland-China routing to Vercel or `workers.dev`; Cloudflare's mainland China network is not part of the free Worker setup.
+- The Worker origin update is live as version `ed2578fd-fc1e-4ab3-af6d-a803969a5d53`. A production preflight from `https://www.food-on-map.tech` returned HTTP 204 with the matching `Access-Control-Allow-Origin`, and `/api/health` returned `status: ok`. Existing Smart Placement and 10% log/trace sampling were preserved after Cloudflare warned about remote/local configuration drift.
+- The frontend lower-latency changes build successfully but remain local until the GitHub-connected Vercel project receives the updated source. Existing bundle-size warnings are unchanged.
+
 ### Latest: centred discovery thumbnails
 
 - Grid cover images are now absolutely sized to their fixed thumbnail frame, with explicit centre/cover fitting and maximum dimensions. Tall image intrinsic sizes can no longer stretch the inner grid row and leave the visible food at the bottom of the clipped frame.
