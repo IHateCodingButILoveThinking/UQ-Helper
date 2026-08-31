@@ -22,6 +22,18 @@ function tokenCoverage(tokens, value) {
   return tokens.filter((token) => value.includes(token)).length / tokens.length;
 }
 
+function addressLookupQuery(fullQuery) {
+  const parts = String(fullQuery || "").split(",").map((part) => part.trim()).filter(Boolean);
+  const addressIndex = parts.findIndex((part) => /^\d{1,6}\s+[\p{L}\p{N}]/u.test(part));
+  return addressIndex > 0 ? parts.slice(addressIndex).join(", ") : fullQuery;
+}
+
+function inferredCountry(fullQuery) {
+  return /\b(?:ACT|NSW|NT|QLD|SA|TAS|VIC|WA)\s+\d{4}\b/i.test(fullQuery)
+    ? "au"
+    : "";
+}
+
 function rankGooglePlaceCandidate(place, fullQuery) {
   if (!Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)
     || Math.abs(place.latitude) > 90 || Math.abs(place.longitude) > 180) return null;
@@ -53,6 +65,10 @@ function rankGooglePlaceCandidate(place, fullQuery) {
 export async function findGooglePlaceMatches(query, context = {}, signal) {
   const fullQuery = String(query || "").trim();
   if (fullQuery.length < 2) return [];
+  // Google share links can contain bilingual venue titles that OpenStreetMap
+  // does not index verbatim. A numbered street address is a safer lookup key;
+  // candidates are still validated against the complete Google place text.
+  const lookupQuery = addressLookupQuery(fullQuery);
   const key = `${fullQuery}:${Number(context.latitude || 0).toFixed(2)}:${Number(context.longitude || 0).toFixed(2)}`;
   const saved = placeCache.get(key);
   if (saved?.expires > Date.now()) return saved.matches;
@@ -62,8 +78,9 @@ export async function findGooglePlaceMatches(query, context = {}, signal) {
   if (signal?.aborted) controller.abort();
   const timer = setTimeout(() => controller.abort(), 8000);
   try {
-    const payload = await searchFoodPlaces(fullQuery.slice(0, 80), {
+    const payload = await searchFoodPlaces(lookupQuery.slice(0, 80), {
       latitude: context.latitude, longitude: context.longitude, unbounded: true,
+      country: context.country || inferredCountry(fullQuery),
     }, controller.signal);
     const seen = new Set();
     const matches = (payload.results || []).map((place) => rankGooglePlaceCandidate(place, fullQuery)).filter(Boolean).filter((place) => {
