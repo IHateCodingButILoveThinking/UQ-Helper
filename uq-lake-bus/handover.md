@@ -4,6 +4,12 @@
 
 This checkpoint supersedes the older resume notes below for the current task.
 
+### Latest: Google-link place-to-pin conversion
+
+- Fixed the name-only Google Maps link fallback discarding valid OpenStreetMap coordinate results. The Worker already returns confidence-ranked candidates, but the browser incorrectly required every venue token and 80% of the full address to match again.
+- The browser now combines provider confidence, venue-name coverage and address coverage, tolerating branch suffixes, translations and state abbreviation differences. A meaningful venue-name match is still mandatory; nearby results are never accepted solely because they have coordinates.
+- One confident coordinate candidate opens the existing confirmation card; several candidates show up to five ranked branches for explicit selection. Only **Use this location** advances to details/posting. No guessed coordinate, paid Google Places API, location restriction, database migration or storage-limit change was added.
+
 ### Latest: lower-latency posting for the new domain and constrained networks
 
 - Added `https://www.food-on-map.tech` and the apex `https://food-on-map.tech` to the Worker's explicit CORS origin configuration. The existing `.vercel.app` preview allowance remains unchanged.

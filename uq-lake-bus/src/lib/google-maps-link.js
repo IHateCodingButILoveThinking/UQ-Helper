@@ -13,6 +13,41 @@ function matchText(value) {
     .replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+function matchTokens(value) {
+  return matchText(value).split(" ").filter((token) => token.length > 1);
+}
+
+function tokenCoverage(tokens, value) {
+  if (!tokens.length) return 0;
+  return tokens.filter((token) => value.includes(token)).length / tokens.length;
+}
+
+function rankGooglePlaceCandidate(place, fullQuery) {
+  if (!Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)
+    || Math.abs(place.latitude) > 90 || Math.abs(place.longitude) > 180) return null;
+  const venueQuery = matchText(fullQuery.split(",")[0]);
+  const venueTokens = matchTokens(fullQuery.split(",")[0]);
+  const queryTokens = matchTokens(fullQuery);
+  const candidateName = matchText([place.name, place.secondaryName].filter(Boolean).join(" "));
+  const candidateFull = matchText([
+    place.name, place.secondaryName, place.label, place.city, place.suburb, place.state,
+  ].filter(Boolean).join(" "));
+  const venueCoverage = tokenCoverage(venueTokens, candidateName);
+  const addressCoverage = tokenCoverage(queryTokens, candidateFull);
+  const exactVenue = Boolean(venueQuery && (candidateName === venueQuery
+    || candidateName.startsWith(`${venueQuery} `) || candidateName.includes(venueQuery)));
+  const providerConfidence = Number.isFinite(Number(place.confidence)) ? Number(place.confidence) : 0;
+  const score = providerConfidence * .5 + venueCoverage * .32 + addressCoverage * .18
+    + (exactVenue ? .12 : 0);
+  // Do not require every word to match: branch suffixes, translated names and
+  // state abbreviations routinely differ between Google and OpenStreetMap.
+  // A meaningful venue match is still mandatory, so a nearby first result is
+  // never accepted just because it has coordinates.
+  if (!exactVenue && venueCoverage < .5) return null;
+  if (score < .56) return null;
+  return { ...place, matchConfidence: Math.min(1, score) };
+}
+
 // Name-only share links need geocoding, not the user's GPS or the current map centre.
 // Reuse the existing rate-limited, cached place service; never select a first result blindly.
 export async function findGooglePlaceMatches(query, context = {}, signal) {
@@ -30,22 +65,15 @@ export async function findGooglePlaceMatches(query, context = {}, signal) {
     const payload = await searchFoodPlaces(fullQuery.slice(0, 80), {
       latitude: context.latitude, longitude: context.longitude, unbounded: true,
     }, controller.signal);
-    const nameTokens = matchText(fullQuery.split(",")[0]).split(" ").filter(Boolean);
-    const queryTokens = matchText(fullQuery).split(" ").filter((token) => token.length > 1);
     const seen = new Set();
-    const matches = (payload.results || []).filter((place) => {
-      if (!Number.isFinite(place.latitude) || !Number.isFinite(place.longitude)
-        || Math.abs(place.latitude) > 90 || Math.abs(place.longitude) > 180) return false;
-      const name = matchText([place.name, place.secondaryName].filter(Boolean).join(" "));
-      const address = matchText([place.name, place.secondaryName, place.label, place.city, place.suburb, place.state].filter(Boolean).join(" "));
-      const nameMatches = nameTokens.length > 0 && nameTokens.every((token) => name.includes(token));
-      const addressMatches = queryTokens.length > 0 && queryTokens.filter((token) => address.includes(token)).length / queryTokens.length >= .8;
-      if (!nameMatches || !addressMatches) return false;
+    const matches = (payload.results || []).map((place) => rankGooglePlaceCandidate(place, fullQuery)).filter(Boolean).filter((place) => {
       const identity = place.providerPlaceId || `${place.latitude}:${place.longitude}`;
       if (seen.has(identity)) return false;
       seen.add(identity);
       return true;
-    });
+    }).sort((left, right) => right.matchConfidence - left.matchConfidence
+      || Number(left.distanceKm ?? Number.POSITIVE_INFINITY) - Number(right.distanceKm ?? Number.POSITIVE_INFINITY))
+      .slice(0, 5);
     if (matches.length) {
       placeCache.set(key, { matches, expires: Date.now() + 3600000 });
       while (placeCache.size > 32) placeCache.delete(placeCache.keys().next().value);

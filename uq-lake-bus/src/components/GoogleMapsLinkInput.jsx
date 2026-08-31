@@ -29,7 +29,7 @@ export default function GoogleMapsLinkInput({ onLocation, onSearch, onClose, get
       setMatches(places);
       setError("");
     } else {
-      setError("Couldn't verify this address yet. Try another place share link, or retry below.");
+      setError("Couldn't convert this place into a reliable map pin. Try another Google place share link.");
     }
   };
 
@@ -95,7 +95,7 @@ export default function GoogleMapsLinkInput({ onLocation, onSearch, onClose, get
     </form>
     {(busy || error) && <p id={statusId} role="status">{busy ? loadingLabel : error}</p>}
     {candidate && <section className="food-map-link-confirm" aria-label="Confirm this place" aria-live="polite">
-      <small>Is this the right place?</small>
+        <small>Map pin found · check before posting</small>
       <div className="food-map-link-confirm-place">
         <MapPin size={18} aria-hidden="true" />
         <div><strong>{candidate.name || "Pinned location"}</strong><span>{candidate.label}</span></div>
