@@ -21,6 +21,7 @@ export default function GoogleMapsLinkInput({ onLocation, onSearch, onClose, get
     const places = await findGooglePlaceMatches(name, getSearchContext?.() || {}, controller.signal);
     if (controller.signal.aborted) return;
     if (places.length === 1) {
+      setError("");
       setSuggestion("");
       setCandidate(places[0]);
       setMatches([]);
@@ -62,7 +63,10 @@ export default function GoogleMapsLinkInput({ onLocation, onSearch, onClose, get
     try {
       const result = await importGoogleMapsLink(value, controller.signal);
       if (controller.signal.aborted) return;
-      if (result.location) setCandidate(result.location);
+      if (result.location) {
+        setError("");
+        setCandidate(result.location);
+      }
       else {
         setSuggestion(result.query);
         if (result.query) await resolveName(result.query, controller);
