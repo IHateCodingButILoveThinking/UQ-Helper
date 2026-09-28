@@ -18,7 +18,7 @@ const AIR_QUALITY_URL =
 const CONDITIONS_CACHE_TTL_MS = 5 * 60 * 1000;
 let homeConditionsCache = null;
 
-export function HomeConditionsCard() {
+export function HomeConditionsCard({ onWeatherChange }) {
   const cachedConditions = getCachedConditions();
   const [weather, setWeather] = useState(
     () => cachedConditions?.weather ?? null,
@@ -90,16 +90,19 @@ export function HomeConditionsCard() {
     () => getWeatherState(weatherCode, current?.is_day, windSpeed),
     [current?.is_day, weatherCode, windSpeed],
   );
+  const tone = current?.is_day === 0 && weatherState.tone === "sunny" ? "night" : weatherState.tone;
+  useEffect(() => { onWeatherChange?.(tone); }, [onWeatherChange, tone]);
   const airState = getAirQualityCategory(aqi);
   const WeatherIcon = weatherState.Icon;
   const hasWeather = Number.isFinite(temperature);
 
   return (
     <section
-      className={`home-conditions-card weather-${weatherState.tone}`}
+      className={`home-conditions-card weather-${tone}`}
       aria-label="Today's weather and air quality at UQ St Lucia"
       aria-busy={loading}
     >
+      <div className="weather-motion" aria-hidden="true"><i /><i /></div>
       <div className="home-weather-primary">
         <div className="home-weather-orb" aria-hidden="true">
           <WeatherIcon />

@@ -30,6 +30,69 @@ body[data-page="airport"] {
   grid-template-columns: 38px 38px minmax(0, 1fr) auto auto 38px;
 }
 
+.gc-view-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(28, 87, 72, 0.1);
+  border-radius: 16px;
+  background: rgba(223, 237, 232, 0.76);
+}
+
+.gc-view-switch button {
+  min-width: 0;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #678079;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.gc-view-switch button > svg {
+  width: 17px;
+  height: 17px;
+  justify-self: center;
+}
+
+.gc-view-switch button > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.gc-view-switch button strong {
+  color: inherit;
+  font-size: .66rem;
+  font-weight: 950;
+}
+
+.gc-view-switch button small {
+  overflow: hidden;
+  color: #879892;
+  font-size: .49rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gc-view-switch button.active {
+  background: #fff;
+  color: #08775a;
+  box-shadow: 0 4px 12px rgba(25, 76, 64, .09);
+}
+
+.gc-view-switch button.active small { color: #5d7d74; }
+.gc-view-switch button:focus-visible { outline: 3px solid rgba(19, 127, 94, .14); outline-offset: 1px; }
+
 .trip-page-top h1 {
   margin: 0;
   color: #173e36;
@@ -1536,6 +1599,7 @@ body[data-page="airport"] {
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 15px 34px rgba(24, 73, 64, 0.1);
 }
+.gc-travel-page .tram-station-page { border-radius: 20px; }
 .tram-station-page .tram-board-head {
   margin-bottom: 0;
 }
@@ -1558,6 +1622,50 @@ body[data-page="airport"] {
 .tram-station-page-controls .smart-station-picker {
   width: 100%;
 }
+.tram-direction-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border-radius: 13px;
+  background: #edf3f1;
+}
+.tram-direction-tabs button {
+  min-width: 0;
+  min-height: 45px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #71857f;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+.tram-direction-tabs button span {
+  font-size: .47rem;
+  font-weight: 850;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.tram-direction-tabs button strong {
+  overflow: hidden;
+  color: inherit;
+  font-size: .61rem;
+  font-weight: 950;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tram-direction-tabs button.active {
+  background: #fff;
+  color: #08775a;
+  box-shadow: 0 3px 9px rgba(24, 78, 64, .09);
+}
+.tram-direction-tabs button:focus-visible { outline: 3px solid rgba(19, 127, 94, .14); outline-offset: 1px; }
+.tram-direction-tabs button:disabled { cursor: not-allowed; opacity: .42; }
 .tram-station-page .travel-skeleton {
   padding: 0;
 }
@@ -2207,6 +2315,8 @@ body[data-page="airport"] {
   .travel-departure-row strong {
     font-size: 0.68rem;
   }
+  .gc-view-switch button { grid-template-columns: 22px minmax(0, 1fr); padding-inline: 8px; }
+  .gc-view-switch button > svg { width: 15px; height: 15px; }
   .travel-live-bar {
     padding: 0 2px;
   }

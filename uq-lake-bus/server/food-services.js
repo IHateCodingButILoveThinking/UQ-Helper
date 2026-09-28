@@ -1,8 +1,8 @@
 import * as cheerio from "cheerio";
 
 const UQ_FOOD_SOURCE_URL =
-  "https://campuses.uq.edu.au/information-and-services/shops/food-retail/on-campus-shops-services";
-const UQ_HOST = "https://campuses.uq.edu.au";
+  "https://about.uq.edu.au/campuses-facilities/services-and-shops/eat-drink-shop";
+const UQ_HOST = "https://about.uq.edu.au";
 const CACHE_TTL_MS = 60 * 60 * 1000;
 const CAMPUS_BY_ID = {
   406: "St Lucia",
@@ -53,16 +53,19 @@ export function parseFoodServices(html) {
   const seenIds = new Map();
   let currentCategory = "Food and drink";
 
-  $("h3").each((_index, heading) => {
+  $("h3, h4").each((_index, heading) => {
     const $heading = $(heading);
     const headingText = normalizeText($heading.text());
 
-    if (headingText === "Retail") {
+    if (
+      $heading.is("h3") &&
+      (headingText === "Retail" || headingText === "Other retail")
+    ) {
       currentCategory = "Retail and services";
       return undefined;
     }
 
-    if (headingText === "Services") {
+    if ($heading.is("h3") && headingText === "Services") {
       currentCategory = "Retail and services";
       return undefined;
     }
@@ -119,7 +122,7 @@ function getOutletImageUrl($, $heading) {
   let $cursor = $heading.prev();
 
   while ($cursor.length) {
-    if ($cursor.is("h3") && $cursor.find("a").length) {
+    if ($cursor.is("h3, h4") && $cursor.find("a").length) {
       break;
     }
 
@@ -141,7 +144,7 @@ function getOutletLocations($, $heading, outletName) {
   const locations = [];
   let $cursor = $heading.next();
 
-  while ($cursor.length && !$cursor.is("h3")) {
+  while ($cursor.length && !$cursor.is("h3, h4")) {
     $cursor.find('a[href*="maps.uq.edu.au"]').each((_index, anchor) => {
       const $anchor = $(anchor);
       const $labelClone = $anchor.clone();

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, Reorder, useDragControls, useReducedMotion } from "framer-motion";
 import {
   FaArrowLeft,
   FaBroadcastTower,
@@ -10,7 +10,7 @@ import {
   FaTimesCircle,
   FaUniversity,
 } from "react-icons/fa";
-import { Bus, LampDesk, Palmtree, Plane, UtensilsCrossed } from "lucide-react";
+import { ArrowUp, ArrowDown, GripVertical, Pin, Bus, Coffee, LampDesk, Palmtree, Plane, UtensilsCrossed } from "lucide-react";
 import { ToastContainer, cssTransition, toast } from "react-toastify";
 
 import ExamCountdownPage from "./pages/ExamCountdownPage";
@@ -22,6 +22,7 @@ import GoldCoastTravelPage from "./pages/GoldCoastTravelPage";
 import AirportTravelPage from "./pages/AirportTravelPage";
 import ShoutOutPage from "./pages/FoodShoutPage";
 import { HomeConditionsCard } from "./components/HomeLiveInfo";
+import CafePlacesPage from "./pages/CafePlacesPage";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import TransportModeTabs from "./components/TransportModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
@@ -40,6 +41,7 @@ const GOLD_COAST_PAGE_ID = "gold-coast";
 const AIRPORT_PAGE_ID = "airport";
 const SHOUTOUT_PAGE_ID = "shout-outs";
 const FOOD_PAGE_ID = "food";
+const CAFE_PAGE_ID = "cafes";
 const EXAMS_PAGE_ID = "exams";
 const FEATURE_FLAGS = Object.freeze({
   exams: false,
@@ -403,6 +405,8 @@ export default function App() {
                     ? "Foodie Finds"
                   : currentPage === FOOD_PAGE_ID
                 ? "UQ Food & Drink"
+                : currentPage === CAFE_PAGE_ID
+                  ? "Cafes around UQ"
                 : currentPage === EXAMS_PAGE_ID
                   ? "UQ Exam Countdown"
                   : currentPage === PLANNER_PAGE_ID
@@ -805,6 +809,7 @@ export default function App() {
         GOLD_COAST_PAGE_ID,
         AIRPORT_PAGE_ID,
         SHOUTOUT_PAGE_ID,
+        CAFE_PAGE_ID,
         ...(FEATURE_FLAGS.food ? [FOOD_PAGE_ID] : []),
         ...(FEATURE_FLAGS.exams ? [EXAMS_PAGE_ID] : []),
       ].includes(pageId)
@@ -1203,6 +1208,7 @@ export default function App() {
       };
   const showHomeBackButton =
     currentPage === FOOD_PAGE_ID ||
+    currentPage === CAFE_PAGE_ID ||
     currentPage === EXAMS_PAGE_ID ||
     (currentPage === LIBRARY_SPACES_PAGE_ID && !librarySubPageOpen);
 
@@ -1254,6 +1260,7 @@ export default function App() {
               onOpenGoldCoast={() => handlePageChange(GOLD_COAST_PAGE_ID)}
               onOpenAirport={() => handlePageChange(AIRPORT_PAGE_ID)}
               onOpenShoutOut={() => handlePageChange(SHOUTOUT_PAGE_ID)}
+              onOpenCafe={() => handlePageChange(CAFE_PAGE_ID)}
               transportDescription={
                 data?.departures?.[0]
                   ? `Next ${data.departures[0].routeCode} · ${data.departures[0].countdownText}`
@@ -1779,6 +1786,8 @@ export default function App() {
             <ShoutOutPage onHome={() => handlePageChange(HOME_PAGE_ID)} />
           ) : currentPage === FOOD_PAGE_ID ? (
             <FoodDirectoryPage />
+          ) : currentPage === CAFE_PAGE_ID ? (
+            <CafePlacesPage />
           ) : currentPage === EXAMS_PAGE_ID ? (
             <ExamCountdownPage />
           ) : (
@@ -1800,6 +1809,7 @@ export default function App() {
       currentPage !== AIRPORT_PAGE_ID &&
       currentPage !== SHOUTOUT_PAGE_ID &&
       currentPage !== FOOD_PAGE_ID &&
+      currentPage !== CAFE_PAGE_ID &&
       currentPage !== EXAMS_PAGE_ID ? (
         <footer className="app-footer">
           <div className="app-footer-copy">
@@ -1990,8 +2000,28 @@ function CampusHomePage({
   onOpenGoldCoast,
   onOpenAirport,
   onOpenShoutOut,
+  onOpenCafe,
   transportDescription,
 }) {
+  const [weatherTone, setWeatherTone] = useState("unknown");
+  const [customizing, setCustomizing] = useState(false);
+  const [announcement, setAnnouncement] = useState("");
+  const [layout, setLayout] = useState(() => {
+    const defaults = ["bus", "study", "foodie", "cafe"];
+    try {
+      const saved = JSON.parse(localStorage.getItem("uq-home-layout-v1"));
+      const order = [...new Set(saved?.order)].filter((id) => defaults.includes(id));
+      const pinned = defaults.includes(saved?.pinned) ? saved.pinned : null;
+      const complete = [...order, ...defaults.filter((id) => !order.includes(id))];
+      return { order: pinned ? [pinned, ...complete.filter((id) => id !== pinned)] : complete, pinned };
+    } catch { return { order: defaults, pinned: null }; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("uq-home-layout-v1", JSON.stringify(layout)); } catch { /* Layout still works when storage is unavailable. */ }
+  }, [layout]);
+  const reorder = (order) => {
+    setLayout((previous) => ({ order, pinned: order[0] === previous.pinned ? previous.pinned : null }));
+  };
   const homeActions = [
     {
       accentClass: "bus",
@@ -2017,10 +2047,19 @@ function CampusHomePage({
       onClick: onOpenShoutOut,
       status: "Recent",
     },
+    {
+      accentClass: "cafe",
+      description: "Coffee around campus",
+      Icon: Coffee,
+      label: "Cafes around UQ",
+      onClick: onOpenCafe,
+      status: "14 places",
+    },
   ];
 
   return (
-    <section className="campus-home-page" aria-label="UQ Campus home">
+    <section className={`campus-home-page ambient-${weatherTone}`} aria-label="UQ Campus home">
+      <div className="campus-weather-backdrop" aria-hidden="true"><i /><i /></div>
       <motion.header
         className="campus-home-hero"
         initial={{ opacity: 0, y: -16 }}
@@ -2034,51 +2073,39 @@ function CampusHomePage({
       </motion.header>
 
       <div className="campus-home-dashboard">
-        <HomeConditionsCard />
-
-        {[{ label: "UQ", actions: homeActions.slice(0, 2) }, { label: "Explore food", actions: homeActions.slice(2) }].map((group) => (
-          <section className="campus-trip-section" key={group.label} aria-label={group.label}>
-            <div className="campus-trip-head"><span>{group.label}</span></div>
-            <div className="campus-home-actions compact">
-          {group.actions.map(
-            (
-              { accentClass, description, Icon, label, onClick, status },
-              index,
-            ) => (
-              <motion.button
-                key={label}
-                type="button"
-                className={`campus-home-card ${accentClass}`}
-                onClick={onClick}
-                initial={{ opacity: 0, y: 18, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                whileHover={{ y: -4 }}
-                whileTap={{ scale: 0.965 }}
-                transition={{
-                  delay: 0.08 + index * 0.08,
-                  duration: 0.42,
-                  ease: [0.22, 1, 0.36, 1],
+        <HomeConditionsCard onWeatherChange={setWeatherTone} />
+        <section className="campus-trip-section" aria-label="Your campus widgets">
+          <div className="campus-trip-head">
+            <span>Your campus</span>
+            <button className="layout-toggle" onClick={() => setCustomizing(!customizing)} aria-pressed={customizing}>
+              {customizing ? "Done" : "Customize"}
+            </button>
+          </div>
+          {customizing && <p className="layout-hint">Drag the handles or use the arrows. Pin a card to put it first.</p>}
+          <Reorder.Group axis="y" values={layout.order} onReorder={reorder} className={`campus-home-actions compact widget-list ${customizing ? "is-editing" : ""}`}>
+            {layout.order.map((id, index) => {
+              const action = homeActions.find((item) => item.accentClass === id);
+              return <HomeWidget key={id} action={action} customizing={customizing} pinned={layout.pinned === id}
+                index={index} count={layout.order.length}
+                onMove={(offset) => {
+                  const order = [...layout.order];
+                  [order[index], order[index + offset]] = [order[index + offset], order[index]];
+                  reorder(order);
+                  setAnnouncement(`${action.label} moved to position ${index + offset + 1}.`);
                 }}
-              >
-                <span className="campus-home-card-top">
-                  <span className={`campus-home-icon ${accentClass}`}>
-                    <Icon aria-hidden="true" />
-                  </span>
-                  <span className="campus-home-card-status">
-                    <i aria-hidden="true" />
-                    {status}
-                  </span>
-                </span>
-                <span className="campus-home-card-copy">
-                  <strong>{label}</strong>
-                  <span>{description}</span>
-                </span>
-              </motion.button>
-            ),
-          )}
-            </div>
-          </section>
-        ))}
+                onPin={() => {
+                  const pinned = layout.pinned === id ? null : id;
+                  setLayout({ order: pinned ? [id, ...layout.order.filter((item) => item !== id)] : layout.order, pinned });
+                  setAnnouncement(`${action.label} ${pinned ? "pinned first" : "unpinned"}.`);
+                }} />;
+            })}
+          </Reorder.Group>
+          {customizing && <button className="layout-reset" onClick={() => {
+            setLayout({ order: ["bus", "study", "foodie", "cafe"], pinned: null });
+            setAnnouncement("Default layout restored.");
+          }}>Reset layout</button>}
+          <span className="layout-announcement" role="status">{announcement}</span>
+        </section>
 
         <section className="campus-trip-section" aria-label="Trips">
           <div className="campus-trip-head">
@@ -2118,6 +2145,32 @@ function CampusHomePage({
         </section>
       </div>
     </section>
+  );
+}
+
+function HomeWidget({ action, customizing, pinned, index, count, onMove, onPin }) {
+  const controls = useDragControls();
+  const reduceMotion = useReducedMotion();
+  const { accentClass, description, Icon, label, onClick, status } = action;
+  return (
+    <Reorder.Item value={accentClass} dragListener={false} dragControls={controls}
+      layout={!reduceMotion} transition={{ duration: reduceMotion ? 0 : 0.22 }} className="home-widget">
+      {customizing && <div className="widget-controls">
+        <button className="widget-drag" aria-label={`Drag ${label} to reorder`} onPointerDown={(event) => controls.start(event)}><GripVertical size={16} /></button>
+        <button aria-label={`Move ${label} up`} disabled={index === 0} onClick={() => onMove(-1)}><ArrowUp size={16} /></button>
+        <button aria-label={`Move ${label} down`} disabled={index === count - 1} onClick={() => onMove(1)}><ArrowDown size={16} /></button>
+        <button aria-label={`${pinned ? "Unpin" : "Pin"} ${label}`} aria-pressed={pinned} onClick={onPin}><Pin size={16} />{pinned ? "Pinned" : "Pin"}</button>
+      </div>}
+      <button type="button" className={`campus-home-card ${accentClass}`} onClick={onClick}>
+        <span className="campus-home-card-top">
+          <span className={`campus-home-icon ${accentClass}`}><Icon aria-hidden="true" /></span>
+          <span className={`campus-home-card-status ${status === "Live" ? "is-live" : ""}`}><i aria-hidden="true" />{status}</span>
+        </span>
+        <span className="campus-home-card-copy"><strong>{label}</strong><span>{description}</span>
+          {pinned && <small className="widget-pinned"><Pin size={10} aria-hidden="true" /> Pinned first</small>}
+        </span>
+      </button>
+    </Reorder.Item>
   );
 }
 
@@ -2603,6 +2656,7 @@ function getInitialPageId() {
     GOLD_COAST_PAGE_ID,
     AIRPORT_PAGE_ID,
     SHOUTOUT_PAGE_ID,
+    CAFE_PAGE_ID,
     ...(FEATURE_FLAGS.food ? [FOOD_PAGE_ID] : []),
     ...(FEATURE_FLAGS.exams ? [EXAMS_PAGE_ID] : []),
   ].includes(pageId)
@@ -3425,6 +3479,7 @@ function buildAppUrl({ baseUrl, pageId, stopId, routeCode }) {
     pageId === AIRPORT_PAGE_ID ||
     pageId === SHOUTOUT_PAGE_ID ||
     pageId === FOOD_PAGE_ID ||
+    pageId === CAFE_PAGE_ID ||
     pageId === EXAMS_PAGE_ID
   ) {
     url.searchParams.delete("stop");

@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import {
   AlertCircle,
   ArrowRight,
   ChevronDown,
-  Clock3,
-  MapPin,
-  Radio,
   RefreshCw,
   Ship,
+  Star,
 } from "lucide-react";
 
 const FERRY_REFRESH_MS = 15_000;
@@ -20,6 +17,7 @@ const DIRECTION_FROM_UQ = "fromUq";
 const DIRECTION_TO_UQ = "toUq";
 const DEFAULT_STATION = "South Bank";
 const BRISBANE_TZ = "Australia/Brisbane";
+const FERRY_SAVED_ROUTE_KEY = "uq-ferry-saved-route-v1";
 
 const FERRY_STATIONS = [
   "UQ St Lucia",
@@ -52,8 +50,18 @@ const SELECTABLE_STATIONS = FERRY_STATIONS.filter(
 );
 
 export default function FerryTimesPage({ modeSelector }) {
-  const [direction, setDirection] = useState(DIRECTION_FROM_UQ);
-  const [selectedStation, setSelectedStation] = useState(DEFAULT_STATION);
+  const initialRouteRef = useRef(undefined);
+  if (initialRouteRef.current === undefined) {
+    initialRouteRef.current = getSavedFerryRoute();
+  }
+  const initialRoute = initialRouteRef.current;
+  const [direction, setDirection] = useState(
+    DIRECTION_FROM_UQ,
+  );
+  const [selectedStation, setSelectedStation] = useState(
+    initialRoute?.station ?? DEFAULT_STATION,
+  );
+  const [savedRoute, setSavedRoute] = useState(initialRoute);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -117,17 +125,28 @@ export default function FerryTimesPage({ modeSelector }) {
   }, [loadDepartures]);
 
   const departures = data?.departures ?? [];
-  const nextDeparture = departures[0] ?? null;
-  const laterDepartures = departures.slice(1, 6);
   const updatedLabel = data?.generatedAt
     ? formatFerryTimestamp(data.generatedAt)
     : "Updating";
+  const currentRouteIsSaved =
+    savedRoute?.station === selectedStation;
 
   const handleDirectionChange = (nextDirection) => {
     if (nextDirection !== direction) {
       setError("");
       setDirection(nextDirection);
     }
+  };
+
+  const saveCurrentRoute = () => {
+    const nextSavedRoute = { station: selectedStation };
+    setSavedRoute(nextSavedRoute);
+    saveFerryRoute(nextSavedRoute);
+  };
+
+  const restoreSavedRoute = () => {
+    if (!savedRoute) return;
+    setSelectedStation(savedRoute.station);
   };
 
   return (
@@ -141,8 +160,7 @@ export default function FerryTimesPage({ modeSelector }) {
           </span>
           <div>
             <span className="ferry-page-kicker">F1 CityCat</span>
-            <h1>UQ ferry times</h1>
-            <p>Live departures for UQ St Lucia ferry terminal.</p>
+            <h1>Ferry board</h1>
           </div>
           <button
             type="button"
@@ -181,12 +199,10 @@ export default function FerryTimesPage({ modeSelector }) {
           <div className="ferry-route-fields">
             {direction === DIRECTION_FROM_UQ ? (
               <>
-                <FixedStationField label="From" />
-                <span className="ferry-route-arrow" aria-hidden="true">
-                  <ArrowRight />
-                </span>
+                <span className="ferry-route-fixed">{UQ_STATION}</span>
+                <ArrowRight className="ferry-route-arrow" aria-hidden="true" />
                 <StationSelectField
-                  label="Going to"
+                  label="Destination"
                   onChange={setSelectedStation}
                   value={selectedStation}
                 />
@@ -194,21 +210,32 @@ export default function FerryTimesPage({ modeSelector }) {
             ) : (
               <>
                 <StationSelectField
-                  label="Coming from"
+                  label="Origin"
                   onChange={setSelectedStation}
                   value={selectedStation}
                 />
-                <span className="ferry-route-arrow" aria-hidden="true">
-                  <ArrowRight />
-                </span>
-                <FixedStationField label="To" />
+                <ArrowRight className="ferry-route-arrow" aria-hidden="true" />
+                <span className="ferry-route-fixed destination">{UQ_STATION}</span>
               </>
             )}
           </div>
 
-          <div className="ferry-route-note">
-            <Clock3 aria-hidden="true" />
-            <span>About {journey.rideMinutes} min on the ferry</span>
+          <div className="ferry-route-actions">
+            {savedRoute && !currentRouteIsSaved ? (
+              <button type="button" className="ferry-saved-route" onClick={restoreSavedRoute}>
+                <Star aria-hidden="true" />
+                Use home: {savedRoute.station}
+              </button>
+            ) : <span />}
+            <button
+              type="button"
+              className={`ferry-save-button ${currentRouteIsSaved ? "saved" : ""}`}
+              aria-pressed={currentRouteIsSaved}
+              onClick={saveCurrentRoute}
+            >
+              <Star aria-hidden="true" fill={currentRouteIsSaved ? "currentColor" : "none"} />
+              {currentRouteIsSaved ? "Saved" : "Save as home"}
+            </button>
           </div>
         </section>
 
@@ -224,13 +251,16 @@ export default function FerryTimesPage({ modeSelector }) {
 
         {loading ? (
           <FerryLoadingState />
-        ) : nextDeparture ? (
+        ) : departures.length ? (
           <>
-            <NextFerryCard departure={nextDeparture} journey={journey} />
-            <LaterDepartures
-              departures={laterDepartures}
+            <FerryDepartureSummary
+              departures={departures}
               journey={journey}
               updatedLabel={updatedLabel}
+            />
+            <FerryLaterDepartures
+              departures={departures.slice(1)}
+              journey={journey}
             />
           </>
         ) : !error ? (
@@ -244,7 +274,7 @@ export default function FerryTimesPage({ modeSelector }) {
         ) : null}
 
         <footer className="ferry-data-note">
-          <span>Times refresh every 15 seconds.</span>
+          <span>Auto-refreshes every 15 sec</span>
           {data?.sourceUrl ? (
             <a href={data.sourceUrl} target="_blank" rel="noreferrer">
               Translink source
@@ -253,18 +283,6 @@ export default function FerryTimesPage({ modeSelector }) {
         </footer>
       </main>
     </section>
-  );
-}
-
-function FixedStationField({ label }) {
-  return (
-    <div className="ferry-station-field fixed">
-      <span>{label}</span>
-      <strong>
-        <MapPin aria-hidden="true" />
-        {UQ_STATION}
-      </strong>
-    </div>
   );
 }
 
@@ -286,107 +304,96 @@ function StationSelectField({ label, onChange, value }) {
   );
 }
 
-function NextFerryCard({ departure, journey }) {
-  const wait = getWaitDisplay(departure.countdownMinutes);
+function FerryDepartureSummary({ departures, journey, updatedLabel }) {
+  const nextDeparture = departures[0];
+  const wait = getWaitDisplay(nextDeparture.countdownMinutes);
+  const headlineWait = nextDeparture.cancelled
+    ? { tone: "disrupted", unit: "", value: "Cancelled" }
+    : wait;
+  const serviceStatus = getFerryServiceStatus(nextDeparture);
   const arrivalTime = getEstimatedArrivalTime(
-    departure.scheduledUtc,
+    nextDeparture.scheduledUtc,
     journey.rideMinutes,
   );
-  const live = Boolean(departure.live || departure.gtfsRealtime);
 
   return (
-    <motion.article
-      className="ferry-next-card"
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.24, ease: "easeOut" }}
-    >
-      <div className="ferry-next-topline">
-        <span className="ferry-service-badge">F1 CityCat</span>
-        <span className={`ferry-data-badge ${live ? "live" : "scheduled"}`}>
-          {live ? <Radio aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
-          {live ? "Live" : "Timetable"}
-        </span>
-      </div>
-
-      <span className="ferry-next-label">
-        {journey.direction === DIRECTION_FROM_UQ
-          ? "Next ferry from UQ"
-          : "Next ferry to UQ"}
-      </span>
-
-      <div className={`ferry-wait-time ${wait.tone}`}>
-        <strong>{wait.value}</strong>
-        {wait.unit ? <span>{wait.unit}</span> : null}
-      </div>
-
-      <p className="ferry-departure-time">
-        Departs {journey.originLabel} at <strong>{departure.displayTime}</strong>
-      </p>
-
-      <div className="ferry-next-route">
-        <span>{journey.originLabel}</span>
-        <ArrowRight aria-hidden="true" />
-        <strong>{journey.destinationLabel}</strong>
-      </div>
-
-      <div className="ferry-next-meta">
-        <span>
-          <Clock3 aria-hidden="true" />
-          {journey.rideMinutes} min trip
-        </span>
-        {arrivalTime ? <span>Est. arrival {arrivalTime}</span> : null}
-      </div>
-    </motion.article>
-  );
-}
-
-function LaterDepartures({ departures, journey, updatedLabel }) {
-  return (
-    <section className="ferry-later-card" aria-label="Later ferry departures">
-      <header className="ferry-section-heading">
-        <div>
-          <span>After that</span>
-          <h2>Later departures</h2>
+    <section className="ferry-summary" aria-label="Next ferry summary">
+      <header className="ferry-summary-heading">
+        <div className="ferry-summary-route">
+          <span>F1</span>
+          <strong>{journey.originLabel}</strong>
+          <ArrowRight aria-hidden="true" />
+          <strong>{journey.destinationLabel}</strong>
         </div>
         <small>Updated {updatedLabel}</small>
       </header>
 
-      {departures.length ? (
-        <div className="ferry-later-list">
-          {departures.map((departure) => {
-            const wait = getWaitDisplay(departure.countdownMinutes);
-            const live = Boolean(departure.live || departure.gtfsRealtime);
-
-            return (
-              <article className="ferry-later-row" key={departure.id}>
-                <span className="ferry-later-icon" aria-hidden="true">
-                  <Ship />
-                </span>
-                <div className="ferry-later-copy">
-                  <strong>{departure.displayTime}</strong>
-                  <span>
-                    {journey.originLabel} to {journey.destinationLabel}
-                  </span>
-                </div>
-                <div className="ferry-later-wait">
-                  <strong>
-                    {wait.value}
-                    {wait.unit && wait.unit !== "until departure" ? (
-                      <small>{wait.unit}</small>
-                    ) : null}
-                  </strong>
-                  <span className={live ? "live" : ""}>
-                    {live ? "Live" : "Scheduled"}
-                  </span>
-                </div>
-              </article>
-            );
-          })}
+      <div className="ferry-summary-main">
+        <div className={`ferry-summary-countdown ${headlineWait.tone}`}>
+          <span>{nextDeparture.cancelled ? "Next service" : "Next ferry"}</span>
+          <strong>{headlineWait.value}</strong>
+          {headlineWait.unit && headlineWait.value !== "Due now" ? (
+            <small>{headlineWait.unit === "until departure" ? "" : "min"}</small>
+          ) : null}
         </div>
-      ) : (
-        <p className="ferry-no-later">No later ferries are listed yet.</p>
-      )}
+
+        <dl className="ferry-summary-details">
+          <div><dt>Departs</dt><dd>{nextDeparture.displayTime}</dd></div>
+          {arrivalTime ? <div><dt>Arrives</dt><dd>{arrivalTime}</dd></div> : null}
+        </dl>
+      </div>
+
+      <div className="ferry-summary-footer">
+        <span className={`ferry-summary-status ${serviceStatus.tone}`}>
+          <i aria-hidden="true" />{serviceStatus.label}
+        </span>
+        <span>Updates every 15 sec</span>
+      </div>
+    </section>
+  );
+}
+
+function FerryLaterDepartures({ departures, journey }) {
+  if (!departures.length) return null;
+
+  return (
+    <section className="ferry-later" aria-label="Later ferry departures">
+      <header className="ferry-later-heading">
+        <div>
+          <span>Upcoming</span>
+          <h2>Later ferries</h2>
+        </div>
+        <small>{departures.length} more</small>
+      </header>
+
+      <div className="ferry-later-list">
+        {departures.map((departure) => {
+          const wait = getWaitDisplay(departure.countdownMinutes);
+          const serviceStatus = getFerryServiceStatus(departure);
+          const arrivalTime = getEstimatedArrivalTime(
+            departure.scheduledUtc,
+            journey.rideMinutes,
+          );
+
+          return (
+            <article className="ferry-later-row" key={departure.id}>
+              <div className="ferry-later-time">
+                <strong>{departure.displayTime}</strong>
+                <span>Departs</span>
+              </div>
+              <div className="ferry-later-arrival">
+                <span>{journey.destinationLabel}</span>
+                <strong>{arrivalTime ? `Arrives ${arrivalTime}` : `${journey.rideMinutes} min trip`}</strong>
+              </div>
+              <div className={`ferry-later-wait ${wait.tone}`}>
+                <strong>{wait.value}</strong>
+                {wait.unit && wait.unit !== "until departure" ? <span>min</span> : null}
+                <small className={serviceStatus.tone}>{serviceStatus.label}</small>
+              </div>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }
@@ -394,8 +401,7 @@ function LaterDepartures({ departures, journey, updatedLabel }) {
 function FerryLoadingState() {
   return (
     <div className="ferry-loading-state" aria-label="Loading ferry departures">
-      <article className="ferry-next-card skeleton-card" />
-      <article className="ferry-later-card skeleton-card" />
+      <article className="ferry-summary skeleton-card" />
     </div>
   );
 }
@@ -501,6 +507,30 @@ function getRideMinutes(station) {
   );
 }
 
+function getSavedFerryRoute() {
+  try {
+    const saved = JSON.parse(window.localStorage.getItem(FERRY_SAVED_ROUTE_KEY));
+    if (
+      saved &&
+      SELECTABLE_STATIONS.includes(saved.station)
+    ) {
+      return { station: saved.station };
+    }
+  } catch (error) {
+    console.error("Could not read the saved ferry route.", error);
+  }
+
+  return null;
+}
+
+function saveFerryRoute(route) {
+  try {
+    window.localStorage.setItem(FERRY_SAVED_ROUTE_KEY, JSON.stringify(route));
+  } catch (error) {
+    console.error("Could not save the ferry route.", error);
+  }
+}
+
 function getWaitDisplay(minutesAway) {
   const minutes = Math.max(0, Math.round(Number(minutesAway) || 0));
 
@@ -524,6 +554,34 @@ function getWaitDisplay(minutesAway) {
     unit: "until departure",
     value: remainder ? `${hours}h ${remainder}m` : `${hours}h`,
   };
+}
+
+function getFerryServiceStatus(departure) {
+  if (departure?.cancelled) {
+    return { label: "Cancelled", tone: "disrupted" };
+  }
+
+  const hasDelayReading = departure?.delaySeconds !== null && departure?.delaySeconds !== undefined;
+  const delaySeconds = Number(departure?.delaySeconds);
+  if (departure?.gtfsRealtime && hasDelayReading && Number.isFinite(delaySeconds)) {
+    const delayMinutes = Math.round(delaySeconds / 60);
+
+    if (delayMinutes >= 2) {
+      return { label: `${delayMinutes} min late`, tone: "delayed" };
+    }
+
+    if (delayMinutes <= -2) {
+      return { label: `${Math.abs(delayMinutes)} min early`, tone: "early" };
+    }
+
+    return { label: "On time", tone: "on-time" };
+  }
+
+  if (departure?.live) {
+    return { label: "Live time", tone: "live" };
+  }
+
+  return { label: "Scheduled", tone: "scheduled" };
 }
 
 function getEstimatedArrivalTime(scheduledUtc, rideMinutes) {

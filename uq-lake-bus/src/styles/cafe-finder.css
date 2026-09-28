@@ -1,0 +1,340 @@
+.cafe-places-page {
+  min-height: 100dvh;
+  padding: calc(74px + env(safe-area-inset-top)) 14px calc(24px + env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 92% 4%, rgba(230, 151, 69, 0.14), transparent 28%),
+    #f5f4f7;
+}
+
+.cafe-places-hero {
+  padding: 4px 6px 18px;
+}
+
+.cafe-places-hero > span {
+  color: #9a5e2e;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.13em;
+}
+
+.cafe-places-hero h1 {
+  margin: 7px 0 5px;
+  color: #2d1739;
+  font-size: clamp(1.8rem, 8vw, 2.35rem);
+  font-weight: 950;
+  letter-spacing: -0.06em;
+  line-height: 1;
+}
+
+.cafe-places-hero p {
+  max-width: 360px;
+  margin: 0;
+  color: #786b7e;
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+
+.cafe-finder {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #e9e4ed;
+  border-radius: 24px;
+  background: #ffffff;
+  box-shadow: 0 10px 25px rgba(48, 40, 55, 0.05);
+  color: #302739;
+}
+
+.cafe-finder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.cafe-finder-header small {
+  color: #8a5c36;
+  font-size: 0.56rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.cafe-finder-header h2 {
+  margin: 6px 0 0;
+  font-size: 1.2rem;
+  font-weight: 950;
+  letter-spacing: -0.045em;
+  line-height: 1.15;
+}
+
+.cafe-count {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #fff3e7;
+  color: #a55921;
+  font-size: 0.62rem;
+  font-weight: 850;
+}
+
+.cafe-finder-intro {
+  margin: 8px 0 14px;
+  color: #756680;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.cafe-search {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 13px;
+  border: 1px solid #e7e1ea;
+  border-radius: 14px;
+  background: #f8f6f9;
+  color: #8d8095;
+}
+
+.cafe-search:focus-within {
+  border-color: #8c5caa;
+  box-shadow: 0 0 0 3px rgba(111, 44, 145, 0.1);
+}
+
+.cafe-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #302739;
+  font: inherit;
+  font-size: 0.77rem;
+}
+
+.cafe-notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 9px 10px;
+  border-radius: 11px;
+  background: #fff8e8;
+  color: #795c1a;
+  font-size: 0.64rem;
+  line-height: 1.4;
+}
+
+.cafe-notice button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.cafe-loading,
+.cafe-empty {
+  margin: 13px 2px;
+  color: #756680;
+  font-size: 0.72rem;
+}
+
+.cafe-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 14px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cafe-list li {
+  min-width: 0;
+}
+
+.cafe-list a {
+  min-height: 82px;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 15px;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid #eee9f0;
+  border-radius: 15px;
+  background: #fcfbfd;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.cafe-list a:hover,
+.cafe-list a:focus-visible {
+  border-color: #d9c6e5;
+  outline: 0;
+  box-shadow: 0 8px 18px rgba(63, 39, 76, 0.08);
+  transform: translateY(-1px);
+}
+
+.cafe-brand-mark {
+  width: 46px;
+  height: 46px;
+  position: relative;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(75, 53, 84, .08);
+  border-radius: 14px;
+  background: #f1e9f7;
+  color: #60347a;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.4);
+}
+
+.cafe-brand-mark img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cafe-brand-mark .monogram,
+.cafe-brand-mark .wordmark {
+  font-size: .68rem;
+  font-weight: 950;
+  letter-spacing: -.035em;
+  line-height: 1;
+}
+
+.cafe-brand-mark .wordmark {
+  max-width: 40px;
+  font-size: .42rem;
+  letter-spacing: -.045em;
+  text-align: center;
+}
+
+.cafe-brand-mark.merlo { background: #b20e24; color: #fff; }
+.cafe-brand-mark.boost { background: #ef7b1a; color: #fff; }
+.cafe-brand-mark.chatime { background: #7b4b9e; color: #fff; }
+.cafe-brand-mark.sharetea { background: #8b1f2d; color: #fff; }
+.cafe-brand-mark.bookmark { background: #284c70; color: #fff6d9; }
+.cafe-brand-mark.brewpoint { background: #183c3c; color: #f0d49d; }
+.cafe-brand-mark.nano { background: #dceff0; color: #176879; }
+.cafe-brand-mark.darwin { background: #294c39; color: #f4df9f; }
+.cafe-brand-mark.expresso { background: #4a2b22; color: #f3c88e; }
+.cafe-brand-mark.lakeside { background: #dceff8; color: #176b8b; }
+.cafe-brand-mark.lightbox { background: #17191d; color: #f0cf65; }
+.cafe-brand-mark.market { background: #f2e7d2; color: #8d4b2f; }
+.cafe-brand-mark.nunu { background: #f4dce4; color: #8a3654; }
+.cafe-brand-mark.roll { background: #fff0c9; color: #984d1f; }
+.cafe-brand-mark.lucy { background: #0f4d45; color: #f3d6a2; }
+.cafe-brand-mark.upbeat { background: #e2f1d7; color: #49752d; }
+.cafe-brand-mark.independent { background: linear-gradient(145deg,#f1e9f7,#f9eee2); color: #693f77; }
+
+.cafe-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.cafe-copy strong {
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+
+.cafe-copy > span {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 3px;
+  color: #837689;
+  font-size: 0.58rem;
+  line-height: 1.3;
+}
+
+.cafe-copy > span svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.cafe-open-icon {
+  color: #a397a8;
+}
+
+.cafe-show-all {
+  width: 100%;
+  min-height: 40px;
+  margin-top: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: #f2ecf6;
+  color: #6f2c91;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.cafe-show-all:hover,
+.cafe-show-all:focus-visible,
+.cafe-notice button:focus-visible {
+  outline: 2px solid #6f2c91;
+  outline-offset: 2px;
+}
+
+.cafe-finder-footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 13px;
+  padding-top: 11px;
+  border-top: 1px solid #eeeaf1;
+  color: #887c8d;
+  font-size: 0.56rem;
+}
+
+.cafe-finder-footer a {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: #6f2c91;
+  font-weight: 850;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+@media (max-width: 430px) {
+  .cafe-list {
+    grid-template-columns: 1fr;
+  }
+
+  .cafe-list a {
+    min-height: 76px;
+  }
+}
+
+@media (max-width: 350px) {
+  .cafe-places-page {
+    padding-inline: 10px;
+  }
+
+  .cafe-finder {
+    padding: 15px;
+  }
+
+  .cafe-finder-footer {
+    flex-direction: column;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cafe-list a {
+    transition: none;
+  }
+}

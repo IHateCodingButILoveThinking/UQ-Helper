@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowLeftRight,
   ChevronDown,
-  ChevronRight,
   Clock3,
   LocateFixed,
   MapPin,
@@ -36,6 +35,7 @@ const REFRESH_MS = 30_000;
 const RAIL_STORAGE_KEY = "uq-travel-gc-rail-v1";
 const TRAM_STORAGE_KEY = "uq-travel-gc-tram-v1";
 const TRAM_TRACKER_STORAGE_KEY = "uq-travel-gc-tracker-v1";
+const TRAM_DIRECTION_STORAGE_KEY = "uq-travel-gc-tracker-direction-v1";
 const HELENSVALE_TRAM_ID = "helensvale-tram";
 const RETURN_TRAM_DEFAULT_ID = "burleigh-heads";
 const RETURN_TRAM_STATIONS = GOLD_COAST_TRAM_STATIONS.filter(
@@ -50,9 +50,12 @@ export default function GoldCoastTravelPage({ onHome }) {
     readStored(TRAM_STORAGE_KEY, RETURN_TRAM_DEFAULT_ID),
   );
   const [journeyDirection, setJourneyDirection] = useState("gold-coast");
-  const [activeView, setActiveView] = useState("journey");
+  const [activeView, setActiveView] = useState("trams");
   const [trackerTramId, setTrackerTramId] = useState(() =>
     readStored(TRAM_TRACKER_STORAGE_KEY, "surfers-paradise"),
+  );
+  const [trackerDirection, setTrackerDirection] = useState(() =>
+    readStored(TRAM_DIRECTION_STORAGE_KEY, "south"),
   );
   const [showLaterTrains, setShowLaterTrains] = useState(false);
   const [railData, setRailData] = useState(null);
@@ -63,7 +66,7 @@ export default function GoldCoastTravelPage({ onHome }) {
   const [error, setError] = useState("");
   const [trackerData, setTrackerData] = useState(null);
   const [trackerDataStopName, setTrackerDataStopName] = useState("");
-  const [trackerLoading, setTrackerLoading] = useState(false);
+  const [trackerLoading, setTrackerLoading] = useState(true);
   const [trackerRefreshing, setTrackerRefreshing] = useState(false);
   const [trackerError, setTrackerError] = useState("");
   const [trackerLocating, setTrackerLocating] = useState(false);
@@ -179,10 +182,11 @@ export default function GoldCoastTravelPage({ onHome }) {
       window.localStorage.setItem(RAIL_STORAGE_KEY, railId);
       window.localStorage.setItem(TRAM_STORAGE_KEY, tramId);
       window.localStorage.setItem(TRAM_TRACKER_STORAGE_KEY, trackerTramId);
+      window.localStorage.setItem(TRAM_DIRECTION_STORAGE_KEY, trackerDirection);
     } catch {
       // Selection still works when storage is unavailable.
     }
-  }, [railId, trackerTramId, tramId]);
+  }, [railId, trackerDirection, trackerTramId, tramId]);
 
   useEffect(() => {
     setShowLaterTrains(false);
@@ -214,10 +218,14 @@ export default function GoldCoastTravelPage({ onHome }) {
   const trackerTrams = useMemo(
     () =>
       (trackerData?.departures ?? [])
-        .filter(isTram)
+        .filter(
+          (departure) =>
+            isTram(departure) &&
+            isTramDirection(departure, trackerDirection),
+        )
         .sort(byDepartureTime)
-        .slice(0, 3),
-    [trackerData],
+        .slice(0, 8),
+    [trackerData, trackerDirection],
   );
   const brisbaneTransfer = useMemo(
     () =>
@@ -274,6 +282,8 @@ export default function GoldCoastTravelPage({ onHome }) {
           return;
         }
         setTrackerTramId(nearest.id);
+        if (nearest.id === HELENSVALE_TRAM_ID) setTrackerDirection("south");
+        if (nearest.id === "burleigh-heads") setTrackerDirection("north");
         setTrackerData(null);
         setTrackerDataStopName("");
         setTrackerLocationNote({
@@ -360,18 +370,6 @@ export default function GoldCoastTravelPage({ onHome }) {
         />
       </label>
     </div>
-  );
-
-  const openTramTrackerButton = (
-    <button
-      type="button"
-      className="open-tram-tracker-button"
-      onClick={() => setActiveView("trams")}
-    >
-      <TramFront aria-hidden="true" />
-      <span><strong>Check any tram stop</strong><small>Upcoming trams</small></span>
-      <ChevronRight aria-hidden="true" />
-    </button>
   );
 
   const goldCoastTrainPanel = (
@@ -464,7 +462,6 @@ export default function GoldCoastTravelPage({ onHome }) {
       ) : (
         <TicketEmpty message="Catch the train to Helensvale first." />
       )}
-      {openTramTrackerButton}
     </section>
   );
 
@@ -505,7 +502,6 @@ export default function GoldCoastTravelPage({ onHome }) {
           message={`No northbound trams from ${returnTramStation.label}.`}
         />
       )}
-      {openTramTrackerButton}
     </section>
   );
 
@@ -548,7 +544,12 @@ export default function GoldCoastTravelPage({ onHome }) {
       <div className="tram-board-head">
         <div className="tram-board-title">
           <span className="tram-title-icon"><TramFront aria-hidden="true" /></span>
-          <div><h2>{trackerTramStation.label}</h2><small>Both directions · next three trams</small></div>
+          <div>
+            <h2>{trackerTramStation.label}</h2>
+            <small>
+              {trackerDirection === "north" ? "To Helensvale" : "To Burleigh Heads"} · next eight trams
+            </small>
+          </div>
         </div>
       </div>
 
@@ -559,8 +560,11 @@ export default function GoldCoastTravelPage({ onHome }) {
           value={trackerTramStation.id}
           onChange={(stationId) => {
             setTrackerTramId(stationId);
+            if (stationId === HELENSVALE_TRAM_ID) setTrackerDirection("south");
+            if (stationId === "burleigh-heads") setTrackerDirection("north");
             setTrackerData(null);
             setTrackerDataStopName("");
+            setTrackerLoading(true);
             setTrackerLocationNote(null);
           }}
         />
@@ -572,6 +576,29 @@ export default function GoldCoastTravelPage({ onHome }) {
         >
           <LocateFixed aria-hidden="true" />
           {trackerLocating ? "Locating" : "Near me"}
+        </button>
+      </div>
+
+      <div className="tram-direction-tabs" aria-label="Choose tram direction">
+        <button
+          type="button"
+          className={trackerDirection === "south" ? "active" : ""}
+          aria-pressed={trackerDirection === "south"}
+          disabled={trackerTramStation.id === "burleigh-heads"}
+          onClick={() => setTrackerDirection("south")}
+        >
+          <span>Southbound</span>
+          <strong>To Burleigh Heads</strong>
+        </button>
+        <button
+          type="button"
+          className={trackerDirection === "north" ? "active" : ""}
+          aria-pressed={trackerDirection === "north"}
+          disabled={trackerTramStation.id === HELENSVALE_TRAM_ID}
+          onClick={() => setTrackerDirection("north")}
+        >
+          <span>Northbound</span>
+          <strong>To Helensvale</strong>
         </button>
       </div>
 
@@ -592,7 +619,9 @@ export default function GoldCoastTravelPage({ onHome }) {
           ))}
         </div>
       ) : (
-        <TicketEmpty message={`No upcoming trams from ${trackerTramStation.label}.`} />
+        <TicketEmpty
+          message={`No upcoming ${trackerDirection === "north" ? "northbound" : "southbound"} trams from ${trackerTramStation.label}.`}
+        />
       )}
 
       <a
@@ -615,26 +644,15 @@ export default function GoldCoastTravelPage({ onHome }) {
         <button
           type="button"
           className="trip-back-button"
-          aria-label={activeView === "trams" ? "Back to Gold Coast journey" : "Back to home"}
-          onClick={activeView === "trams" ? () => setActiveView("journey") : onHome}
+          aria-label="Back to home"
+          onClick={onHome}
         >
           <ArrowLeft aria-hidden="true" />
         </button>
         <span className={`trip-page-mark ${activeView === "trams" ? "tram" : "gold"}`}>
           {activeView === "trams" ? <TramFront aria-hidden="true" /> : <Palmtree aria-hidden="true" />}
         </span>
-        <h1>{activeView === "trams" ? "Tram times" : "Gold Coast"}</h1>
-        {activeView === "journey" ? (
-          <button
-            type="button"
-            className="trip-tram-quick-button"
-            onClick={() => setActiveView("trams")}
-            aria-label="Open tram times"
-          >
-            <TramFront aria-hidden="true" />
-            <span>Tram</span>
-          </button>
-        ) : null}
+        <h1>{activeView === "trams" ? "Tram times" : "Plan a trip"}</h1>
         <span
           className={`trip-data-dot ${
             (activeView === "trams" ? trackerData?.gtfsRealtime : railData?.gtfsRealtime)
@@ -672,6 +690,27 @@ export default function GoldCoastTravelPage({ onHome }) {
           />
         </button>
       </header>
+
+      <nav className="gc-view-switch" aria-label="Gold Coast travel tools">
+        <button
+          type="button"
+          className={activeView === "trams" ? "active" : ""}
+          aria-pressed={activeView === "trams"}
+          onClick={() => setActiveView("trams")}
+        >
+          <TramFront aria-hidden="true" />
+          <span><strong>Tram times</strong><small>Choose any stop</small></span>
+        </button>
+        <button
+          type="button"
+          className={activeView === "journey" ? "active" : ""}
+          aria-pressed={activeView === "journey"}
+          onClick={() => setActiveView("journey")}
+        >
+          <ArrowLeftRight aria-hidden="true" />
+          <span><strong>Plan a trip</strong><small>Brisbane ↔ Gold Coast</small></span>
+        </button>
+      </nav>
 
       {activeView === "trams" ? (
         tramTrackerPanel
