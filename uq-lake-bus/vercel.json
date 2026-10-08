@@ -19,6 +19,9 @@
     },
     "api/stops/search.js": {
       "maxDuration": 30
+    },
+    "api/calendar.js": {
+      "maxDuration": 30
     }
   }
 }

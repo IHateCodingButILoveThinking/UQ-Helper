@@ -23,6 +23,7 @@ import AirportTravelPage from "./pages/AirportTravelPage";
 import ShoutOutPage from "./pages/FoodShoutPage";
 import { HomeConditionsCard } from "./components/HomeLiveInfo";
 import CafePlacesPage from "./pages/CafePlacesPage";
+import LifeDashboard from "./components/LifeDashboard";
 import PwaInstallPrompt from "./components/PwaInstallPrompt";
 import TransportModeTabs from "./components/TransportModeTabs";
 import { API_CACHE_TTLS, getCachedData } from "./lib/api-cache";
@@ -2074,6 +2075,7 @@ function CampusHomePage({
 
       <div className="campus-home-dashboard">
         <HomeConditionsCard onWeatherChange={setWeatherTone} />
+        <LifeDashboard />
         <section className="campus-trip-section" aria-label="Your campus widgets">
           <div className="campus-trip-head">
             <span>Your campus</span>

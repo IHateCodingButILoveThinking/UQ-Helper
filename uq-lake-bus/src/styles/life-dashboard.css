@@ -1,0 +1,125 @@
+.life-dashboard { min-width: 0; color: #283044; }
+.life-dashboard .campus-trip-head { margin-bottom: 9px; }
+.life-icon-button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #795591; cursor: pointer; }
+.life-icon-button:hover { background: #ece5f2; }
+.life-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.life-card { display: flex; flex-direction: column; gap: 8px; height: 134px; min-width: 0; padding: 14px; text-align: left; background: rgba(255,255,255,.9); color: inherit; border: 1px solid rgba(30,25,45,.045); border-radius: 18px; cursor: pointer; font: inherit; }
+.life-card:hover { background: white; border-color: #ded3e7; }
+.life-card-heading { display: flex; align-items: center; justify-content: space-between; gap: 4px; color: #665c70; font-size: .7rem; font-weight: 650; }
+.life-card-heading > span { display: inline-flex; align-items: center; gap: 5px; }
+.life-card-heading > svg { color: #b4a7c0; }
+.life-class-title { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; font-size: .89rem; line-height: 1.3; font-weight: 750; }
+.life-card-caption { display: block; margin-top: auto; font-size: .63rem; color: #8b8394; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.life-step-total { display: block; font-size: 1.65rem; font-weight: 780; letter-spacing: -.06em; line-height: 1.2; white-space: nowrap; }
+.life-step-total small { font-size: .65rem; font-weight: 500; letter-spacing: 0; color: #8b8394; }
+.life-card progress { display: block; width: 100%; height: 4px; border: 0; border-radius: 4px; background: #e8eee9; accent-color: #44835d; overflow: hidden; }
+.life-card progress::-webkit-progress-bar { background: #e8eee9; }
+.life-card progress::-webkit-progress-value { background: #44835d; border-radius: 4px; }
+.life-chart { margin-top: 9px; border: 1px solid rgba(30,25,45,.045); border-radius: 18px; padding: 9px 13px 2px; background: rgba(255,255,255,.9); }
+.life-chart-heading { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 2px 0; border: 0; background: transparent; color: #665c70; font: inherit; font-size: .7rem; font-weight: 650; cursor: pointer; }
+.life-chart-heading svg { color: #b4a7c0; }
+.life-chart-canvas { height: 66px; min-width: 0; }
+.life-sync-notice { display: flex; align-items: center; gap: 4px; border: 0; background: transparent; color: #a65d36; font: inherit; font-size: .7rem; margin: 0 0 8px; cursor: pointer; }
+.life-sheet { width: min(460px, calc(100% - 32px)); max-height: min(85dvh, 760px); box-sizing: border-box; padding: 0; color: #2d2337; border: 1px solid #e5deea; border-radius: 24px; background: #f7f5f9; box-shadow: 0 24px 100px #21102d30; }
+.life-sheet::backdrop { background: #24162e55; backdrop-filter: blur(5px); }
+.life-sheet-inner { padding: 22px; }
+.life-sheet header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 22px; }
+.life-sheet h2 { margin: 0; font-size: 1.2rem; letter-spacing: -.04em; }
+.life-sheet button, .life-sheet input { font: inherit; }
+.life-sheet button, .life-sheet summary { cursor: pointer; }
+.life-dashboard button:focus-visible, .life-sheet button:focus-visible, .life-sheet input:focus-visible, .life-sheet summary:focus-visible { outline: 2px solid #795591; outline-offset: 3px; }
+.life-sheet button:disabled { opacity: .5; cursor: wait; }
+.life-setting-group { border-radius: 15px; background: white; border: 1px solid #eae5ee; margin: 9px 0; overflow: hidden; }
+.life-setting-group > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px; font-size: .85rem; font-weight: 650; list-style: none; }
+.life-setting-group > summary::-webkit-details-marker { display: none; }
+.life-setting-group > summary > span { display: flex; align-items: center; gap: 12px; }
+.life-setting-group > summary svg { color: #9677aa; flex-shrink: 0; }
+.life-setting-group[open] > summary > svg { transform: rotate(90deg); }
+.life-setting-group small { display: block; margin-top: 3px; font-size: .69rem; color: #92879a; font-weight: 400; }
+.life-setting-body { padding: 0 16px 16px; display: grid; gap: 14px; font-size: .8rem; }
+.life-setting-body form { display: grid; gap: 10px; }
+.life-setting-body label { display: grid; gap: 7px; font-size: .75rem; font-weight: 550; }
+.life-setting-body input { width: 100%; min-width: 0; box-sizing: border-box; padding: 11px; border: 1px solid #e1dce7; border-radius: 10px; background: #faf9fc; color: #392c43; }
+.life-setting-body button { justify-self: start; width: fit-content; padding: 9px 13px; border: 0; border-radius: 10px; background: #eee7f5; color: #6e418d; font-size: .75rem; font-weight: 600; }
+.life-setting-body .life-danger { background: transparent; color: #a16363; padding-left: 0; }
+.life-setting-body p { margin: 0; line-height: 1.5; }
+.life-muted, .life-help { color: #958a9d; font-size: .71rem; line-height: 1.55; }
+.life-help p, .life-manual form { margin-top: 12px; }
+.life-import input { font-size: .7rem; }
+.life-manual summary { color: #795591; font-size: .76rem; }
+.life-form-message { font-size: .75rem; color: #6c537c; margin-bottom: 0; }
+.life-form-message:empty { display: none; }
+.life-event { padding: 16px 0; border-bottom: 1px solid #e5dfea; }
+.life-event:first-child { padding-top: 0; }
+.life-event-label { display: block; color: #44835d; font-size: .69rem; font-weight: 650; margin-bottom: 8px; }
+.life-event h3 { font-size: 1rem; line-height: 1.4; margin: 0 0 8px; }
+.life-event p { font-size: .8rem; color: #81758b; line-height: 1.6; overflow-wrap: anywhere; white-space: pre-wrap; }
+.life-event details { font-size: .75rem; color: #795591; }
+.life-class-list footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 15px; }
+.life-class-list footer small { font-size: .65rem; color: #958a9d; }
+.life-link { border: 0; background: transparent; color: #795591; font: inherit; font-size: .75rem; padding: 8px 0; cursor: pointer; }
+.life-error { color: #a16363; font-size: .75rem; line-height: 1.5; }
+.life-activity-list > div { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #e5dfea; font-size: .85rem; }
+.life-activity-list small { display: block; color: #958a9d; font-size: .65rem; margin-top: 3px; }
+.life-health { display: grid; gap: 10px; }
+@media (max-width: 520px) { .life-sheet { width: 100%; max-height: 88dvh; margin: auto 0 0; border-radius: 24px 24px 0 0; border-bottom: 0; } .life-sheet-inner { padding-bottom: max(24px, env(safe-area-inset-bottom)); } }
+@media (max-width: 360px) { .life-card { padding: 11px; height: 132px; } .life-cards { gap: 7px; } .life-step-total { font-size: 1.4rem; } }
+
+/* Quiet movement and consistent touch feedback within the personal dashboard. */
+.life-card { position: relative; gap: 9px; border-color: rgba(74,44,97,.035); box-shadow: 0 2px 5px #43225b02; transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease; -webkit-tap-highlight-color: transparent; }
+.life-card.has-course-code .life-class-title { font-size: clamp(1.1rem, 4.4vw, 1.4rem); line-height: 1.25; letter-spacing: -.045em; margin-top: 2px; }
+.life-card-heading { color: #80738b; font-weight: 550; }
+.life-card-heading > svg { opacity: .55; transition: transform 180ms ease, opacity 180ms ease; }
+.life-card:active { transform: scale(.975); }
+.life-live-dot { width: 5px; height: 5px; border-radius: 50%; background: #7caa8c; box-shadow: 0 0 0 3px #7caa8c10; margin-left: 1px; }
+.life-card .life-class-progress { background: #ede7f2; accent-color: #a48ab6; }
+.life-card .life-class-progress::-webkit-progress-bar { background: #ede7f2; }
+.life-card .life-class-progress::-webkit-progress-value { background: #a48ab6; }
+.life-card progress::-webkit-progress-value { transition: width 500ms ease; }
+.life-icon-button { width: 36px; height: 36px; transition: transform 180ms ease, background 180ms ease; }
+.life-icon-button:active { transform: scale(.9); }
+.life-dashboard .campus-trip-head > .life-icon-button:hover svg { transform: rotate(24deg); }
+.life-icon-button svg { transition: transform 240ms ease; }
+.life-chart { padding: 10px 12px 5px; }
+.life-chart-heading { min-height: 25px; padding: 0 2px; }
+.life-chart-selection { display: inline-flex; align-items: center; gap: 6px; color: #967ca6; font-size: .63rem; font-weight: 500; }
+.life-chart-canvas { height: 38px; }
+.life-week-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0; }
+.life-week-days button { padding: 7px 0; min-height: 30px; font: inherit; font-size: .59rem; color: #9b90a3; border: 0; border-radius: 8px; background: transparent; cursor: pointer; transition: color 160ms ease, background 160ms ease, transform 160ms ease; }
+.life-week-days button.is-today { color: #795591; font-weight: 700; }
+.life-week-days button[aria-pressed="true"] { background: #f0e9f5; color: #70478c; }
+.life-week-days button:active { transform: scale(.92); }
+.life-sheet[open] { animation: life-sheet-enter 230ms cubic-bezier(.2,.7,.25,1) both; }
+.life-sheet[open]::backdrop { animation: life-backdrop-enter 200ms ease both; }
+.life-setting-group { transition: box-shadow 180ms ease, border-color 180ms ease; }
+.life-setting-group > summary { transition: background 180ms ease; }
+.life-setting-group > summary > svg { transition: transform 200ms ease; }
+.life-setting-group[open] { border-color: #ded0e8; box-shadow: 0 3px 15px #55246d04; }
+.life-setting-group[open] .life-setting-body { animation: life-content-enter 180ms ease both; }
+.life-setting-body button { transition: background 160ms ease, transform 160ms ease; }
+.life-setting-body button:active { transform: scale(.97); }
+.life-setting-body input { transition: background 160ms ease, border-color 160ms ease; }
+.life-setting-body input:focus { background: white; border-color: #b09ac0; }
+@media (hover: hover) and (pointer: fine) {
+  .life-card:hover { transform: translateY(-2px); box-shadow: 0 7px 18px #43225b08; border-color: #e8deee; }
+  .life-card:hover .life-card-heading > svg { transform: translateX(2px); opacity: 1; }
+  .life-week-days button:hover { background: #f5f0f8; color: #795591; }
+  .life-setting-group > summary:hover { background: #fcfaff; }
+  .life-setting-body button:hover { background: #e6dcee; }
+}
+@keyframes life-sheet-enter { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: none; } }
+@keyframes life-backdrop-enter { from { opacity: 0; } to { opacity: 1; } }
+@keyframes life-content-enter { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .life-dashboard *, .life-sheet *, .life-sheet[open], .life-sheet[open]::backdrop { animation: none !important; transition: none !important; }
+  .life-card:hover, .life-card:active, .life-icon-button:active, .life-week-days button:active { transform: none; }
+}
+.life-class-location { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: #93849e; font-size: .65rem; line-height: 1.35; }
+.life-class-preview { gap: 6px; }
+.life-class-preview .life-class-progress { flex-shrink: 0; margin-top: auto; }
+.life-class-preview .life-card-caption { margin-top: auto; }
+.life-class-preview:has(.life-class-location) { height: auto; min-height: 146px; }
+.life-cards:has(.life-class-location) .life-card { height: auto; min-height: 146px; }
+html.life-sheet-open, html.life-sheet-open body { overscroll-behavior: none; }
+html.life-sheet-open .campus-home-page, html.life-sheet-open .app-shell { overflow: hidden !important; overscroll-behavior: none; }
+.life-sheet { overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; touch-action: pan-y; }

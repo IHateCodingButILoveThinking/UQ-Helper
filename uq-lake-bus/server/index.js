@@ -3,6 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import express from "express";
+import calendarHandler from "../api/calendar.js";
+import healthHandler from "../api/health.js";
 
 import { fetchDepartures, fetchStopMatches } from "./departures.js";
 import { fetchFerryDepartures } from "./ferries.js";
@@ -21,6 +23,10 @@ const isMainModule =
 const PORT = Number(process.env.PORT || 8787);
 
 const app = express();
+
+app.all("/api/health", express.json({ limit: "4kb" }), healthHandler);
+
+app.all("/api/calendar", express.json({ limit: "8kb" }), calendarHandler);
 
 app.post("/api/maps-link", express.json({ limit: "8kb" }), async (request, response) => {
   response.set("cache-control", "no-store");
